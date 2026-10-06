@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { FIELD_BY_ID } from '#lib/exam/catalog.ts';
 	import type { ParseResult } from '#lib/shorthand/parse.ts';
+	import { ISSUE_TYPE_DEF } from '#lib/history/lists.ts';
 
 	let {
 		text = $bindable(''),
@@ -16,6 +17,7 @@
 	function label(op: ParseResult['ops'][number]): string {
 		if (op.kind === 'defaults') return `Normal: ${op.sections === 'all' ? 'all sections' : op.sections.join(', ')}`;
 		if (op.kind === 'clear') return `Clear: ${op.sections === 'all' ? 'all sections' : op.sections.join(', ')}`;
+		if (op.kind === 'issue') return `${ISSUE_TYPE_DEF.get(op.type)?.short ?? op.type} + ${op.text}`;
 		if (op.kind === 'setEach')
 			return Object.entries(op.values)
 				.map(([f, v]) => `${FIELD_BY_ID.get(f)?.label ?? f} = ${v}`)

@@ -1,7 +1,10 @@
 // Patient and visit management. Every function is scoped by patient id (and checks
 // ownership of child rows), and validates its input here, not just in the form.
 import type { DB } from './db.ts';
+import { allergyStatus } from '#lib/history/summary.ts';
+import type { AllergyStatus } from '#lib/history/types.ts';
 
+/** Starter visit types: seeds the visit_types table (admins edit the list in Settings > Visit types). */
 export const VISIT_TYPES = ['Comprehensive', 'Follow-up', 'Contact lens', 'Medical eye', 'Post-op', 'Urgent'] as const;
 
 export type FieldErrors = Record<string, string>;
@@ -16,6 +19,12 @@ export class PatientValidationError extends Error {
 }
 
 export type AllergyInput = { title: string; reaction?: string | null };
+export type CreatePatientOptions = {
+	/** The "No known allergies" box on the new-patient form; recorded with who and when. */
+	noKnownAllergies?: boolean;
+	userId?: number | null;
+	now?: Date;
+};
 export type PatientInput = {
 	legalFirst: string;
 	legalLast: string;
@@ -103,8 +112,17 @@ export function nextMrn(db: DB): string {
 	throw new Error('No free MRN left');
 }
 
-/** Creates a patient (and any allergies) in one transaction; returns the new id. */
-export function createPatient(db: DB, input: PatientInput, allergies: AllergyInput[] = [], today = localToday()): number {
+/**
+ * Creates a patient (and any allergies, or a "No known allergies" confirmation) in one transaction;
+ * returns the new id. Ticking NKDA and entering allergies together is rejected.
+ */
+export function createPatient(
+	db: DB,
+	input: PatientInput,
+	allergies: AllergyInput[] = [],
+	today = localToday(),
+	options: CreatePatientOptions = {}
+): number {
 	const errors: FieldErrors = {};
 	const legalFirst = text(input.legalFirst);
 	const legalLast = text(input.legalLast);
@@ -117,8 +135,13 @@ export function createPatient(db: DB, input: PatientInput, allergies: AllergyInp
 	checkDob(dob, errors, today);
 	if (mrnRaw) checkMrn(db, mrnRaw, errors, null);
 	const cleanAllergies = allergies.map((a, i) => checkAllergy(a, errors, `allergy${i}_`));
+	if (options.noKnownAllergies && allergies.length) {
+		errors.nkda = 'Tick "No known allergies" or enter allergies, not both.';
+	}
 	if (Object.keys(errors).length) throw new PatientValidationError(errors);
 
+	const userId = options.userId ?? null;
+	const at = (options.now ?? new Date()).toISOString();
 	db.exec('BEGIN');
 	try {
 		const mrn = mrnRaw || nextMrn(db);
@@ -126,13 +149,15 @@ export function createPatient(db: DB, input: PatientInput, allergies: AllergyInp
 			.prepare('INSERT INTO patients (mrn, legal_first, legal_last, preferred_name, dob) VALUES (?, ?, ?, ?, ?)')
 			.run(mrn, legalFirst, legalLast, preferred || null, dob);
 		const id = Number(lastInsertRowid);
-		const ins = db.prepare('INSERT INTO allergies (patient_id, title, reaction) VALUES (?, ?, ?)');
 		const seen = new Set<string>();
 		for (const a of cleanAllergies) {
 			const key = a.title.toLowerCase();
 			if (seen.has(key)) continue;
 			seen.add(key);
-			ins.run(id, a.title, a.reaction);
+			insertAllergy(db, id, a, userId, at);
+		}
+		if (options.noKnownAllergies && userId !== null) {
+			db.prepare('UPDATE patients SET allergies_none_at = ?, allergies_none_by = ? WHERE id = ?').run(at, userId, id);
 		}
 		db.exec('COMMIT');
 		return id;
@@ -140,6 +165,48 @@ export function createPatient(db: DB, input: PatientInput, allergies: AllergyInp
 		db.exec('ROLLBACK');
 		throw e;
 	}
+}
+
+function insertAllergy(db: DB, patientId: number, a: { title: string; reaction: string | null }, userId: number | null, at: string): number {
+	const { lastInsertRowid } = db
+		.prepare(
+			`INSERT INTO issues (patient_id, type, title, reaction, created_at, created_by, updated_at, updated_by)
+			 VALUES (?, 'ALLERGY', ?, ?, ?, ?, ?, ?)`
+		)
+		.run(patientId, a.title, a.reaction ?? '', at, userId, at, userId);
+	// An active allergy replaces any "No known allergies" confirmation.
+	clearNoKnownAllergies(db, patientId);
+	return Number(lastInsertRowid);
+}
+
+/** Drops the NKDA confirmation (an allergy was added, or someone unticked the box). */
+export function clearNoKnownAllergies(db: DB, patientId: number): void {
+	db.prepare('UPDATE patients SET allergies_none_at = NULL, allergies_none_by = NULL WHERE id = ?').run(patientId);
+}
+
+/** Active allergies (blank or future end date), alphabetical. */
+export function activeAllergies(db: DB, patientId: number, today = localToday()) {
+	return (
+		db
+			.prepare(
+				`SELECT id, title, reaction FROM issues
+				  WHERE patient_id = ? AND type = 'ALLERGY' AND (end_date = '' OR end_date > ?)
+				  ORDER BY title COLLATE NOCASE, id`
+			)
+			.all(patientId, today) as { id: number; title: string; reaction: string }[]
+	).map((a) => ({ id: a.id, title: a.title, reaction: a.reaction || null }));
+}
+
+/** unknown / none (confirmed by whom, when) / listed: shared by the banner, chart, report and export. */
+export function readAllergyStatus(db: DB, patientId: number, today = localToday()): AllergyStatus {
+	const p = db
+		.prepare(
+			`SELECT p.allergies_none_at AS at, u.display_name AS name
+			   FROM patients p LEFT JOIN users u ON u.id = p.allergies_none_by WHERE p.id = ?`
+		)
+		.get(patientId) as { at: string | null; name: string | null } | undefined;
+	const active = activeAllergies(db, patientId, today).map(({ title, reaction }) => ({ title, reaction }));
+	return allergyStatus(active, p?.at ? { by: p.name ?? 'Unknown user', at: p.at } : null);
 }
 
 /** Updates demographics. Returns false when the patient does not exist. */
@@ -173,27 +240,46 @@ export function updatePatient(db: DB, patientId: number, input: PatientInput, to
 	return true;
 }
 
-/** Adds an allergy; returns its id, or null if the patient does not exist. A repeated substance returns the existing id. */
-export function addAllergy(db: DB, patientId: number, input: AllergyInput): number | null {
+/**
+ * Adds an allergy; returns its id, or null if the patient does not exist. A repeated substance returns
+ * the existing id. Adding clears any "No known allergies" confirmation.
+ */
+export function addAllergy(db: DB, patientId: number, input: AllergyInput, userId: number | null = null, now = new Date()): number | null {
 	if (!db.prepare('SELECT 1 FROM patients WHERE id = ?').get(patientId)) return null;
 	const errors: FieldErrors = {};
 	const a = checkAllergy(input, errors, '');
 	if (Object.keys(errors).length) throw new PatientValidationError(errors);
 	const dup = db
-		.prepare('SELECT id FROM allergies WHERE patient_id = ? AND title = ? COLLATE NOCASE')
+		.prepare("SELECT id FROM issues WHERE patient_id = ? AND type = 'ALLERGY' AND title = ? COLLATE NOCASE")
 		.get(patientId, a.title) as { id: number } | undefined;
 	if (dup) return dup.id;
-	const { lastInsertRowid } = db
-		.prepare('INSERT INTO allergies (patient_id, title, reaction) VALUES (?, ?, ?)')
-		.run(patientId, a.title, a.reaction);
-	return Number(lastInsertRowid);
+	return insertAllergy(db, patientId, a, userId, now.toISOString());
 }
 
-/** Removes an allergy only if it belongs to this patient. */
+/** Removes an allergy only if it belongs to this patient. The last one gone means "not recorded", never NKDA. */
 export function removeAllergy(db: DB, patientId: number, allergyId: number): boolean {
 	if (!Number.isSafeInteger(allergyId)) return false;
-	const r = db.prepare('DELETE FROM allergies WHERE id = ? AND patient_id = ?').run(allergyId, patientId);
+	const r = db.prepare("DELETE FROM issues WHERE id = ? AND patient_id = ? AND type = 'ALLERGY'").run(allergyId, patientId);
 	return Number(r.changes) > 0;
+}
+
+/**
+ * Ticks or unticks "No known allergies". Ticking while active allergies exist is refused (they must be
+ * removed first). Returns false for an unknown patient.
+ */
+export function setNoKnownAllergies(db: DB, patientId: number, userId: number, on: boolean, now = new Date()): boolean {
+	if (!db.prepare('SELECT 1 FROM patients WHERE id = ?').get(patientId)) return false;
+	if (!on) {
+		clearNoKnownAllergies(db, patientId);
+		return true;
+	}
+	if (activeAllergies(db, patientId, localToday(now)).length) {
+		throw new PatientValidationError({
+			nkda: 'This patient has active allergies. Remove them before marking "No known allergies".'
+		});
+	}
+	db.prepare('UPDATE patients SET allergies_none_at = ?, allergies_none_by = ? WHERE id = ?').run(now.toISOString(), userId, patientId);
+	return true;
 }
 
 /** Starts a visit; returns the new encounter id, or null if the patient does not exist. */
@@ -212,7 +298,7 @@ export function createEncounter(
 	else if (!isRealDate(date)) errors.date = 'Enter a real visit date (YYYY-MM-DD).';
 	else if (date > today) errors.date = 'Visit date cannot be in the future.';
 	else if (date < p.dob) errors.date = 'Visit date cannot be before the date of birth.';
-	if (!(VISIT_TYPES as readonly string[]).includes(input.visitType)) errors.visitType = 'Choose a visit type.';
+	if (!activeVisitTypeNames(db).includes(input.visitType)) errors.visitType = 'Choose a visit type.';
 	if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(providerId)) errors.provider = 'Unknown provider.';
 	if (Object.keys(errors).length) throw new PatientValidationError(errors);
 	const { lastInsertRowid } = db
@@ -260,7 +346,9 @@ export type PatientRecord = {
 	legalLast: string;
 	preferredName: string | null;
 	dob: string;
+	/** Active allergies, with ids for the chart's Remove buttons. */
 	allergies: { id: number; title: string; reaction: string | null }[];
+	allergyStatus: AllergyStatus;
 	visits: { id: number; date: string; visitType: string; provider: string; findingsCount: number }[];
 };
 
@@ -270,9 +358,8 @@ export function getPatientRecord(db: DB, patientId: number): PatientRecord | nul
 		| { id: number; mrn: string; legal_first: string; legal_last: string; preferred_name: string | null; dob: string }
 		| undefined;
 	if (!p) return null;
-	const allergies = db
-		.prepare('SELECT id, title, reaction FROM allergies WHERE patient_id = ? ORDER BY title COLLATE NOCASE, id')
-		.all(patientId) as PatientRecord['allergies'];
+	const allergies = activeAllergies(db, patientId);
+	const status = readAllergyStatus(db, patientId);
 	const visits = (
 		db
 			.prepare(
@@ -291,6 +378,80 @@ export function getPatientRecord(db: DB, patientId: number): PatientRecord | nul
 		preferredName: p.preferred_name,
 		dob: p.dob,
 		allergies,
+		allergyStatus: status,
 		visits
 	};
+}
+
+// ---------------------------------------------------------------- visit types (admin-editable list)
+
+export type VisitType = { id: number; name: string; active: boolean };
+const VISIT_TYPE_MAX = 40;
+
+/** All visit types in display order; inactive ones are hidden from the new-visit form but kept for history. */
+export function listVisitTypes(db: DB): VisitType[] {
+	return (db.prepare('SELECT id, name, active FROM visit_types ORDER BY seq, id').all() as { id: number; name: string; active: number }[]).map(
+		(r) => ({ id: r.id, name: r.name, active: r.active === 1 })
+	);
+}
+
+/** Names offered on the new-visit form, in order. */
+export function activeVisitTypeNames(db: DB): string[] {
+	return (db.prepare('SELECT name FROM visit_types WHERE active = 1 ORDER BY seq, id').all() as { name: string }[]).map((r) => r.name);
+}
+
+function checkVisitTypeName(db: DB, raw: unknown, exceptId: number | null): string {
+	const name = text(raw);
+	const errors: FieldErrors = {};
+	if (!name) errors.name = 'Name is required.';
+	else if (name.length > VISIT_TYPE_MAX) errors.name = `Name must be ${VISIT_TYPE_MAX} characters or fewer.`;
+	else if (CONTROL.test(name)) errors.name = 'Name contains characters that are not allowed.';
+	else if (db.prepare('SELECT 1 FROM visit_types WHERE name = ? COLLATE NOCASE AND id IS NOT ?').get(name, exceptId)) {
+		errors.name = 'That visit type already exists.';
+	}
+	if (Object.keys(errors).length) throw new PatientValidationError(errors);
+	return name;
+}
+
+export function addVisitType(db: DB, name: string): number {
+	const clean = checkVisitTypeName(db, name, null);
+	const { m } = db.prepare('SELECT COALESCE(MAX(seq), -1) AS m FROM visit_types').get() as { m: number };
+	return Number(db.prepare('INSERT INTO visit_types (name, seq) VALUES (?, ?)').run(clean, m + 1).lastInsertRowid);
+}
+
+/** Renames a type. Past visits keep the name they were recorded with. */
+export function renameVisitType(db: DB, id: number, name: string): boolean {
+	if (!db.prepare('SELECT 1 FROM visit_types WHERE id = ?').get(id)) return false;
+	db.prepare('UPDATE visit_types SET name = ? WHERE id = ?').run(checkVisitTypeName(db, name, id), id);
+	return true;
+}
+
+/** Hides or shows a type on the new-visit form; at least one must stay active. */
+export function setVisitTypeActive(db: DB, id: number, active: boolean): boolean {
+	const row = db.prepare('SELECT active FROM visit_types WHERE id = ?').get(id) as { active: number } | undefined;
+	if (!row) return false;
+	if (!active && row.active === 1 && activeVisitTypeNames(db).length <= 1) {
+		throw new PatientValidationError({ form: 'Keep at least one visit type available.' });
+	}
+	db.prepare('UPDATE visit_types SET active = ? WHERE id = ?').run(active ? 1 : 0, id);
+	return true;
+}
+
+/** Moves a type one place up (-1) or down (+1). */
+export function moveVisitType(db: DB, id: number, dir: -1 | 1): boolean {
+	const ids = listVisitTypes(db).map((t) => t.id);
+	const i = ids.indexOf(id);
+	const j = i + dir;
+	if (i < 0 || j < 0 || j >= ids.length) return false;
+	[ids[i], ids[j]] = [ids[j], ids[i]];
+	const up = db.prepare('UPDATE visit_types SET seq = ? WHERE id = ?');
+	db.exec('BEGIN');
+	try {
+		ids.forEach((tid, seq) => up.run(seq, tid));
+		db.exec('COMMIT');
+	} catch (e) {
+		db.exec('ROLLBACK');
+		throw e;
+	}
+	return true;
 }

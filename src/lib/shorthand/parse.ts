@@ -5,12 +5,40 @@
 import { FIELD_BY_ID, FIELDS, SEED_DEFAULTS, type SectionId } from '#lib/exam/catalog.ts';
 import { ALIASES, COMMANDS, SPECIAL } from './codes.ts';
 import { expandVocab } from './vocab.ts';
+import type { IssueType } from '#lib/history/types.ts';
 
 export type Op =
 	| { kind: 'set'; fields: string[]; text: string; append: boolean; source: string }
 	| { kind: 'setEach'; values: Record<string, string>; source: string }
 	| { kind: 'defaults'; sections: SectionId[] | 'all'; source: string }
-	| { kind: 'clear'; sections: SectionId[] | 'all'; source: string };
+	| { kind: 'clear'; sections: SectionId[] | 'all'; source: string }
+	/** PMSFH entry (§2.4): creates patient issues through the history API; never touches findings. */
+	| { kind: 'issue'; type: IssueType; text: string; source: string };
+
+/** Shorthand codes that create patient issues (§2.4), with the extra spellings the original accepted. */
+export const ISSUE_CODES: Record<string, IssueType> = {
+	POH: 'POH',
+	PMH: 'PMH',
+	POS: 'POS',
+	SURG: 'SURG',
+	SURGERY: 'SURG',
+	PSURG: 'SURG',
+	PSURGH: 'SURG',
+	MEDS: 'MED',
+	MEDICATION: 'MED',
+	MEDICATIONS: 'MED',
+	ALL: 'ALLERGY',
+	ALLERGY: 'ALLERGY'
+};
+const ISSUE_EXAMPLE: Record<IssueType, string> = {
+	POH: 'glaucoma suspect',
+	PMH: 'hypertension',
+	POS: 'cataract extraction OD',
+	EYEMED: 'artificial tears',
+	MED: 'lisinopril',
+	SURG: 'appendectomy',
+	ALLERGY: 'sulfa hives'
+};
 
 export interface ParseError {
 	entry: string;
@@ -24,7 +52,7 @@ export interface ParseResult {
 	errors: ParseError[];
 }
 
-const ALL_CODES = [...Object.keys(COMMANDS), ...Object.keys(ALIASES), ...SPECIAL, ...FIELDS.map((f) => f.id)];
+const ALL_CODES = [...Object.keys(ISSUE_CODES), ...Object.keys(COMMANDS), ...Object.keys(ALIASES), ...SPECIAL, ...FIELDS.map((f) => f.id)];
 
 function resolve(code: string): string[] | null {
 	if (FIELD_BY_ID.has(code)) return [code];
@@ -35,6 +63,8 @@ export function parseShorthand(input: string): ParseResult {
 	const ops: Op[] = [];
 	const errors: ParseError[] = [];
 	let previous: string[] | null = null;
+	/** A code-less entry right after a PMSFH entry adds to the same list ("poh:dry eye; blepharitis"). */
+	let previousIssue: IssueType | null = null;
 
 	// FIX: a newline is a space, never a silent cut-off (§2.2).
 	const entries = input.replace(/\r?\n/g, ' ').split(';');
@@ -47,8 +77,39 @@ export function parseShorthand(input: string): ParseResult {
 		if (command) {
 			ops.push({ ...command, source: entry.trim() });
 			previous = null;
+			previousIssue = null;
 			continue;
 		}
+
+		// PMSFH codes (§2.4), "poh:text" or "poh text". ".a" has no meaning here (they always add), so a trailing one is dropped.
+		const issue = entry.match(/^([A-Za-z]+)\s*:(.*)$/s) ?? entry.match(/^([A-Za-z]+)\s+(.*)$/s);
+		const issueType = issue ? ISSUE_CODES[issue[1].toUpperCase()] : ISSUE_CODES[entry.trim().toUpperCase()];
+		if (!issue && issueType) {
+			const c = entry.trim().toUpperCase();
+			errors.push({ entry: entry.trim(), code: c, message: `${c} needs text, e.g. ${c}:${ISSUE_EXAMPLE[issueType]}`, suggestions: [] });
+			previous = null;
+			previousIssue = null;
+			continue;
+		}
+		if (issue && issueType) {
+			const text = issue[2].trim().replace(/\.a$/, '').trim();
+			if (text) ops.push({ kind: 'issue', type: issueType, text, source: entry.trim() });
+			else {
+				const c = issue[1].toUpperCase();
+				errors.push({ entry: entry.trim(), code: c, message: `${c} needs text, e.g. ${c}:${ISSUE_EXAMPLE[issueType]}`, suggestions: [] });
+			}
+			previous = null;
+			previousIssue = issueType;
+			continue;
+		}
+		const lead = entry.match(/^([A-Za-z0-9_]+)(\s*:|\s)/);
+		const startsWithCode = !!lead && (lead[2].includes(':') || !!resolve(lead[1].toUpperCase()) || SPECIAL.has(lead[1].toUpperCase()));
+		if (previousIssue && !startsWithCode) {
+			const text = entry.trim().replace(/\.a$/, '').trim();
+			if (text) ops.push({ kind: 'issue', type: previousIssue, text, source: entry.trim() });
+			continue;
+		}
+		previousIssue = null;
 
 		let code = '';
 		let text = '';
@@ -194,6 +255,9 @@ export function applyOps(
 			}
 		} else if (op.kind === 'setEach') {
 			for (const [id, value] of Object.entries(op.values)) put(id, value, false);
+		} else if (op.kind === 'issue') {
+			// Patient history, not exam findings: the exam page sends these to the history API.
+			continue;
 		} else if (op.kind === 'defaults') {
 			// Defaults always replace (parity, §3.2).
 			for (const id of sectionFields(op.sections)) if (id in defaults) put(id, defaults[id], true);

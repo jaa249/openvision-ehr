@@ -5,6 +5,7 @@ import type { DB } from './db.ts';
 import { FIELD_BY_ID } from '#lib/exam/catalog.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 import type { EncounterInfo, PatientHeader, PriorVisit } from '#lib/exam/types.ts';
+import { readAllergyStatus } from './patients.ts';
 
 export type { EncounterInfo, PatientHeader, PriorVisit };
 
@@ -38,9 +39,6 @@ export function getPatientHeader(db: DB, patientId: number): PatientHeader | nul
 		| { id: number; mrn: string; legal_first: string; legal_last: string; preferred_name: string | null; dob: string; photo_url: string | null }
 		| undefined;
 	if (!p) return null;
-	const allergies = db
-		.prepare('SELECT title, reaction FROM allergies WHERE patient_id = ? ORDER BY title')
-		.all(patientId) as { title: string; reaction: string | null }[];
 	return {
 		id: p.id,
 		mrn: p.mrn,
@@ -52,7 +50,7 @@ export function getPatientHeader(db: DB, patientId: number): PatientHeader | nul
 		dob: p.dob,
 		age: ageOn(p.dob),
 		photoUrl: p.photo_url,
-		allergies
+		allergyStatus: readAllergyStatus(db, patientId)
 	};
 }
 

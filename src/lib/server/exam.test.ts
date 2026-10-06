@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, seedDemo, type DB } from './db.ts';
-import { ageOn, getEncounter, getFindings, getPriors, saveFindings, validateChanges, ValidationError } from './exam.ts';
+import { ageOn, getEncounter, getFindings, getPatientHeader, getPriors, saveFindings, validateChanges, ValidationError } from './exam.ts';
 import { getQuickPicks } from './quickpicks.ts';
 
 let db: DB;
@@ -80,6 +80,14 @@ describe('quick picks', () => {
 		expect(first.length).toBeGreaterThan(50);
 		expect(getQuickPicks(db, 1).length).toBe(first.length);
 		expect(first.find((p) => p.zone === 'ANTSEG' && p.label === 'quiet')?.mode).toBe('replace');
+	});
+});
+
+describe('patient header', () => {
+	it('carries the allergy status, never an empty list that reads as NKDA', () => {
+		expect(getPatientHeader(db, 1)?.allergyStatus).toEqual({ kind: 'listed', allergies: [{ title: 'Sulfa', reaction: 'hives' }] });
+		expect(getPatientHeader(db, 2)?.allergyStatus).toEqual({ kind: 'unknown' });
+		expect(getPatientHeader(db, 99)).toBeNull();
 	});
 });
 

@@ -3,6 +3,7 @@ import { openDatabase, seedDemo, type DB } from './db.ts';
 import { getPrintables, logPrint } from './report.ts';
 import { exportName, FHIR_CODESYSTEM, toCsv, toFhirBundle } from './export.ts';
 import { saveFindings } from './exam.ts';
+import { setNoKnownAllergies } from './patients.ts';
 import { FIELDS } from '#lib/exam/catalog.ts';
 
 let db: DB;
@@ -61,6 +62,16 @@ describe('CSV', () => {
 		expect(rows[1][rows[0].indexOf('Anterior segment: Lens OS')]).toBe('\'=HYPERLINK("http://x")');
 	});
 
+	it('allergies say Not recorded or NKDA instead of a blank cell', () => {
+		const allergyCell = () => {
+			const rows = parseCsv(toCsv(getPrintables(db, [2])).slice(1));
+			return rows[1][rows[0].indexOf('Allergies')];
+		};
+		expect(allergyCell()).toBe('Not recorded');
+		setNoKnownAllergies(db, 2, 1, true);
+		expect(allergyCell()).toBe('NKDA');
+	});
+
 	it('legal and preferred names in separate columns', () => {
 		const rows = parseCsv(toCsv(getPrintables(db, [2])).slice(1));
 		const c = (n: string) => rows[1][rows[0].indexOf(n)];
@@ -84,6 +95,17 @@ describe('FHIR R4 bundle', () => {
 		expect(of(b, 'Encounter')).toHaveLength(3);
 		expect(of(b, 'Practitioner')).toHaveLength(1);
 		expect(of(b, 'AllergyIntolerance')[0].code.text).toBe('Sulfa');
+	});
+
+	it('confirmed NKDA exports as SNOMED "No known allergy"; not recorded exports nothing', () => {
+		const alexAllergies = () =>
+			of(toFhirBundle(getPrintables(db, [2]), new Date('2026-10-06T12:00:00Z')) as ReturnType<typeof bundle>, 'AllergyIntolerance');
+		expect(alexAllergies()).toEqual([]);
+		setNoKnownAllergies(db, 2, 1, true, new Date('2026-10-06T09:00:00Z'));
+		const [nka] = alexAllergies();
+		expect(nka.code.coding[0]).toEqual({ system: 'http://snomed.info/sct', code: '716186003', display: 'No known allergy' });
+		expect(nka.verificationStatus.coding[0].code).toBe('confirmed');
+		expect(nka.recordedDate).toBe('2026-10-06T09:00:00.000Z');
 	});
 
 	it('every reference resolves inside the bundle', () => {

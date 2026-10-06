@@ -8,7 +8,7 @@ export const load: PageServerLoad = () => ({ today: localToday() });
 const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : '');
 
 export const actions: Actions = {
-	default: async ({ request }) => {
+	default: async ({ request, locals }) => {
 		const form = await request.formData();
 		const values = {
 			legalFirst: str(form.get('legalFirst')),
@@ -24,12 +24,13 @@ export const actions: Actions = {
 			.map((title, i) => ({ title, reaction: reactions[i] ?? '' }))
 			.filter((a) => a.title.trim() || a.reaction.trim())
 			.slice(0, 20);
+		const noKnownAllergies = form.get('nkda') === '1';
 
 		let id: number;
 		try {
-			id = createPatient(getDb(), values, allergies);
+			id = createPatient(getDb(), values, allergies, localToday(), { noKnownAllergies, userId: locals.userId });
 		} catch (e) {
-			if (e instanceof PatientValidationError) return fail(400, { errors: e.errors, values, allergies });
+			if (e instanceof PatientValidationError) return fail(400, { errors: e.errors, values, allergies, noKnownAllergies });
 			throw e;
 		}
 		redirect(303, `/patients/${id}`);

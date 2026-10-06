@@ -8,8 +8,9 @@ import {
 	localToday,
 	PatientValidationError,
 	removeAllergy,
+	setNoKnownAllergies,
 	updatePatient,
-	VISIT_TYPES
+	activeVisitTypeNames
 } from '#lib/server/patients.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -27,7 +28,7 @@ export const load: PageServerLoad = ({ params }) => {
 	return {
 		patient: { ...patient, age: ageOn(patient.dob) },
 		today: localToday(),
-		visitTypes: VISIT_TYPES
+		visitTypes: activeVisitTypeNames(getDb())
 	};
 };
 
@@ -51,12 +52,12 @@ export const actions: Actions = {
 		return { section: 'update' as const, ok: true };
 	},
 
-	addAllergy: async ({ request, params }) => {
+	addAllergy: async ({ request, params, locals }) => {
 		const pid = parsePid(params.pid);
 		const f = await request.formData();
 		const values = { title: str(f.get('title')), reaction: str(f.get('reaction')) };
 		try {
-			if (addAllergy(getDb(), pid, values) === null) error(404, 'Not found');
+			if (addAllergy(getDb(), pid, values, locals.userId) === null) error(404, 'Not found');
 		} catch (e) {
 			if (e instanceof PatientValidationError) return fail(400, { section: 'allergy' as const, errors: e.errors, values });
 			throw e;
@@ -70,6 +71,20 @@ export const actions: Actions = {
 		// Scoped by patient: an allergy id from another chart removes nothing.
 		removeAllergy(getDb(), pid, Number(str(f.get('allergyId'))));
 		return { section: 'allergy-removed' as const, ok: true };
+	},
+
+	/** "No known allergies" tick box: refused while active allergies exist; unticking returns to "not recorded". */
+	nkda: async ({ request, params, locals }) => {
+		const pid = parsePid(params.pid);
+		const f = await request.formData();
+		const on = str(f.get('on')) === '1';
+		try {
+			if (!setNoKnownAllergies(getDb(), pid, locals.userId, on)) error(404, 'Not found');
+		} catch (e) {
+			if (e instanceof PatientValidationError) return fail(400, { section: 'nkda' as const, errors: e.errors });
+			throw e;
+		}
+		return { section: 'nkda' as const, ok: true, on };
 	},
 
 	newVisit: async ({ request, params, locals }) => {

@@ -10,7 +10,12 @@
 	$effect.pre(() => {
 		rows = form?.allergies?.length ? form.allergies.map((a) => ({ title: a.title, reaction: a.reaction ?? '' })) : [{ title: '', reaction: '' }];
 	});
-	const errors = $derived(form?.errors ?? {});
+	let nkda = $state(false);
+	$effect.pre(() => {
+		nkda = form?.noKnownAllergies ?? false;
+	});
+	const hasAllergy = $derived(rows.some((r) => r.title.trim() || r.reaction.trim()));
+	const errors = $derived<Record<string, string>>(form?.errors ?? {});
 	const errorList = $derived(Object.values(errors));
 	let busy = $state(false);
 </script>
@@ -48,44 +53,61 @@
 		</fieldset>
 
 		<fieldset>
-			<legend>Allergies <span class="opt">(optional)</span></legend>
-			{#each rows as row, i (i)}
-				<div class="arow">
-					<div class="field">
-						<label for="at{i}">Substance</label>
-						<input
-							id="at{i}"
-							name="allergy_title"
-							bind:value={row.title}
-							maxlength="80"
-							autocomplete="off"
-							aria-invalid={errors[`allergy${i}_title`] ? 'true' : undefined}
-							aria-describedby={errors[`allergy${i}_title`] ? `at${i}-err` : undefined}
-						/>
-						{#if errors[`allergy${i}_title`]}<p class="err" id="at{i}-err">{errors[`allergy${i}_title`]}</p>{/if}
+			<legend>Allergies</legend>
+			<!-- Explicit choice: leaving everything blank records "not recorded", never "no known allergies". -->
+			<label class="nkda">
+				<input
+					type="checkbox"
+					name="nkda"
+					value="1"
+					bind:checked={nkda}
+					disabled={hasAllergy}
+					aria-describedby={errors.nkda ? 'nkda-err' : 'nkda-hint'}
+				/>
+				No known allergies
+			</label>
+			{#if errors.nkda}<p class="err" id="nkda-err">{errors.nkda}</p>{/if}
+			{#if !nkda}
+				{#each rows as row, i (i)}
+					<div class="arow">
+						<div class="field">
+							<label for="at{i}">Substance</label>
+							<input
+								id="at{i}"
+								name="allergy_title"
+								bind:value={row.title}
+								maxlength="80"
+								autocomplete="off"
+								aria-invalid={errors[`allergy${i}_title`] ? 'true' : undefined}
+								aria-describedby={errors[`allergy${i}_title`] ? `at${i}-err` : undefined}
+							/>
+							{#if errors[`allergy${i}_title`]}<p class="err" id="at{i}-err">{errors[`allergy${i}_title`]}</p>{/if}
+						</div>
+						<div class="field">
+							<label for="ar{i}">Reaction</label>
+							<input
+								id="ar{i}"
+								name="allergy_reaction"
+								bind:value={row.reaction}
+								maxlength="120"
+								autocomplete="off"
+								aria-invalid={errors[`allergy${i}_reaction`] ? 'true' : undefined}
+								aria-describedby={errors[`allergy${i}_reaction`] ? `ar${i}-err` : undefined}
+							/>
+							{#if errors[`allergy${i}_reaction`]}<p class="err" id="ar{i}-err">{errors[`allergy${i}_reaction`]}</p>{/if}
+						</div>
+						{#if rows.length > 1}
+							<button type="button" class="rm" onclick={() => rows.splice(i, 1)} aria-label="Remove allergy row {i + 1}">Remove</button>
+						{/if}
 					</div>
-					<div class="field">
-						<label for="ar{i}">Reaction</label>
-						<input
-							id="ar{i}"
-							name="allergy_reaction"
-							bind:value={row.reaction}
-							maxlength="120"
-							autocomplete="off"
-							aria-invalid={errors[`allergy${i}_reaction`] ? 'true' : undefined}
-							aria-describedby={errors[`allergy${i}_reaction`] ? `ar${i}-err` : undefined}
-						/>
-						{#if errors[`allergy${i}_reaction`]}<p class="err" id="ar{i}-err">{errors[`allergy${i}_reaction`]}</p>{/if}
-					</div>
-					{#if rows.length > 1}
-						<button type="button" class="rm" onclick={() => rows.splice(i, 1)} aria-label="Remove allergy row {i + 1}">Remove</button>
-					{/if}
-				</div>
-			{/each}
-			{#if rows.length < 20}
-				<button type="button" class="add" onclick={() => rows.push({ title: '', reaction: '' })}>+ Add another allergy</button>
+				{/each}
+				{#if rows.length < 20}
+					<button type="button" class="add" onclick={() => rows.push({ title: '', reaction: '' })}>+ Add another allergy</button>
+				{/if}
 			{/if}
-			<p class="hint">Leave blank for no known allergies.</p>
+			<p class="hint" id="nkda-hint">
+				{#if hasAllergy}Clear the allergies above to mark "No known allergies".{:else}Left blank, allergies show as "not recorded" until someone records them.{/if}
+			</p>
 		</fieldset>
 
 		<div class="actions">
@@ -113,8 +135,7 @@
 		margin: var(--space-2) 0 var(--space-1);
 	}
 	.note,
-	.hint,
-	.opt {
+	.hint {
 		color: var(--text-3);
 		font-size: var(--text-xs);
 		font-weight: var(--weight-regular);
@@ -188,6 +209,20 @@
 	}
 	.rm {
 		align-self: end;
+	}
+	.nkda {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+		min-height: max(40px, var(--target-min));
+		align-self: flex-start;
+	}
+	.nkda input {
+		width: 20px;
+		height: 20px;
+		min-height: 20px;
+		margin: 0;
+		accent-color: var(--accent);
 	}
 	.add {
 		align-self: flex-start;

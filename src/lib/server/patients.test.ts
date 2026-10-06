@@ -10,7 +10,15 @@ import {
 	PatientValidationError,
 	removeAllergy,
 	searchPatients,
-	updatePatient
+	setNoKnownAllergies,
+	updatePatient,
+	activeVisitTypeNames,
+	addVisitType,
+	listVisitTypes,
+	moveVisitType,
+	renameVisitType,
+	setVisitTypeActive,
+	VISIT_TYPES
 } from './patients.ts';
 
 const TODAY = '2026-10-06';
@@ -66,6 +74,18 @@ describe('createPatient', () => {
 		expect(errorsOf(() => createPatient(db, { ...base, dob: '2001-02-30' }, [], TODAY))?.dob).toMatch(/real date/);
 	});
 
+	it('records an explicit "No known allergies" with who and when; blank means not recorded', () => {
+		const now = new Date('2026-10-06T09:30:00Z');
+		const a = createPatient(db, base, [], TODAY, { noKnownAllergies: true, userId: 1, now });
+		expect(getPatientRecord(db, a)?.allergyStatus).toEqual({ kind: 'none', confirmedBy: 'Dr. Example', confirmedAt: now.toISOString() });
+		const b = createPatient(db, base, [], TODAY);
+		expect(getPatientRecord(db, b)?.allergyStatus).toEqual({ kind: 'unknown' });
+	});
+
+	it('refuses "No known allergies" together with entered allergies', () => {
+		expect(errorsOf(() => createPatient(db, base, [{ title: 'Latex' }], TODAY, { noKnownAllergies: true, userId: 1 }))?.nkda).toMatch(/not both/);
+	});
+
 	it('is all-or-nothing: a bad allergy creates no patient', () => {
 		const count = () => (db.prepare('SELECT COUNT(*) AS n FROM patients').get() as { n: number }).n;
 		const before = count();
@@ -108,6 +128,21 @@ describe('allergies', () => {
 		expect(errorsOf(() => addAllergy(db, 1, { title: ' ' }))?.title).toBeTruthy();
 		expect(addAllergy(db, 99, { title: 'x' })).toBeNull();
 	});
+	it('three states on the chart: listed, NKDA (cleared by adding), unknown after removing the last', () => {
+		expect(getPatientRecord(db, 1)?.allergyStatus.kind).toBe('listed');
+		expect(getPatientRecord(db, 2)?.allergyStatus).toEqual({ kind: 'unknown' });
+		setNoKnownAllergies(db, 2, 1, true);
+		expect(getPatientRecord(db, 2)?.allergyStatus.kind).toBe('none');
+		const id = addAllergy(db, 2, { title: 'Latex' }, 1)!;
+		expect(getPatientRecord(db, 2)?.allergyStatus).toEqual({ kind: 'listed', allergies: [{ title: 'Latex', reaction: null }] });
+		removeAllergy(db, 2, id);
+		expect(getPatientRecord(db, 2)?.allergyStatus).toEqual({ kind: 'unknown' });
+		expect(errorsOf(() => setNoKnownAllergies(db, 1, 1, true))?.nkda).toBeTruthy();
+	});
+	it('removes allergies only, never another kind of history entry', () => {
+		const pmh = db.prepare("SELECT id FROM issues WHERE patient_id = 1 AND type = 'PMH' LIMIT 1").get() as { id: number };
+		expect(removeAllergy(db, 1, pmh.id)).toBe(false);
+	});
 });
 
 describe('createEncounter', () => {
@@ -145,5 +180,32 @@ describe('searchPatients', () => {
 	it('treats % and _ literally', () => {
 		expect(searchPatients(db, '%')).toEqual([]);
 		expect(searchPatients(db, '_')).toEqual([]);
+	});
+});
+
+describe('visit types (table, admin-editable)', () => {
+	it('starts from the VISIT_TYPES seed, in order', () => {
+		expect(activeVisitTypeNames(db)).toEqual([...VISIT_TYPES]);
+	});
+	it('adds, renames, reorders and hides; the new-visit check follows the table', () => {
+		const id = addVisitType(db, '  Low vision ');
+		expect(activeVisitTypeNames(db).at(-1)).toBe('Low vision');
+		expect(createEncounter(db, 2, 1, { date: TODAY, visitType: 'Low vision' }, TODAY)).toBeGreaterThan(0);
+		expect(errorsOf(() => addVisitType(db, 'low VISION'))?.name).toMatch(/exists/);
+		expect(errorsOf(() => addVisitType(db, ' '))?.name).toBeTruthy();
+		renameVisitType(db, id, 'Low-vision eval');
+		moveVisitType(db, id, -1);
+		expect(activeVisitTypeNames(db).slice(-2)).toEqual(['Low-vision eval', 'Urgent']);
+		const urgent = listVisitTypes(db).find((t) => t.name === 'Urgent')!;
+		setVisitTypeActive(db, urgent.id, false);
+		expect(activeVisitTypeNames(db)).not.toContain('Urgent');
+		expect(errorsOf(() => createEncounter(db, 1, 1, { date: TODAY, visitType: 'Urgent' }, TODAY))?.visitType).toBeTruthy();
+		// past visits keep the name they were saved with
+		expect(getPatientRecord(db, 2)?.visits[0].visitType).toBe('Low vision');
+	});
+	it('keeps at least one type active', () => {
+		const all = listVisitTypes(db);
+		for (const t of all.slice(1)) setVisitTypeActive(db, t.id, false);
+		expect(errorsOf(() => setVisitTypeActive(db, all[0].id, false))?.form).toBeTruthy();
 	});
 });

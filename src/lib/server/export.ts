@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { FIELDS, SECTION_DEF } from '#lib/exam/catalog.ts';
 import type { PrintableEncounter } from '#lib/exam/types.ts';
+import { allergyStatusText } from '#lib/history/summary.ts';
 
 // ---------- CSV ----------
 
@@ -30,7 +31,10 @@ export function toCsv(items: PrintableEncounter[]): string {
 			p.legalFirst,
 			p.preferredName ?? '',
 			p.dob,
-			p.allergies.map((a) => a.title + (a.reaction ? ` (${a.reaction})` : '')).join('; '),
+			// "Not recorded" / "NKDA" / the list: a blank cell would read as "no allergies".
+			p.allergyStatus.kind === 'listed'
+				? p.allergyStatus.allergies.map((a) => a.title + (a.reaction ? ` (${a.reaction})` : '')).join('; ')
+				: allergyStatusText(p.allergyStatus),
 			...FIELDS.map((f) => findings[f.id]?.value ?? '')
 		];
 	});
@@ -42,6 +46,8 @@ export function toCsv(items: PrintableEncounter[]): string {
 export const FHIR_CODESYSTEM = 'https://github.com/jaa249/openvision-ehr/fhir/CodeSystem/exam-finding';
 const MRN_SYSTEM = 'urn:openvision:mrn';
 const SNOMED = 'http://snomed.info/sct';
+const ALLERGY_CLINICAL = 'http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical';
+const ALLERGY_VERIFICATION = 'http://terminology.hl7.org/CodeSystem/allergyintolerance-verification';
 /** SNOMED CT body structures for laterality. */
 const EYE_SITE = {
 	OD: { code: '18944008', display: 'Right eye structure' },
@@ -98,14 +104,28 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 			],
 			birthDate: p.dob
 		});
-		for (const a of p.allergies) {
-			add(`allergy:${p.id}:${a.title}`, {
+		const allergies = p.allergyStatus;
+		if (allergies.kind === 'listed') {
+			for (const a of allergies.allergies) {
+				add(`allergy:${p.id}:${a.title}`, {
+					resourceType: 'AllergyIntolerance',
+					text: narrative(`Allergy: ${a.title}${a.reaction ? ` (${a.reaction})` : ''}`),
+					clinicalStatus: { coding: [{ system: ALLERGY_CLINICAL, code: 'active' }] },
+					code: { text: a.title },
+					patient: { reference: patientRef },
+					...(a.reaction ? { reaction: [{ manifestation: [{ text: a.reaction }] }] } : {})
+				});
+			}
+		} else if (allergies.kind === 'none') {
+			// A deliberate "No known allergies" is exported as such; "not recorded" exports nothing.
+			add(`allergy:${p.id}:none`, {
 				resourceType: 'AllergyIntolerance',
-				text: narrative(`Allergy: ${a.title}${a.reaction ? ` (${a.reaction})` : ''}`),
-				clinicalStatus: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical', code: 'active' }] },
-				code: { text: a.title },
+				text: narrative(`No known allergies (confirmed by ${allergies.confirmedBy} on ${allergies.confirmedAt.slice(0, 10)})`),
+				clinicalStatus: { coding: [{ system: ALLERGY_CLINICAL, code: 'active' }] },
+				verificationStatus: { coding: [{ system: ALLERGY_VERIFICATION, code: 'confirmed' }] },
+				code: { coding: [{ system: SNOMED, code: '716186003', display: 'No known allergy' }], text: 'No known allergies' },
 				patient: { reference: patientRef },
-				...(a.reaction ? { reaction: [{ manifestation: [{ text: a.reaction }] }] } : {})
+				recordedDate: allergies.confirmedAt
 			});
 		}
 		const practitionerRef = add(`practitioner:${e.providerId}`, {

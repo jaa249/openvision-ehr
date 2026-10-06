@@ -25,6 +25,13 @@ describe('printable encounters', () => {
 		expect(getPrintables(db, ids).length).toBeLessThanOrEqual(MAX_PRINT);
 	});
 
+	it('includes the patient history for the PMSFH block', () => {
+		const h = getPrintable(db, 1, 1)!.history!;
+		expect(h.issues.some((i) => i.type === 'POH' && i.title === 'Glaucoma suspect')).toBe(true);
+		expect(h.allergyStatus.kind).toBe('listed');
+		expect(getPrintable(db, 2, 2)!.history).toEqual({ issues: [], allergyStatus: { kind: 'unknown' }, family: {}, social: {} });
+	});
+
 	it('has the practice header', () => {
 		expect(getPractice(db).name).toMatch(/Example Eye Care/);
 	});

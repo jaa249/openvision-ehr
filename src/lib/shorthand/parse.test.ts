@@ -59,6 +59,51 @@ describe('grammar', () => {
 	});
 });
 
+describe('PMSFH entries (§2.4)', () => {
+	const issues = (input: string) => parseShorthand(input).ops.filter((o) => o.kind === 'issue');
+
+	it('POH, PMH, POS, SURG, MEDS and ALL become issue ops of the right list', () => {
+		const ops = parseShorthand('poh:glaucoma suspect. dry eye; PMH:hypertension; pos:LASIK; surg:appendectomy; meds:lisinopril; all:sulfa hives');
+		expect(ops.errors).toEqual([]);
+		expect(ops.ops.map((o) => (o.kind === 'issue' ? [o.type, o.text] : o.kind))).toEqual([
+			['POH', 'glaucoma suspect. dry eye'],
+			['PMH', 'hypertension'],
+			['POS', 'LASIK'],
+			['SURG', 'appendectomy'],
+			['MED', 'lisinopril'],
+			['ALLERGY', 'sulfa hives']
+		]);
+	});
+
+	it('never changes findings, alongside ordinary entries', () => {
+		const { findings, changed, errors } = run('poh:glaucoma suspect; rc:quiet');
+		expect(errors).toEqual([]);
+		expect(changed).toEqual(['ODCONJ']);
+		expect(Object.keys(findings)).toEqual(['ODCONJ']);
+	});
+
+	it('.a has no meaning (always adds); a space works like the colon', () => {
+		expect(issues('poh:dry eye.a')).toMatchObject([{ type: 'POH', text: 'dry eye' }]);
+		expect(issues('allergy latex rash')).toMatchObject([{ type: 'ALLERGY', text: 'latex rash' }]);
+	});
+
+	it('a code-less entry after a PMSFH entry adds to the same list, but a known code does not', () => {
+		expect(issues('poh:glaucoma suspect; blepharitis')).toMatchObject([
+			{ type: 'POH', text: 'glaucoma suspect' },
+			{ type: 'POH', text: 'blepharitis' }
+		]);
+		const { ops } = parseShorthand('poh:glaucoma; rc quiet');
+		expect(ops.map((o) => o.kind)).toEqual(['issue', 'set']);
+	});
+
+	it('a code with no text is an error that stays in the box', () => {
+		const { ops, errors } = parseShorthand('poh; all:');
+		expect(ops).toEqual([]);
+		expect(errors.map((e) => e.code)).toEqual(['POH', 'ALL']);
+		expect(errors[0].message).toMatch(/needs text/);
+	});
+});
+
 describe('commands', () => {
 	it('D and DAS fill defaults and mark them as defaults', () => {
 		for (const cmd of ['D', 'das', 'DANTSEG']) {
