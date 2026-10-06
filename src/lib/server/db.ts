@@ -4,6 +4,62 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { SEED_DEFAULTS } from '#lib/exam/catalog.ts';
 
+/** Earlier visits for the demo patient, so prior-visit review has something to show. */
+const DEMO_PRIORS: { id: number; date: string; type: string; findings: Record<string, string> }[] = [
+	{
+		id: 3,
+		date: '2024-08-02',
+		type: 'Comprehensive',
+		findings: {
+			RUL: 'dermatochalasis',
+			LUL: 'dermatochalasis',
+			ODCONJ: 'quiet',
+			OSCONJ: 'quiet',
+			ODCORNEA: 'clear',
+			OSCORNEA: 'clear',
+			ODAC: 'deep and quiet',
+			OSAC: 'deep and quiet',
+			ODLENS: 'trace NS',
+			OSLENS: 'trace NS',
+			ODDISC: 'pink',
+			OSDISC: 'pink',
+			ODCUP: '0.4',
+			OSCUP: '0.4',
+			ODMACULA: 'flat',
+			OSMACULA: 'flat'
+		}
+	},
+	{
+		id: 4,
+		date: '2025-09-14',
+		type: 'Comprehensive',
+		findings: {
+			RUL: 'dermatochalasis',
+			LUL: 'dermatochalasis',
+			ODHERTEL: '16',
+			OSHERTEL: '16',
+			HERTELBASE: '102',
+			ODCONJ: 'quiet',
+			OSCONJ: 'trace pinguecula',
+			ODCORNEA: 'clear',
+			OSCORNEA: 'clear',
+			ODAC: 'deep and quiet',
+			OSAC: 'deep and quiet',
+			ODLENS: '+1 NS',
+			OSLENS: '+1 NS',
+			ODDISC: 'pink',
+			OSDISC: 'pink',
+			ODCUP: '0.45',
+			OSCUP: '0.5',
+			ODMACULA: 'flat',
+			OSMACULA: 'few hard drusen',
+			ODVESSELS: '2:3',
+			OSVESSELS: '2:3',
+			RETINA_COMMENTS: 'Watch OS cup; OCT RNFL next visit.'
+		}
+	}
+];
+
 export type DB = DatabaseSync;
 
 const MIGRATIONS: string[] = [
@@ -57,7 +113,19 @@ const MIGRATIONS: string[] = [
 		field TEXT NOT NULL,
 		value TEXT NOT NULL,
 		PRIMARY KEY (user_id, field)
-	);`
+	);`,
+	// Quick picks, one list per provider (spec §4). Seeded from QP_SEED on first use.
+	`CREATE TABLE qp_items (
+		id INTEGER PRIMARY KEY,
+		user_id INTEGER NOT NULL REFERENCES users(id),
+		zone TEXT NOT NULL,
+		row TEXT NOT NULL,
+		label TEXT NOT NULL,
+		text TEXT NOT NULL,
+		mode TEXT NOT NULL CHECK (mode IN ('add', 'replace', 'append')),
+		seq INTEGER NOT NULL
+	);
+	CREATE INDEX qp_items_user ON qp_items(user_id, zone, seq);`
 ];
 
 export function migrate(db: DB): void {
@@ -92,6 +160,13 @@ export function seedDemo(db: DB, today = new Date().toISOString().slice(0, 10)):
 	const e = db.prepare('INSERT INTO encounters (id, patient_id, provider_id, date, visit_type) VALUES (?, ?, 1, ?, ?)');
 	e.run(1, 1, today, 'Comprehensive');
 	e.run(2, 2, today, 'Follow-up');
+	const f = db.prepare(
+		"INSERT INTO findings (encounter_id, field, value, is_default, updated_at, updated_by) VALUES (?, ?, ?, 0, ?, 1)"
+	);
+	for (const prior of DEMO_PRIORS) {
+		e.run(prior.id, 1, prior.date, prior.type);
+		for (const [field, value] of Object.entries(prior.findings)) f.run(prior.id, field, value, `${prior.date}T15:00:00.000Z`);
+	}
 	const d = db.prepare('INSERT INTO user_defaults (user_id, field, value) VALUES (1, ?, ?)');
 	for (const [field, value] of Object.entries(SEED_DEFAULTS)) d.run(field, value);
 	db.exec('COMMIT');

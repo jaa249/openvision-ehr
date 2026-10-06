@@ -3,11 +3,12 @@
 // Pure functions only, so the same code runs in the browser and in tests.
 
 import { FIELD_BY_ID, FIELDS, SEED_DEFAULTS, type SectionId } from '#lib/exam/catalog.ts';
-import { ALIASES, COMMANDS } from './codes.ts';
+import { ALIASES, COMMANDS, SPECIAL } from './codes.ts';
 import { expandVocab } from './vocab.ts';
 
 export type Op =
 	| { kind: 'set'; fields: string[]; text: string; append: boolean; source: string }
+	| { kind: 'setEach'; values: Record<string, string>; source: string }
 	| { kind: 'defaults'; sections: SectionId[] | 'all'; source: string }
 	| { kind: 'clear'; sections: SectionId[] | 'all'; source: string };
 
@@ -23,7 +24,7 @@ export interface ParseResult {
 	errors: ParseError[];
 }
 
-const ALL_CODES = [...Object.keys(COMMANDS), ...Object.keys(ALIASES), ...FIELDS.map((f) => f.id)];
+const ALL_CODES = [...Object.keys(COMMANDS), ...Object.keys(ALIASES), ...SPECIAL, ...FIELDS.map((f) => f.id)];
 
 function resolve(code: string): string[] | null {
 	if (FIELD_BY_ID.has(code)) return [code];
@@ -56,7 +57,7 @@ export function parseShorthand(input: string): ParseResult {
 		if (withColon) {
 			code = withColon[1].toUpperCase();
 			text = withColon[2];
-		} else if (withSpace && resolve(withSpace[1].toUpperCase())) {
+		} else if (withSpace && (resolve(withSpace[1].toUpperCase()) || SPECIAL.has(withSpace[1].toUpperCase()))) {
 			code = withSpace[1].toUpperCase();
 			text = withSpace[2];
 		}
@@ -85,6 +86,18 @@ export function parseShorthand(input: string): ParseResult {
 			}
 			const first = (entry.match(/^[A-Za-z0-9_]+/)?.[0] ?? entry).toUpperCase();
 			errors.push(unknown(entry.trim(), first));
+			continue;
+		}
+
+		if (code === 'HERT') {
+			// Hertel: OD-base-OS, e.g. HERT:15-100-16 (§2.3; FIX: bad input gets a message, not a crash).
+			const m = text.trim().match(/^(\d{1,2}(?:\.\d)?)\s*-\s*(\d{2,3})\s*-\s*(\d{1,2}(?:\.\d)?)$/);
+			if (!m) {
+				errors.push({ entry: entry.trim(), code, message: 'HERT needs OD-base-OS, e.g. HERT:15-100-16', suggestions: [] });
+			} else {
+				ops.push({ kind: 'setEach', values: { ODHERTEL: m[1], HERTELBASE: m[2], OSHERTEL: m[3] }, source: entry.trim() });
+			}
+			previous = null;
 			continue;
 		}
 
@@ -179,6 +192,8 @@ export function applyOps(
 				const value = op.append && cur ? `${cur}, ${op.text}` : op.text;
 				put(id, value, false);
 			}
+		} else if (op.kind === 'setEach') {
+			for (const [id, value] of Object.entries(op.values)) put(id, value, false);
 		} else if (op.kind === 'defaults') {
 			// Defaults always replace (parity, §3.2).
 			for (const id of sectionFields(op.sections)) if (id in defaults) put(id, defaults[id], true);

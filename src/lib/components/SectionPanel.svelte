@@ -1,28 +1,34 @@
 <script lang="ts">
-	import { ANTSEG_ROWS, fieldId, type Row } from '#lib/exam/catalog.ts';
+	import { fieldId, type Row, type SectionDef } from '#lib/exam/catalog.ts';
 	import type { Findings } from '#lib/shorthand/parse.ts';
 
 	type Side = 'OD' | 'OS' | 'OU';
 	let {
+		sec,
 		findings,
 		preview,
+		copied,
 		onedit,
 		ondefaults,
 		oncopy,
 		onclear
 	}: {
+		sec: SectionDef;
 		findings: Findings;
 		/** Values the shorthand bar would write, shown as a ghost until committed. */
 		preview: Findings | null;
+		/** Fields just filled from a prior visit (tinted until edited). */
+		copied: Set<string>;
 		onedit: (field: string, value: string) => void;
 		ondefaults: (side: Side) => void;
 		oncopy: (from: 'OD' | 'OS') => void;
 		onclear: (side: 'OD' | 'OS') => void;
 	} = $props();
 
-	const comments = $derived(cell('ANTSEG_COMMENTS'));
-	const textRows = ANTSEG_ROWS.filter((r) => !r.measure);
-	const measureRows = ANTSEG_ROWS.filter((r) => r.measure);
+	const textRows = $derived(sec.rows.filter((r) => r.measure === undefined));
+	const measureRows = $derived(sec.rows.filter((r) => r.measure !== undefined));
+	const titleId = $derived(`${sec.id.toLowerCase()}-title`);
+	const comments = $derived(cell(sec.comments.field));
 
 	function cell(id: string) {
 		const ghost = preview?.[id];
@@ -30,7 +36,8 @@
 		return {
 			value: ghost?.value ?? real?.value ?? '',
 			ghost: !!ghost,
-			isDefault: !ghost && !!real?.isDefault
+			isDefault: !ghost && !!real?.isDefault,
+			copied: !ghost && copied.has(id)
 		};
 	}
 </script>
@@ -45,38 +52,41 @@
 	</th>
 {/snippet}
 
-{#snippet field(row: Row, eye: 'OD' | 'OS')}
-	{@const id = fieldId(eye, row.id)}
+{#snippet input(id: string, label: string, short: boolean, numeric = false)}
 	{@const c = cell(id)}
-	<td class="cell" class:ghost={c.ghost} class:is-default={c.isDefault} data-field={id}>
-		{#if row.measure}
-			<span class="measure">
-				<input
-					class="num"
-					value={c.value}
-					inputmode={row.id === 'GONIO' ? 'text' : 'decimal'}
-					aria-label="{row.label} {eye}"
-					maxlength="25"
-					placeholder="–"
-					oninput={(e) => onedit(id, e.currentTarget.value)}
-				/>
-				<span class="unit">{row.measure}</span>
-			</span>
+	<td class="cell" class:ghost={c.ghost} class:is-default={c.isDefault} class:copied={c.copied} data-field={id}>
+		{#if short}
+			<input
+				class="short"
+				value={c.value}
+				inputmode={numeric ? 'decimal' : 'text'}
+				aria-label="{label}{c.isDefault ? ' (default)' : ''}"
+				placeholder="–"
+				oninput={(e) => onedit(id, e.currentTarget.value)}
+			/>
 		{:else}
 			<textarea
 				rows="1"
 				placeholder="–"
 				value={c.value}
-				aria-label="{row.label} {eye}{c.isDefault ? ' (default)' : ''}"
+				aria-label="{label}{c.isDefault ? ' (default)' : ''}"
 				oninput={(e) => onedit(id, e.currentTarget.value)}
 			></textarea>
 		{/if}
 	</td>
 {/snippet}
 
-<section aria-labelledby="antseg-title">
+{#snippet rowHead(row: Row)}
+	<th scope="row">
+		{row.label}
+		{#if row.measure}<span class="unit">{row.measure}</span>{/if}
+		<span class="code" title="Shorthand codes">{row.hint}</span>
+	</th>
+{/snippet}
+
+<section aria-labelledby={titleId}>
 	<div class="head">
-		<h2 id="antseg-title">Anterior segment (slit lamp)</h2>
+		<h2 id={titleId}>{sec.title}</h2>
 		<button type="button" onclick={() => ondefaults('OU')}>Normal OU</button>
 		<button type="button" onclick={() => oncopy('OD')} aria-label="Copy right eye to left eye">OD → OS</button>
 		<button type="button" onclick={() => oncopy('OS')} aria-label="Copy left eye to right eye">OS → OD</button>
@@ -94,39 +104,67 @@
 			<tbody>
 				{#each textRows as row (row.id)}
 					<tr>
-						<th scope="row">
-							{row.label}
-							<abbr class="code" title="Shorthand: R{row.code} right, L{row.code} left, B{row.code} both">{row.code}</abbr>
-						</th>
-						{@render field(row, 'OD')}
-						{@render field(row, 'OS')}
+						{@render rowHead(row)}
+						{@render input(fieldId('OD', row), `${row.label} OD`, false)}
+						{@render input(fieldId('OS', row), `${row.label} OS`, false)}
 					</tr>
 				{/each}
 				<tr class="divider"><td colspan="3"></td></tr>
 				{#each measureRows as row (row.id)}
 					<tr>
-						<th scope="row">
-							{row.label}
-							<abbr class="code" title="Shorthand: R{row.code} right, L{row.code} left, {row.code} both">{row.code}</abbr>
-						</th>
-						{@render field(row, 'OD')}
-						{@render field(row, 'OS')}
+						{@render rowHead(row)}
+						{@render input(fieldId('OD', row), `${row.label} OD`, true, !!row.measure)}
+						{@render input(fieldId('OS', row), `${row.label} OS`, true, !!row.measure)}
 					</tr>
 				{/each}
+				{#if sec.hertel}
+					{@const base = cell('HERTELBASE')}
+					<tr>
+						<th scope="row">
+							Hertel <span class="unit">mm</span>
+							<span class="code" title="Shorthand codes">HERT:15-100-16</span>
+						</th>
+						{@render input('ODHERTEL', 'Hertel OD', true, true)}
+						{@render input('OSHERTEL', 'Hertel OS', true, true)}
+					</tr>
+					<tr>
+						<th scope="row">Hertel base <span class="code">BHERT</span></th>
+						<td
+							class="cell"
+							colspan="2"
+							class:ghost={base.ghost}
+							class:copied={base.copied}
+							data-field="HERTELBASE"
+						>
+							<input
+								class="short"
+								value={base.value}
+								inputmode="decimal"
+								aria-label="Hertel base"
+								placeholder="–"
+								oninput={(e) => onedit('HERTELBASE', e.currentTarget.value)}
+							/>
+						</td>
+					</tr>
+				{/if}
 			</tbody>
 		</table>
 	</div>
 
 	<label class="comments">
-		<span>Comments <abbr class="code" title="Shorthand: ASCOM">ASCOM</abbr></span>
+		<span>Comments <span class="code">{sec.comments.hint}</span></span>
 		<textarea
 			rows="2"
 			class:ghost={comments.ghost}
+			class:copied={comments.copied}
 			value={comments.value}
-			oninput={(e) => onedit('ANTSEG_COMMENTS', e.currentTarget.value)}
+			oninput={(e) => onedit(sec.comments.field, e.currentTarget.value)}
 		></textarea>
 	</label>
-	<p class="legend"><span class="swatch" aria-hidden="true"></span> Tinted fields still hold the default "normal" value.</p>
+	<p class="legend">
+		<span class="swatch" aria-hidden="true"></span> Tinted: still the default "normal" value.
+		<span class="swatch copied" aria-hidden="true"></span> Copied from a prior visit.
+	</p>
 </section>
 
 <style>
@@ -164,13 +202,13 @@
 		border-bottom: 0;
 	}
 	.rowhead {
-		width: 22%;
+		width: 24%;
 	}
 	thead th {
 		height: calc(var(--row-height) + var(--space-2));
 	}
 	.eyecol {
-		width: 39%;
+		width: 38%;
 	}
 	tbody th {
 		font-weight: var(--weight-regular);
@@ -178,10 +216,12 @@
 		height: var(--row-height);
 	}
 	.code {
+		display: block;
 		font: var(--text-xs) var(--font-mono);
 		color: var(--text-3);
-		text-decoration: none;
-		margin-left: var(--space-1);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.eye {
 		display: inline-flex;
@@ -215,6 +255,10 @@
 	.cell.is-default {
 		background: var(--default-tint);
 	}
+	.cell.copied,
+	textarea.copied {
+		background: var(--copied-tint);
+	}
 	textarea,
 	input {
 		width: 100%;
@@ -232,7 +276,8 @@
 	input::placeholder {
 		color: var(--text-3);
 	}
-	.measure input {
+	input.short {
+		width: 9em;
 		border-color: var(--hairline);
 	}
 	textarea:hover,
@@ -258,15 +303,10 @@
 	.cell.ghost {
 		background: var(--accent-soft);
 	}
-	.measure {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-1);
-		width: 9em;
-	}
 	.unit {
 		color: var(--text-3);
 		font-size: var(--text-xs);
+		margin-left: var(--space-1);
 	}
 	.divider td {
 		height: var(--space-2);
@@ -278,6 +318,9 @@
 		margin-top: var(--space-4);
 		color: var(--text-2);
 	}
+	.comments .code {
+		display: inline;
+	}
 	.comments textarea {
 		background: var(--surface-1);
 		border-color: var(--hairline);
@@ -288,6 +331,7 @@
 		font-size: var(--text-xs);
 		display: flex;
 		align-items: center;
+		flex-wrap: wrap;
 		gap: var(--space-2);
 	}
 	.swatch {
@@ -296,5 +340,9 @@
 		border-radius: 3px;
 		background: var(--default-tint);
 		border: 1px solid var(--hairline);
+	}
+	.swatch.copied {
+		background: var(--copied-tint);
+		margin-left: var(--space-3);
 	}
 </style>

@@ -16,6 +16,10 @@
 | D10 | Name | **OpenVision**, repo `jaa249/openvision-ehr`, public | Plain, descriptive; qualifier avoids clashes with other "OpenVision" software |
 | D11 | Shorthand submit key | **Enter only**; Tab keeps its normal focus move | Original also captured Tab, which traps keyboard users in the box |
 | D12 | First slice | Slit lamp section end to end; single local user, no sign-in yet | Proves stack, shorthand, autosave and ownership checks before widening |
+| D13 | Phase 2 scope | External + fundus, quick picks, prior visits with copy forward | eye_mag's two most-used strengths after shorthand |
+| D14 | Quick-pick starter list | Our own short list per section, spellings corrected; copied into each provider's list on first use | Clean room; providers own and can later edit their list |
+| D15 | Copy forward | Copies only fields the prior visit recorded; blank prior fields leave today's value alone. Copied fields get a tint until edited; one Undo reverts | Avoids wiping today's work with empties; tint makes carried-over findings visible for review |
+| D16 | Pre-release databases | No data migrations for seed changes before v0.1; delete `data/` to pick up new demo data | Only fictional demo data exists; keeps the migration list for real schema changes |
 
 ## Still open
 

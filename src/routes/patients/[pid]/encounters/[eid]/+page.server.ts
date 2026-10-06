@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { getDb } from '#lib/server/db.ts';
-import { getEncounter, getFindings, getPatientHeader, getUserDefaults } from '#lib/server/exam.ts';
+import { getEncounter, getFindings, getPatientHeader, getPriors, getUserDefaults } from '#lib/server/exam.ts';
+import { getQuickPicks } from '#lib/server/quickpicks.ts';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals }) => {
@@ -18,6 +19,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		patient,
 		encounter,
 		findings: getFindings(db, pid, eid) ?? {},
-		defaults: getUserDefaults(db, locals.userId)
+		defaults: getUserDefaults(db, locals.userId),
+		priors: getPriors(db, pid, eid) ?? [],
+		quickPicks: getQuickPicks(db, locals.userId)
 	};
 };

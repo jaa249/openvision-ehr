@@ -4,7 +4,7 @@ A free, open-source, standalone eye exam and eye-care records app for optometris
 
 Inspired by the well-regarded OpenEMR Eye Exam form (eye_mag), rebuilt from scratch with a modern, tablet-first design.
 
-**Status:** first working slice. The slit lamp (anterior segment) section works end to end: shorthand, normal defaults, copy between eyes, undo, autosave, and light/dark/dim-room modes. Everything else is still design and spec.
+**Status:** early. External, slit lamp and fundus sections work end to end: shorthand (including `HERT:15-100-16` for Hertel), normal defaults, copy between eyes, per-provider quick picks with grade/size/location modifiers, prior-visit review with copy forward (one section or the whole exam), undo, autosave, and light/dark/dim-room modes. HPI, acuity, refraction, IOP, neuro, impression/plan, coding and drawings are still design and spec.
 
 ## Try it
 
@@ -22,7 +22,7 @@ Open http://127.0.0.1:3000. A fresh install creates `data/openvision.sqlite` wit
 
 Development: `npm run dev`, `npm test`, `npm run check`.
 
-In the exam: press `Alt+K` for the shorthand bar, then try `das; rc:1+ inj; lk:tr spk.a` and Enter. Keys `1`–`0` switch sections.
+In the exam: press `Alt+K` for the shorthand bar, then try `das; rc:1+ inj; lk:tr spk.a` and Enter. Keys `1`–`0` switch sections (`5` External, `6` Slit lamp, `7` Fundus). The **Quick picks** and **Prior visits** buttons open a helper panel; the demo patient Jordan Demo has two earlier visits to copy from.
 
 ## Docs
 

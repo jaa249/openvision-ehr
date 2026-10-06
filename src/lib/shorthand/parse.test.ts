@@ -119,6 +119,58 @@ describe('spec §2.6 code fixes in this section', () => {
 		expect([v(findings, 'ODSCHIRMER1'), v(findings, 'OSSCHIRMER1')]).toEqual(['15', '15']);
 		expect([v(findings, 'ODSCHIRMER2'), v(findings, 'OSSCHIRMER2')]).toEqual(['10', '10']);
 	});
+	it('LH writes the left Hertel field', () => {
+		expect(Object.keys(run('lh:17').findings)).toEqual(['OSHERTEL']);
+	});
+	it('CN7 writes CN VII, not CN V', () => {
+		expect(Object.keys(run('cn7:intact').findings).sort()).toEqual(['LCNVII', 'RCNVII']);
+	});
+	it('BAD and VF write both eyes', () => {
+		expect(Object.keys(run('bad:normal').findings).sort()).toEqual(['LADNEXA', 'RADNEXA']);
+		expect(Object.keys(run('vf:9').findings).sort()).toEqual(['LVFISSURE', 'RVFISSURE']);
+	});
+	it('CUP is the cup; BC stays conjunctiva', () => {
+		expect(Object.keys(run('cup:0.4').findings).sort()).toEqual(['ODCUP', 'OSCUP']);
+		expect(Object.keys(run('bc:quiet').findings).sort()).toEqual(['ODCONJ', 'OSCONJ']);
+	});
+	it('BLL means both lower lids', () => {
+		expect(Object.keys(run('bll:ectropion').findings).sort()).toEqual(['LLL', 'RLL']);
+	});
+});
+
+describe('Hertel', () => {
+	it('HERT:OD-base-OS fills three fields', () => {
+		const { findings, errors } = run('hert:15-100-16.5');
+		expect(errors).toEqual([]);
+		expect([v(findings, 'ODHERTEL'), v(findings, 'HERTELBASE'), v(findings, 'OSHERTEL')]).toEqual(['15', '100', '16.5']);
+	});
+	it('malformed HERT is an error, not a crash', () => {
+		const { findings, errors } = run('hert:fifteen');
+		expect(findings).toEqual({});
+		expect(errors[0].message).toMatch(/OD-base-OS/);
+	});
+});
+
+describe('section commands', () => {
+	it('D fills every section; DEXT and DRET only their own', () => {
+		const all = run('d').findings;
+		expect([v(all, 'RUL'), v(all, 'ODCONJ'), v(all, 'ODDISC')]).toEqual(['normal lids and lashes', 'quiet', 'pink']);
+		const ext = run('dext').findings;
+		expect(v(ext, 'RBROW')).toBe('no brow ptosis');
+		expect(v(ext, 'ODCONJ')).toBeUndefined();
+		const ret = run('dret').findings;
+		expect(v(ret, 'OSCUP')).toBe('0.3');
+		expect(v(ret, 'RUL')).toBeUndefined();
+	});
+	it('CEXT and CRET clear only their section', () => {
+		const start: Findings = {
+			RUL: { value: 'ptosis', isDefault: false },
+			ODDISC: { value: 'pallor', isDefault: false },
+			ODLENS: { value: '2+ NS', isDefault: false }
+		};
+		expect(run('cext', start).changed).toEqual(['RUL']);
+		expect(run('cret', start).changed).toEqual(['ODDISC']);
+	});
 });
 
 describe('vocabulary expansion', () => {

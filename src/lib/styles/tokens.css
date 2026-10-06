@@ -67,6 +67,7 @@
   --abnormal: #b4235a; --abnormal-soft: #fcebf1;
   --danger: #c62828;  --warn: #9a5b00;  --ok: #157f3b;
   --default-tint: #fbf5e6; /* field still holding a default value (spec §3.2) */
+  --copied-tint: #eaf6ee; /* filled from a prior visit (spec §6) */
   --shadow-overlay: 0 8px 24px rgb(16 24 40 / .14), 0 1px 3px rgb(16 24 40 / .08);
 }
 
@@ -105,6 +106,7 @@
     --abnormal: #ff8fb1; --abnormal-soft: #3a1724;
     --danger: #ff7b72;  --warn: #e3b341;  --ok: #56d364;
     --default-tint: #2a2619; /* field still holding a default value (spec §3.2) */
+    --copied-tint: #17291f; /* filled from a prior visit (spec §6) */
     --shadow-overlay: 0 8px 24px rgb(0 0 0 / .5), 0 0 0 1px #2a2f3a;
   }
 }
@@ -127,6 +129,7 @@
   --abnormal: #ff8fb1; --abnormal-soft: #3a1724;
   --danger: #ff7b72;  --warn: #e3b341;  --ok: #56d364;
   --default-tint: #2a2619; /* field still holding a default value (spec §3.2) */
+  --copied-tint: #17291f; /* filled from a prior visit (spec §6) */
   --shadow-overlay: 0 8px 24px rgb(0 0 0 / .5), 0 0 0 1px #2a2f3a;
 }
 
@@ -151,6 +154,7 @@
   --abnormal: #d68aa3; --abnormal-soft: #24121a;
   --danger: #d9837c;  --warn: #c4a45a;  --ok: #74b783;
   --default-tint: #1a1710; /* field still holding a default value (spec §3.2) */
+  --copied-tint: #111c15; /* filled from a prior visit (spec §6) */
   --shadow-overlay: 0 8px 24px rgb(0 0 0 / .6), 0 0 0 1px #1f232b;
 }
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, seedDemo, type DB } from './db.ts';
-import { ageOn, getEncounter, getFindings, saveFindings, validateChanges, ValidationError } from './exam.ts';
+import { ageOn, getEncounter, getFindings, getPriors, saveFindings, validateChanges, ValidationError } from './exam.ts';
+import { getQuickPicks } from './quickpicks.ts';
 
 let db: DB;
 beforeEach(() => {
@@ -51,6 +52,34 @@ describe('validation', () => {
 		expect(validateChanges({ changes: [{ field: 'ODCONJ', value: 'quiet', isDefault: true }] })).toEqual([
 			{ field: 'ODCONJ', value: 'quiet', isDefault: true }
 		]);
+	});
+});
+
+describe('prior visits', () => {
+	it('lists earlier visits of the same patient, newest first, with their findings', () => {
+		const priors = getPriors(db, 1, 1)!;
+		expect(priors.map((p) => p.date)).toEqual(['2025-09-14', '2024-08-02']);
+		expect(priors[0].findings.OSCUP).toEqual({ value: '0.5', isDefault: false });
+	});
+	it('never includes the current visit, later visits, or another patient', () => {
+		expect(getPriors(db, 1, 3)).toEqual([]); // the oldest visit has no priors
+		expect(getPriors(db, 1, 4)!.map((p) => p.id)).toEqual([3]);
+		expect(getPriors(db, 2, 2)).toEqual([]);
+		expect(getPriors(db, 2, 1)).toBeNull(); // wrong patient for the encounter
+	});
+	it('same-day visits order by id', () => {
+		db.prepare("INSERT INTO encounters (id, patient_id, provider_id, date, visit_type) VALUES (9, 1, 1, '2026-10-06', 'Follow-up')").run();
+		expect(getPriors(db, 1, 9)!.map((p) => p.id)).toEqual([1, 4, 3]);
+		expect(getPriors(db, 1, 1)!.map((p) => p.id)).toEqual([4, 3]);
+	});
+});
+
+describe('quick picks', () => {
+	it('seeds a provider list on first use, once', () => {
+		const first = getQuickPicks(db, 1);
+		expect(first.length).toBeGreaterThan(50);
+		expect(getQuickPicks(db, 1).length).toBe(first.length);
+		expect(first.find((p) => p.zone === 'ANTSEG' && p.label === 'quiet')?.mode).toBe('replace');
 	});
 });
 

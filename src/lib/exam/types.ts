@@ -18,3 +18,9 @@ export interface EncounterInfo {
 	provider: string;
 	providerId: number;
 }
+
+import type { Findings } from '#lib/shorthand/parse.ts';
+
+export interface PriorVisit extends EncounterInfo {
+	findings: Findings;
+}

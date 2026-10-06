@@ -4,9 +4,9 @@
 import type { DB } from './db.ts';
 import { FIELD_BY_ID } from '#lib/exam/catalog.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
-import type { EncounterInfo, PatientHeader } from '#lib/exam/types.ts';
+import type { EncounterInfo, PatientHeader, PriorVisit } from '#lib/exam/types.ts';
 
-export type { EncounterInfo, PatientHeader };
+export type { EncounterInfo, PatientHeader, PriorVisit };
 
 export function ageOn(dob: string, on: Date = new Date()): number {
 	const [y, m, d] = dob.split('-').map(Number);
@@ -146,4 +146,24 @@ export function saveFindings(
 		throw e;
 	}
 	return at;
+}
+
+/**
+ * Earlier visits of the SAME patient, newest first (spec §6.1): an earlier date,
+ * or the same date with a lower id. Never includes the current or later visits.
+ */
+export function getPriors(db: DB, patientId: number, encounterId: number, limit = 20): PriorVisit[] | null {
+	const current = getEncounter(db, patientId, encounterId);
+	if (!current) return null;
+	const rows = db
+		.prepare(
+			`SELECT e.id FROM encounters e
+			  WHERE e.patient_id = ? AND (e.date < ? OR (e.date = ? AND e.id < ?))
+			  ORDER BY e.date DESC, e.id DESC LIMIT ?`
+		)
+		.all(patientId, current.date, current.date, encounterId, limit) as { id: number }[];
+	return rows.map(({ id }) => ({
+		...getEncounter(db, patientId, id)!,
+		findings: getFindings(db, patientId, id) ?? {}
+	}));
 }

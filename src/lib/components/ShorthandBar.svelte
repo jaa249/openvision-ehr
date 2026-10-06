@@ -16,6 +16,10 @@
 	function label(op: ParseResult['ops'][number]): string {
 		if (op.kind === 'defaults') return `Normal: ${op.sections === 'all' ? 'all sections' : op.sections.join(', ')}`;
 		if (op.kind === 'clear') return `Clear: ${op.sections === 'all' ? 'all sections' : op.sections.join(', ')}`;
+		if (op.kind === 'setEach')
+			return Object.entries(op.values)
+				.map(([f, v]) => `${FIELD_BY_ID.get(f)?.label ?? f} = ${v}`)
+				.join(', ');
 		const names = op.fields.map((f) => FIELD_BY_ID.get(f)?.label ?? f).join(' + ');
 		return `${names} ${op.append ? '+=' : '='} ${op.text || '(empty)'}`;
 	}
