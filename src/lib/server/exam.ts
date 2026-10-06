@@ -57,15 +57,23 @@ export function getPatientHeader(db: DB, patientId: number): PatientHeader | nul
 export function getEncounter(db: DB, patientId: number, encounterId: number): EncounterInfo | null {
 	const e = db
 		.prepare(
-			`SELECT e.id, e.date, e.visit_type, e.provider_id, u.display_name
-			   FROM encounters e JOIN users u ON u.id = e.provider_id
+			`SELECT e.id, e.date, e.visit_type, e.provider_id, u.display_name, e.technician_id, t.display_name AS technician
+			   FROM encounters e JOIN users u ON u.id = e.provider_id LEFT JOIN users t ON t.id = e.technician_id
 			  WHERE e.id = ? AND e.patient_id = ?`
 		)
 		.get(encounterId, patientId) as
-		| { id: number; date: string; visit_type: string; provider_id: number; display_name: string }
+		| { id: number; date: string; visit_type: string; provider_id: number; display_name: string; technician_id: number | null; technician: string | null }
 		| undefined;
 	if (!e) return null;
-	return { id: e.id, date: e.date, visitType: e.visit_type, provider: e.display_name, providerId: e.provider_id };
+	return {
+		id: e.id,
+		date: e.date,
+		visitType: e.visit_type,
+		provider: e.display_name,
+		providerId: e.provider_id,
+		technician: e.technician,
+		technicianId: e.technician_id
+	};
 }
 
 export function getFindings(db: DB, patientId: number, encounterId: number): Findings | null {

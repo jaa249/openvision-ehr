@@ -114,7 +114,7 @@
 						<td>{e.patientName}</td>
 						<td class="num">{e.mrn}</td>
 						<td>{e.visitType}</td>
-						<td>{e.provider}</td>
+						<td>{e.provider}{#if e.technician}<span class="tech"><br />Tech: {e.technician}</span>{/if}</td>
 						<td class="num">{e.findingCount || '–'}</td>
 						<td class="links">
 							<a href="/patients/{e.patientId}/encounters/{e.id}">Open</a>

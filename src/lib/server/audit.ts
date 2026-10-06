@@ -2,7 +2,7 @@
 // Prints and exports have their own log (print_log). Rows are only ever inserted.
 import type { DB } from './db.ts';
 
-export type AuditAction = 'lock.takeover' | 'lock.expired_takeover' | 'exam.sign' | 'exam.addendum';
+export type AuditAction = 'lock.takeover' | 'lock.expired_takeover' | 'exam.sign' | 'exam.addendum' | 'exam.staff';
 
 export interface AuditEntry {
 	id: number;

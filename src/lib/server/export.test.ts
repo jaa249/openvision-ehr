@@ -38,7 +38,7 @@ describe('CSV', () => {
 		expect(csv.startsWith('﻿')).toBe(true);
 		const rows = parseCsv(csv.slice(1));
 		expect(rows).toHaveLength(3);
-		expect(rows[0].length).toBe(10 + FIELDS.length);
+		expect(rows[0].length).toBe(11 + FIELDS.length);
 		expect(rows.every((r) => r.length === rows[0].length)).toBe(true);
 		const col = (name: string) => rows[0].indexOf(name);
 		expect(rows[1][col('Visit date')]).toBe('2024-08-02');

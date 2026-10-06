@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { getDb } from '#lib/server/db.ts';
 import { getEncounter, getFindings, getPatientHeader, getPriors, getUserDefaults } from '#lib/server/exam.ts';
+import { activeProviders, activeTechnicians } from '#lib/server/patients.ts';
 import { getQuickPicks } from '#lib/server/quickpicks.ts';
 import { getLockState } from '#lib/server/signing.ts';
 import type { PageServerLoad } from './$types';
@@ -26,6 +27,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		// Who is editing / whether it is signed, so a read-only exam renders read-only from the start.
 		// The page takes the lock itself through the lock API (each page load has its own token).
 		lockState: getLockState(db, eid, locals.userId, null),
+		// Choices for the visit staff dialog (D43).
+		staffOptions: { providers: activeProviders(db), technicians: activeTechnicians(db) },
 		user: locals.user
 	};
 };

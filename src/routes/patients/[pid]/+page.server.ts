@@ -10,8 +10,10 @@ import {
 	removeAllergy,
 	setNoKnownAllergies,
 	updatePatient,
-	activeVisitTypeNames
+	activeVisitTypeNames,
+	activeProviders
 } from '#lib/server/patients.ts';
+import type { DB } from '#lib/server/db.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 function parsePid(raw: string): number {
@@ -22,13 +24,30 @@ function parsePid(raw: string): number {
 
 const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : '');
 
-export const load: PageServerLoad = ({ params }) => {
-	const patient = getPatientRecord(getDb(), parsePid(params.pid));
+/**
+ * The provider a new visit starts with (D43): a provider is their own; anyone else gets the
+ * provider of the last visit they worked as technician, or the only provider. 0 = must choose.
+ */
+function defaultProvider(db: DB, user: App.Locals['user'], providers: { id: number }[]): number {
+	if (user.role === 'provider' && providers.some((p) => p.id === user.id)) return user.id;
+	const last = db.prepare('SELECT provider_id FROM encounters WHERE technician_id = ? ORDER BY id DESC LIMIT 1').get(user.id) as
+		| { provider_id: number }
+		| undefined;
+	if (last && providers.some((p) => p.id === last.provider_id)) return last.provider_id;
+	return providers.length === 1 ? providers[0].id : 0;
+}
+
+export const load: PageServerLoad = ({ params, locals }) => {
+	const db = getDb();
+	const patient = getPatientRecord(db, parsePid(params.pid));
 	if (!patient) error(404, 'Not found');
+	const providers = activeProviders(db);
 	return {
 		patient: { ...patient, age: ageOn(patient.dob) },
 		today: localToday(),
-		visitTypes: activeVisitTypeNames(getDb())
+		visitTypes: activeVisitTypeNames(db),
+		providers,
+		defaultProvider: defaultProvider(db, locals.user, providers)
 	};
 };
 
@@ -90,10 +109,12 @@ export const actions: Actions = {
 	newVisit: async ({ request, params, locals }) => {
 		const pid = parsePid(params.pid);
 		const f = await request.formData();
-		const values = { date: str(f.get('date')), visitType: str(f.get('visitType')) };
+		const values = { date: str(f.get('date')), visitType: str(f.get('visitType')), providerId: str(f.get('providerId')) };
 		let eid: number | null;
 		try {
-			eid = createEncounter(getDb(), pid, locals.userId, values);
+			// The person starting the visit is its technician when they are one (D43).
+			const staff = { providerId: Number(values.providerId), technicianId: locals.user.role === 'tech' ? locals.user.id : null };
+			eid = createEncounter(getDb(), pid, staff, values);
 		} catch (e) {
 			if (e instanceof PatientValidationError) return fail(400, { section: 'visit' as const, errors: e.errors, values });
 			throw e;

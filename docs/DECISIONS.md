@@ -47,9 +47,9 @@
 | D40 | Fax and task manager | **Not built** | Most practices fax through a service; an offline single-computer app has no one to send tasks to |
 | D41 | Deployment | An **offline desktop app on one practice computer**, packaged with Electron. Its only network use is checking GitHub Releases for updates (signed, with a backup before installing). Not a hosted web service | The owner's direction: no server to run, no patient data leaving the office |
 | D42 | Encryption at rest | Database encrypted (SQLCipher-compatible); key protected by Windows DPAPI at machine scope, stored with the data in `C:\ProgramData\OpenVision`, which only a local "OpenVision Users" group can open. A printed recovery key restores a backup on another computer | Each staff member has their own Windows account (the clinic's responsibility), so a per-user key would lock others out; sign-in still controls access inside the app |
+| D43 | Provider and technician | Every visit records both: the **provider** who authorizes it (a provider account; the only one who can sign it) and the **technician** who worked it up (optional). A technician or admin starting a visit picks the provider (the only provider, or the one from their last visit, is preselected); a technician who saves findings or drawings on a visit with no technician is recorded automatically. Both can be changed from the exam banner until signing (needs the edit lock, audited), then a trigger makes them final. Report, visit lists, CSV and FHIR (primary and secondary performer) show both | Owner's direction: when a provider authorizes work a technician does, the record must say who each one is. Before this, a technician-started visit named the technician as provider and nobody could sign it |
 
 ## Still open
 
 - Equipment import order after Topcon.
-- Who is the provider when a technician starts a visit (today: whoever started it, so a technician; there is no way to change it yet).
 - Coder review of the coding rules (D7, D34) before codes are filled in automatically.

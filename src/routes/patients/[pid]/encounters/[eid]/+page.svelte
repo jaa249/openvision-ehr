@@ -43,8 +43,49 @@
 	const lock = new ExamLock(examApi, { signature: data.lockState.signature, lock: data.lockState.lock }, applyServerFindings);
 	/** Signed, or another page holds the lock: nothing on this page may change the exam or post. */
 	const readonly = $derived(lock.readonly);
+	/** Provider and technician can change before signing (D43), so the page keeps its own copy. */
 	// svelte-ignore state_referenced_locally
-	const canSign = data.user.role === 'provider' && data.user.id === data.encounter.providerId;
+	let encounter = $state(data.encounter);
+	const canSign = $derived(data.user.role === 'provider' && data.user.id === encounter.providerId);
+
+	// ---------- visit staff (D43): the authorizing provider and the technician ----------
+	let staffDialog = $state<HTMLDialogElement>();
+	let staffProvider = $state('');
+	let staffTech = $state('');
+	let staffError = $state<string | null>(null);
+	let staffSaving = $state(false);
+
+	function openStaff() {
+		staffProvider = String(encounter.providerId);
+		staffTech = encounter.technicianId == null ? '' : String(encounter.technicianId);
+		staffError = null;
+		staffDialog?.showModal();
+	}
+
+	async function saveStaff() {
+		staffSaving = true;
+		staffError = null;
+		try {
+			const res = await fetch(`${examApi}/staff`, {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json', ...lockHeaders() },
+				body: JSON.stringify({ providerId: Number(staffProvider), technicianId: staffTech ? Number(staffTech) : null })
+			});
+			if (res.status === 423) {
+				const body = await res.json();
+				lock.lost(body);
+				throw new Error(body.message);
+			}
+			if (res.status === 401) throw new Error(SIGNED_OUT_MESSAGE);
+			if (!res.ok) throw new Error(await errorText(res, `Not changed (error ${res.status}).`));
+			encounter = (await res.json()).encounter;
+			staffDialog?.close();
+		} catch (e) {
+			staffError = e instanceof Error ? e.message : String(e);
+		} finally {
+			staffSaving = false;
+		}
+	}
 
 	/** Fresh values from the server (read-only polling, lock acquire): changed fields take the "copied" tint. */
 	function applyServerFindings(server: Findings) {
@@ -471,7 +512,7 @@
 	<div class="top">
 		<PatientBanner
 			patient={data.patient}
-			encounter={data.encounter}
+			{encounter}
 			{saver}
 			{lock}
 			cansign={canSign}
@@ -480,6 +521,7 @@
 			onsign={startSign}
 			ontakeover={takeOver}
 			onedit={() => lock.acquire()}
+			onstaff={lock.mode === 'editing' ? openStaff : undefined}
 		/>
 		{#if saver.signedOut || signedOut}
 			<div class="lockbar warn" role="alert">{SIGNED_OUT_MESSAGE}</div>
@@ -600,10 +642,33 @@
 	</div>
 </div>
 
+<dialog class="confirm" bind:this={staffDialog} aria-labelledby="staff-title">
+	<h2 id="staff-title">Visit staff</h2>
+	<p class="hint">The provider authorizes the visit and is the one who signs it. The technician is who worked it up.</p>
+	<div class="staff-field">
+		<label for="staff-provider">Provider</label>
+		<select id="staff-provider" bind:value={staffProvider}>
+			{#each data.staffOptions.providers as pr (pr.id)}<option value={String(pr.id)}>{pr.displayName}</option>{/each}
+		</select>
+	</div>
+	<div class="staff-field">
+		<label for="staff-tech">Technician</label>
+		<select id="staff-tech" bind:value={staffTech}>
+			<option value="">None</option>
+			{#each data.staffOptions.technicians as t (t.id)}<option value={String(t.id)}>{t.displayName}</option>{/each}
+		</select>
+	</div>
+	{#if staffError}<p class="err" role="alert">{staffError}</p>{/if}
+	<div class="actions">
+		<button type="button" onclick={() => staffDialog?.close()} disabled={staffSaving}>Cancel</button>
+		<button type="button" class="primary" onclick={saveStaff} disabled={staffSaving}>{staffSaving ? 'Saving…' : 'Save'}</button>
+	</div>
+</dialog>
+
 <dialog class="confirm" bind:this={signDialog} aria-labelledby="sign-title">
 	<h2 id="sign-title">Sign this exam?</h2>
 	<p>
-		{data.patient.name} · {data.encounter.visitType} · <span class="num">{data.encounter.date}</span>
+		{data.patient.name} · {encounter.visitType} · <span class="num">{encounter.date}</span>
 	</p>
 	<p>Signing locks, for everyone:</p>
 	<ul>
@@ -719,6 +784,14 @@
 	}
 	.confirm .hint {
 		color: var(--text-2);
+	}
+	.staff-field {
+		display: grid;
+		gap: var(--space-1);
+		margin-bottom: var(--space-3);
+	}
+	.staff-field select {
+		min-height: max(36px, var(--target-min));
 	}
 	.confirm .actions {
 		display: flex;

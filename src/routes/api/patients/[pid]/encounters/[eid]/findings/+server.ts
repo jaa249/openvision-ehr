@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '#lib/server/db.ts';
 import { getEncounter, saveFindings, validateChanges, ValidationError } from '#lib/server/exam.ts';
+import { noteTechnician } from '#lib/server/patients.ts';
 import { guardEditable } from '#lib/server/signing.ts';
 import type { RequestHandler } from './$types';
 
@@ -24,5 +25,6 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
 	const savedAt = saveFindings(db, pid, eid, locals.userId, changes);
 	if (!savedAt) error(404, 'Not found');
+	noteTechnician(db, eid, locals.user);
 	return json({ savedAt });
 };

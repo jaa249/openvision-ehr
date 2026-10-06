@@ -105,6 +105,10 @@
 			<dd>{e.date} · {e.visitType}</dd>
 			<dt>Provider</dt>
 			<dd>{e.provider}</dd>
+			{#if e.technician}
+				<dt>Technician</dt>
+				<dd>{e.technician}</dd>
+			{/if}
 		</dl>
 	</header>
 

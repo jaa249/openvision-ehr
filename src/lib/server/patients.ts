@@ -282,16 +282,53 @@ export function setNoKnownAllergies(db: DB, patientId: number, userId: number, o
 	return true;
 }
 
-/** Starts a visit; returns the new encounter id, or null if the patient does not exist. */
+/** Who was involved in a visit (decision D43). */
+export type VisitStaff = {
+	/** The provider who authorizes the visit and signs it; must be an active provider account. */
+	providerId: number;
+	/** The technician who worked it up; null when none did. */
+	technicianId?: number | null;
+};
+
+export type StaffOption = { id: number; displayName: string };
+
+/** Active provider accounts, for "Provider" pickers. */
+export function activeProviders(db: DB): StaffOption[] {
+	return (db.prepare("SELECT id, display_name FROM users WHERE role = 'provider' AND active = 1 ORDER BY display_name, id").all() as { id: number; display_name: string }[]).map(
+		(r) => ({ id: r.id, displayName: r.display_name })
+	);
+}
+
+/** Active technician accounts, for "Technician" pickers. */
+export function activeTechnicians(db: DB): StaffOption[] {
+	return (db.prepare("SELECT id, display_name FROM users WHERE role = 'tech' AND active = 1 ORDER BY display_name, id").all() as { id: number; display_name: string }[]).map(
+		(r) => ({ id: r.id, displayName: r.display_name })
+	);
+}
+
+function staffErrors(db: DB, staff: VisitStaff): FieldErrors {
+	const errors: FieldErrors = {};
+	const role = (id: unknown) =>
+		Number.isSafeInteger(id) ? (db.prepare('SELECT role FROM users WHERE id = ? AND active = 1').get(id as number) as { role: string } | undefined)?.role : undefined;
+	if (role(staff.providerId) !== 'provider') errors.provider = 'Choose the provider for this visit.';
+	if (staff.technicianId != null && role(staff.technicianId) !== 'tech') errors.technician = 'Choose a technician from the list, or none.';
+	return errors;
+}
+
+/**
+ * Starts a visit; returns the new encounter id, or null if the patient does not exist.
+ * `staff` is the provider id, or the provider and technician (D43).
+ */
 export function createEncounter(
 	db: DB,
 	patientId: number,
-	providerId: number,
+	staff: number | VisitStaff,
 	input: { date: string; visitType: string },
 	today = localToday()
 ): number | null {
 	const p = db.prepare('SELECT dob FROM patients WHERE id = ?').get(patientId) as { dob: string } | undefined;
 	if (!p) return null;
+	const people: VisitStaff = typeof staff === 'number' ? { providerId: staff } : staff;
 	const errors: FieldErrors = {};
 	const date = typeof input.date === 'string' ? input.date.trim() : '';
 	if (!date) errors.date = 'Visit date is required.';
@@ -299,12 +336,33 @@ export function createEncounter(
 	else if (date > today) errors.date = 'Visit date cannot be in the future.';
 	else if (date < p.dob) errors.date = 'Visit date cannot be before the date of birth.';
 	if (!activeVisitTypeNames(db).includes(input.visitType)) errors.visitType = 'Choose a visit type.';
-	if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(providerId)) errors.provider = 'Unknown provider.';
+	Object.assign(errors, staffErrors(db, people));
 	if (Object.keys(errors).length) throw new PatientValidationError(errors);
 	const { lastInsertRowid } = db
-		.prepare('INSERT INTO encounters (patient_id, provider_id, date, visit_type) VALUES (?, ?, ?, ?)')
-		.run(patientId, providerId, date, input.visitType);
+		.prepare('INSERT INTO encounters (patient_id, provider_id, technician_id, date, visit_type) VALUES (?, ?, ?, ?, ?)')
+		.run(patientId, people.providerId, people.technicianId ?? null, date, input.visitType);
 	return Number(lastInsertRowid);
+}
+
+/**
+ * Changes a visit's provider and technician (before signing; callers check the edit lock, and a
+ * trigger refuses it on a signed exam). Returns false when the visit is not this patient's.
+ */
+export function setVisitStaff(db: DB, patientId: number, encounterId: number, staff: VisitStaff): boolean {
+	const row = db.prepare('SELECT 1 FROM encounters WHERE id = ? AND patient_id = ?').get(encounterId, patientId);
+	if (!row) return false;
+	const errors = staffErrors(db, staff);
+	if (Object.keys(errors).length) throw new PatientValidationError(errors);
+	db.prepare('UPDATE encounters SET provider_id = ?, technician_id = ? WHERE id = ?').run(staff.providerId, staff.technicianId ?? null, encounterId);
+	return true;
+}
+
+/** A technician who changes a visit with no technician yet becomes its technician (D43). */
+export function noteTechnician(db: DB, encounterId: number, user: { id: number; role: string } | null | undefined): void {
+	if (user?.role !== 'tech') return;
+	db.prepare(
+		'UPDATE encounters SET technician_id = ? WHERE id = ? AND technician_id IS NULL AND NOT EXISTS (SELECT 1 FROM exam_signatures WHERE encounter_id = encounters.id)'
+	).run(user.id, encounterId);
 }
 
 export type PatientRow = {
@@ -349,7 +407,7 @@ export type PatientRecord = {
 	/** Active allergies, with ids for the chart's Remove buttons. */
 	allergies: { id: number; title: string; reaction: string | null }[];
 	allergyStatus: AllergyStatus;
-	visits: { id: number; date: string; visitType: string; provider: string; findingsCount: number }[];
+	visits: { id: number; date: string; visitType: string; provider: string; technician: string | null; findingsCount: number }[];
 };
 
 /** Everything the chart page shows, or null for an unknown patient. */
@@ -363,13 +421,13 @@ export function getPatientRecord(db: DB, patientId: number): PatientRecord | nul
 	const visits = (
 		db
 			.prepare(
-				`SELECT e.id, e.date, e.visit_type, u.display_name,
+				`SELECT e.id, e.date, e.visit_type, u.display_name, t.display_name AS technician,
 				        (SELECT COUNT(*) FROM findings f WHERE f.encounter_id = e.id AND f.value <> '' AND f.is_default = 0) AS n
-				   FROM encounters e JOIN users u ON u.id = e.provider_id
+				   FROM encounters e JOIN users u ON u.id = e.provider_id LEFT JOIN users t ON t.id = e.technician_id
 				  WHERE e.patient_id = ? ORDER BY e.date DESC, e.id DESC`
 			)
-			.all(patientId) as { id: number; date: string; visit_type: string; display_name: string; n: number }[]
-	).map((v) => ({ id: v.id, date: v.date, visitType: v.visit_type, provider: v.display_name, findingsCount: v.n }));
+			.all(patientId) as { id: number; date: string; visit_type: string; display_name: string; technician: string | null; n: number }[]
+	).map((v) => ({ id: v.id, date: v.date, visitType: v.visit_type, provider: v.display_name, technician: v.technician, findingsCount: v.n }));
 	return {
 		id: p.id,
 		mrn: p.mrn,

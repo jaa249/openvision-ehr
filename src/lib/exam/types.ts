@@ -21,8 +21,12 @@ export interface EncounterInfo {
 	id: number;
 	date: string;
 	visitType: string;
+	/** The provider who authorizes the visit and signs it (D43). */
 	provider: string;
 	providerId: number;
+	/** The technician who worked the visit up; null when none did. */
+	technician: string | null;
+	technicianId: number | null;
 }
 
 import type { Findings } from '#lib/shorthand/parse.ts';

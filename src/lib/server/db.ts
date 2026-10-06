@@ -8,6 +8,7 @@ import { CODING_SQL } from './migrations/coding.ts';
 import { SIGNING_SQL } from './migrations/signing.ts';
 import { AUTH_SQL } from './migrations/auth.ts';
 import { DOCUMENTS_SQL } from './migrations/documents.ts';
+import { STAFF_SQL } from './migrations/staff.ts';
 import { DEMO_USERS, demoPasswordHash } from './auth.ts';
 
 /** Earlier visits for the demo patient, so prior-visit review has something to show. */
@@ -233,7 +234,8 @@ const MIGRATIONS: string[] = [
 	CODING_SQL,
 	SIGNING_SQL,
 	AUTH_SQL,
-	DOCUMENTS_SQL
+	DOCUMENTS_SQL,
+	STAFF_SQL
 ];
 
 /** Brings the schema up to `target` (default: latest). Tests pass a lower target to check data migrations. */

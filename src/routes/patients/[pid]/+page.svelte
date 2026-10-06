@@ -25,7 +25,7 @@
 			: { legalFirst: p.legalFirst, legalLast: p.legalLast, preferredName: p.preferredName ?? '', dob: p.dob, mrn: p.mrn }
 	);
 	const allergyValues = $derived(valuesFor<{ title: string; reaction: string }>('allergy'));
-	const visitValues = $derived(valuesFor<{ date: string; visitType: string }>('visit'));
+	const visitValues = $derived(valuesFor<{ date: string; visitType: string; providerId: string }>('visit'));
 
 	let editing = $state(false);
 	$effect(() => {
@@ -209,8 +209,24 @@
 				</select>
 				{#if visitErrors.visitType}<p class="err" id="v-type-err">{visitErrors.visitType}</p>{/if}
 			</div>
+			<div class="field">
+				<label for="v-provider">Provider</label>
+				<select
+					id="v-provider"
+					name="providerId"
+					required
+					aria-invalid={visitErrors.provider ? 'true' : undefined}
+					aria-describedby={visitErrors.provider ? 'v-provider-err' : undefined}
+				>
+					{#if !data.defaultProvider}<option value="" selected={!visitValues.providerId}>Choose…</option>{/if}
+					{#each data.providers as pr (pr.id)}
+						<option value={pr.id} selected={String(pr.id) === (visitValues.providerId ?? String(data.defaultProvider))}>{pr.displayName}</option>
+					{/each}
+				</select>
+				{#if visitErrors.provider}<p class="err" id="v-provider-err">{visitErrors.provider}</p>{/if}
+				{#if !data.providers.length}<p class="err">There are no provider accounts yet. An admin adds one in Settings, Users.</p>{/if}
+			</div>
 			<button type="submit" class="submit primary">Start visit</button>
-			{#if visitErrors.provider}<p class="err">{visitErrors.provider}</p>{/if}
 		</form>
 	</section>
 
@@ -223,7 +239,7 @@
 						<div class="vmain">
 							<span class="num vdate">{v.date}</span>
 							<span>{v.visitType}</span>
-							<span class="meta">{v.provider} · {v.findingsCount} {v.findingsCount === 1 ? 'finding' : 'findings'}</span>
+							<span class="meta">{v.provider}{v.technician ? ` · Tech: ${v.technician}` : ''} · {v.findingsCount} {v.findingsCount === 1 ? 'finding' : 'findings'}</span>
 						</div>
 						<div class="vlinks">
 							<a href="/patients/{p.id}/encounters/{v.id}">Open<span class="visually-hidden"> visit of {v.date}</span></a>

@@ -6,7 +6,7 @@ import { allergyStatusText } from '#lib/history/summary.ts';
 
 // ---------- CSV ----------
 
-const PATIENT_COLUMNS = ['Encounter ID', 'Visit date', 'Visit type', 'Provider', 'MRN', 'Last name', 'First name', 'Preferred name', 'DOB', 'Allergies'];
+const PATIENT_COLUMNS = ['Encounter ID', 'Visit date', 'Visit type', 'Provider', 'Technician', 'MRN', 'Last name', 'First name', 'Preferred name', 'DOB', 'Allergies'];
 
 /**
  * Spreadsheet apps run cells that start with = + - @ as formulas (CSV injection).
@@ -26,6 +26,7 @@ export function toCsv(items: PrintableEncounter[]): string {
 			e.date,
 			e.visitType,
 			e.provider,
+			e.technician ?? '',
 			p.mrn,
 			p.legalLast,
 			p.legalFirst,
@@ -133,6 +134,19 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 			text: narrative(e.provider),
 			name: [{ text: e.provider }]
 		});
+		// D43: the provider is the primary performer, the technician a secondary one.
+		const PARTICIPATION = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType';
+		const participant = [
+			{ type: [{ coding: [{ system: PARTICIPATION, code: 'PPRF', display: 'primary performer' }] }], individual: { reference: practitionerRef } }
+		];
+		if (e.technicianId != null && e.technician) {
+			const techRef = add(`practitioner:${e.technicianId}`, {
+				resourceType: 'Practitioner',
+				text: narrative(e.technician),
+				name: [{ text: e.technician }]
+			});
+			participant.push({ type: [{ coding: [{ system: PARTICIPATION, code: 'SPRF', display: 'secondary performer' }] }], individual: { reference: techRef } });
+		}
 		const encounterRef = add(`encounter:${e.id}`, {
 			resourceType: 'Encounter',
 			text: narrative(`${e.visitType} eye exam on ${e.date} with ${e.provider}`),
@@ -141,7 +155,7 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 			class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB', display: 'ambulatory' },
 			type: [{ text: e.visitType }],
 			subject: { reference: patientRef },
-			participant: [{ individual: { reference: practitionerRef } }],
+			participant,
 			period: { start: e.date }
 		});
 		for (const f of FIELDS) {

@@ -3,6 +3,7 @@ import { error, json } from '@sveltejs/kit';
 import { getDb } from '#lib/server/db.ts';
 import { DrawingError, getLatestDrawing, isDrawingZone, MAX_DRAWING_BYTES, saveDrawing } from '#lib/server/drawings.ts';
 import { getEncounter } from '#lib/server/exam.ts';
+import { noteTechnician } from '#lib/server/patients.ts';
 import { guardEditable } from '#lib/server/signing.ts';
 import { ids, pngResponse } from '../_shared.ts';
 import type { RequestHandler } from './$types';
@@ -32,6 +33,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	try {
 		const saved = saveDrawing(db, pid, eid, params.zone, body, locals.userId);
 		if (!saved) error(404, 'Not found');
+		noteTechnician(db, eid, locals.user);
 		return json(saved);
 	} catch (e) {
 		if (e instanceof DrawingError) error(/too large/.test(e.message) ? 413 : 400, e.message);

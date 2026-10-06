@@ -53,6 +53,7 @@ export interface EncounterListItem {
 	date: string;
 	visitType: string;
 	provider: string;
+	technician: string | null;
 	findingCount: number;
 }
 
@@ -86,12 +87,13 @@ export function listEncounters(db: DB, f: EncounterFilter, limit = 500): Encount
 	args.push(limit);
 	const rows = db
 		.prepare(
-			`SELECT e.id, e.patient_id, e.date, e.visit_type, u.display_name AS provider,
+			`SELECT e.id, e.patient_id, e.date, e.visit_type, u.display_name AS provider, t.display_name AS technician,
 			        p.mrn, COALESCE(p.preferred_name, p.legal_first) || ' ' || p.legal_last AS name,
 			        (SELECT COUNT(*) FROM findings f WHERE f.encounter_id = e.id AND f.value <> '') AS n
 			   FROM encounters e
 			   JOIN patients p ON p.id = e.patient_id
 			   JOIN users u ON u.id = e.provider_id
+			   LEFT JOIN users t ON t.id = e.technician_id
 			  ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
 			  ORDER BY e.date DESC, p.legal_last, p.legal_first, e.id DESC
 			  LIMIT ?`
@@ -102,6 +104,7 @@ export function listEncounters(db: DB, f: EncounterFilter, limit = 500): Encount
 		date: string;
 		visit_type: string;
 		provider: string;
+		technician: string | null;
 		mrn: string;
 		name: string;
 		n: number;
@@ -114,6 +117,7 @@ export function listEncounters(db: DB, f: EncounterFilter, limit = 500): Encount
 		date: r.date,
 		visitType: r.visit_type,
 		provider: r.provider,
+		technician: r.technician,
 		findingCount: r.n
 	}));
 }

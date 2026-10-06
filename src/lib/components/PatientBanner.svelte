@@ -15,14 +15,15 @@
 		onprint,
 		onsign,
 		ontakeover,
-		onedit
+		onedit,
+		onstaff
 	}: {
 		patient: PatientHeader;
 		encounter: EncounterInfo;
 		saver: Saver;
 		/** Edit lock / signature state of this exam (spec §15.1); omitted = plain editing banner. */
 		lock?: ExamLock;
-		/** This user may sign: the encounter's own provider. */
+		/** This user may sign: the visit's own provider. */
 		cansign?: boolean;
 		signing?: boolean;
 		onprint: () => void;
@@ -31,6 +32,8 @@
 		ontakeover?: () => void;
 		/** Read-only and nobody holds the lock now: start editing. */
 		onedit?: () => void;
+		/** Change the visit's provider / technician (only while this page may edit). */
+		onstaff?: () => void;
 	} = $props();
 
 	const initials = $derived(
@@ -69,7 +72,17 @@
 			<span aria-hidden="true">!</span> Allergies not recorded
 		{/if}
 	</div>
-	<div class="meta">{encounter.visitType} · {encounter.provider} · <span class="num">{encounter.date}</span></div>
+	<div class="meta">
+		{encounter.visitType} ·
+		{#if onstaff}
+			<button type="button" class="staff" onclick={onstaff} title="Change the provider or technician">
+				{encounter.provider}{#if encounter.technician}<span class="tech">{` · Tech: ${encounter.technician}`}</span>{/if}
+			</button>
+		{:else}
+			{encounter.provider}{#if encounter.technician}<span class="tech">{` · Tech: ${encounter.technician}`}</span>{/if}
+		{/if}
+		· <span class="num">{encounter.date}</span>
+	</div>
 	<div class="spacer"></div>
 	{#if lock?.mode === 'signed' && lock.signature}
 		<div class="state signed" title="Signed exams are read-only for everyone; corrections go in an addendum.">
@@ -154,6 +167,22 @@
 	}
 	.legal {
 		font-size: var(--text-xs);
+	}
+	/* Provider / technician: reads as text, underlined on hover and focus to show it can be changed. */
+	.staff {
+		font: inherit;
+		color: inherit;
+		background: none;
+		border: 0;
+		padding: 0;
+		min-height: var(--target-min);
+		cursor: pointer;
+		text-decoration: underline dotted;
+		text-underline-offset: 3px;
+	}
+	.staff:hover {
+		color: var(--text-1);
+		text-decoration-style: solid;
 	}
 	.allergy {
 		color: var(--danger);
