@@ -24,8 +24,13 @@
 | D18 | Print shortcut | `Ctrl+P` in the exam prints the report (saving first); Alt+P stays Prior visits per D4 | Users already press Ctrl+P to print; printing the editing screen is never what they want |
 | D19 | CSV export | One row per visit, one column per exam field, UTF-8 with BOM, CRLF. Cells starting with = + - @ get a leading apostrophe | Opens cleanly in Excel/Sheets; the apostrophe blocks formula injection and keeps values like "+1 NS" from turning into #NAME? |
 | D20 | FHIR export | R4 "collection" Bundle: Patient (MRN, legal + preferred name), Practitioner, Encounter, AllergyIntolerance, one Observation per finding (category exam, SNOMED eye laterality, valueString, status preliminary until signing exists). Codes use our own CodeSystem URL until findings are mapped to SNOMED/LOINC. Stable name-based UUIDs. Exports are logged like prints | Validates with 0 errors on the HL7 validator (only "unknown CodeSystem" warnings); stable ids let a receiving system de-duplicate re-imports |
+| D21 | Section modules | Non-row sections (vision, IOP/pupils, refraction; later HPI, neuro, plan) live in `src/lib/exam/sections/*.ts` (fields, codes, defaults, report) plus a panel component; catalog, shorthand and report merge them | Lets sections be built in parallel without touching each other; saving, validation, priors and export follow automatically |
+| D22 | Field ids without an eye_mag column | Contrast `CONTRASTODVA/OSVA`, mental status `ALERT`/`ORIENTED`/`MOOD_AFFECT`, refraction comments `MRCOMMENTS`/`ARCOMMENTS`, glasses slots as `<column>_<n>` | Keeps shorthand-compatible names where eye_mag has them; ours are documented here |
+| D23 | Refraction view prefs | Panel visibility, Rx details and cylinder sign are remembered per browser (localStorage) until per-user prefs exist | No prefs table yet; harmless if lost |
+| D24 | Drawings | Own Canvas 2D + Pointer Events component, no library; original SVG base art (OD on the left); PNG saved at 2-3x for print; every save kept as a version; report links images by URL | Decides the open "drawing library" question: zero dependencies, touch/pen work, AGPL EyeDraw avoided |
+| D25 | Form posts on plain-http installs | SvelteKit's form-origin check is relaxed (`csrf.trustedOrigins`); `hooks.server.ts` requires Origin host = Host on every POST/PUT/PATCH/DELETE instead | adapter-node assumes https, so Kit rejected same-site form posts on localhost; protection is unchanged |
+| D26 | Upload limit | Run with `BODY_SIZE_LIMIT=2M` (drawings are capped at 1.5 MB server-side) | adapter-node's default is 512 KB |
 
 ## Still open
 
-- Drawing library base (own vector canvas on a permissive base; not EyeDraw/AGPL).
 - Equipment import order after Topcon.

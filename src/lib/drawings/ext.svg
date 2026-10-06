@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="450" height="250" viewBox="0 0 450 250">
+	<!-- OpenVision original art (Apache-2.0). External: brows, lids, eyes. OD (patient's right) on the viewer's left. -->
+	<rect width="450" height="250" fill="#fff"/>
+	<defs>
+		<clipPath id="ext-open"><path d="M48 138 Q112 92 182 134 Q112 172 48 138 Z"/></clipPath>
+		<g id="ext-eye" fill="none" stroke="#6b7280" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+			<!-- brow: lateral end toward the temple (left for OD) -->
+			<path d="M186 84 C160 64 104 56 56 74 C48 77 42 82 38 88" stroke-width="2.2"/>
+			<path d="M184 92 C158 74 104 66 58 82" stroke="#9ca3af"/>
+			<!-- upper lid crease -->
+			<path d="M54 124 Q112 70 178 118" stroke="#9ca3af"/>
+			<!-- globe inside the lid opening -->
+			<g clip-path="url(#ext-open)">
+				<circle cx="114" cy="132" r="21"/>
+				<circle cx="114" cy="132" r="7.5" fill="#9ca3af" stroke="none"/>
+				<circle cx="108" cy="126" r="2.2" fill="#fff" stroke="none"/>
+			</g>
+			<!-- lid margins -->
+			<path d="M48 138 Q112 92 182 134" stroke-width="2"/>
+			<path d="M48 138 Q112 172 182 134"/>
+			<!-- lower lid crease and medial canthus -->
+			<path d="M60 160 Q114 186 172 156" stroke="#9ca3af"/>
+			<path d="M182 134 q6 3 9 8" stroke="#9ca3af"/>
+		</g>
+	</defs>
+	<use xlink:href="#ext-eye" href="#ext-eye"/>
+	<use xlink:href="#ext-eye" href="#ext-eye" transform="translate(450 0) scale(-1 1)"/>
+	<!-- nose -->
+	<g fill="none" stroke="#9ca3af" stroke-width="1.4" stroke-linecap="round">
+		<path d="M212 108 Q206 160 198 196 Q208 212 225 214 Q242 212 252 196 Q244 160 238 108"/>
+		<path d="M206 200 q6 -6 12 -2 M244 200 q-6 -6 -12 -2"/>
+	</g>
+	<g font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#374151"><text x="12" y="22">OD</text><text x="438" y="22" text-anchor="end">OS</text></g>
+</svg>

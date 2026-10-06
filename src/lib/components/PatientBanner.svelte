@@ -28,7 +28,7 @@
 	{/if}
 	<div class="who">
 		<div class="name">
-			{patient.name}
+			<a class="chart" href="/patients/{patient.id}" title="Open patient chart">{patient.name}</a>
 			{#if patient.name !== patient.legalName}<span class="legal">(legal: {patient.legalName})</span>{/if}
 		</div>
 		<div class="meta num">{patient.age} y · DOB {patient.dob} · MRN {patient.mrn}</div>
@@ -85,6 +85,14 @@
 		font-size: var(--text-md);
 		font-weight: var(--weight-semibold);
 		line-height: var(--leading-tight);
+	}
+	.chart {
+		color: inherit;
+		text-decoration: none;
+	}
+	.chart:hover {
+		color: var(--accent);
+		text-decoration: underline;
 	}
 	.legal,
 	.meta {

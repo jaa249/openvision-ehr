@@ -39,4 +39,6 @@ export interface PrintableEncounter {
 	patient: PatientHeader;
 	encounter: EncounterInfo;
 	findings: Findings;
+	/** Zones with a saved drawing for this visit (spec §13.4), e.g. ['EXT', 'RETINA']. */
+	drawingZones?: string[];
 }

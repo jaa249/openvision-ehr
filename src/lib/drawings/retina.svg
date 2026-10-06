@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="450" height="250" viewBox="0 0 450 250">
+	<!-- OpenVision original art (Apache-2.0). Fundus OD and OS: disc, macula, arcades, equator and clock-hour guides. OD on the viewer's left; disc is nasal. -->
+	<rect width="450" height="250" fill="#fff"/>
+	<defs>
+		<g id="fundus" fill="none" stroke-linecap="round">
+			<!-- clock-hour guides from the equator to the ora -->
+			<g stroke="#e0e3e8" stroke-width="1">
+				<path d="M112 58 V22 M148 67.6 L166 36.5 M174.4 94 L205.5 76 M184 130 H220 M174.4 166 L205.5 184 M148 192.4 L166 223.5"/>
+				<path d="M112 202 V238 M76 192.4 L58 223.5 M49.6 166 L18.5 184 M40 130 H4 M49.6 94 L18.5 76 M76 67.6 L58 36.5"/>
+			</g>
+			<!-- ora serrata (outer), equator (dashed), posterior pole (dotted) -->
+			<circle cx="112" cy="130" r="108" stroke="#6b7280" stroke-width="1.4"/>
+			<circle cx="112" cy="130" r="72" stroke="#9ca3af" stroke-dasharray="5 4"/>
+			<circle cx="112" cy="130" r="44" stroke="#c4c8cf" stroke-dasharray="1.5 3.5"/>
+			<!-- vessels: arcades from the disc -->
+			<g stroke="#9ca3af" stroke-width="1.6">
+				<path d="M138 122 C126 96 92 86 58 100 M112 92 C104 82 96 74 86 70"/>
+				<path d="M138 138 C126 164 92 174 58 160 M112 168 C104 178 96 186 86 190"/>
+				<path d="M142 121 C152 102 168 90 190 84 M144 123 C160 116 176 112 196 114"/>
+				<path d="M142 139 C152 158 168 170 190 176 M144 137 C160 144 176 148 196 146"/>
+			</g>
+			<!-- disc with cup -->
+			<circle cx="140" cy="130" r="10" fill="#fff" stroke="#6b7280" stroke-width="1.6"/>
+			<circle cx="141" cy="130" r="4" stroke="#9ca3af"/>
+			<!-- macula and fovea -->
+			<circle cx="90" cy="131" r="10" stroke="#9ca3af" stroke-dasharray="2 2"/>
+			<circle cx="90" cy="131" r="1.6" fill="#6b7280"/>
+		</g>
+	</defs>
+	<use xlink:href="#fundus" href="#fundus"/>
+	<use xlink:href="#fundus" href="#fundus" transform="translate(450 0) scale(-1 1)"/>
+	<g font-family="Arial, Helvetica, sans-serif" font-size="9" fill="#9ca3af" text-anchor="middle" stroke="#fff" stroke-width="3" paint-order="stroke">
+		<text x="112" y="34">12</text><text x="112" y="234">6</text><text x="12" y="133" text-anchor="start">9</text><text x="214" y="133" text-anchor="end">3</text>
+		<text x="338" y="34">12</text><text x="338" y="234">6</text><text x="238" y="133" text-anchor="start">9</text><text x="440" y="133" text-anchor="end">3</text>
+	</g>
+	<g font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#374151"><text x="12" y="22">OD</text><text x="438" y="22" text-anchor="end">OS</text></g>
+</svg>

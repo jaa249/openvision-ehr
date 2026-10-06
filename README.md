@@ -4,7 +4,7 @@ A free, open-source, standalone eye exam and eye-care records app for optometris
 
 Inspired by the well-regarded OpenEMR Eye Exam form (eye_mag), rebuilt from scratch with a modern, tablet-first design.
 
-**Status:** early. External, slit lamp and fundus sections work end to end: shorthand (including `HERT:15-100-16` for Hertel), normal defaults, copy between eyes, per-provider quick picks with grade/size/location modifiers, prior-visit review with copy forward (one section or the whole exam), printable exam reports (one visit, or many at once from the Encounters page, each on its own page; Save as PDF from the print dialog), CSV and FHIR R4 export, undo, autosave, and light/dark/dim-room modes. HPI, acuity, refraction, IOP, neuro, impression/plan, coding and drawings are still design and spec.
+**Status:** early. Patients and visits (create, search, chart, allergies, new visit). Exam: vision (acuity, Amsler), IOP / pupils / confrontation fields, refraction (current glasses, manifest, cycloplegic, autorefraction, contact lens, transpose) with printable spectacle and contact-lens Rx and dispensed history, external, slit lamp and fundus with drawings (own canvas, touch and pen, versioned autosave, prior drawings). Shorthand, normal defaults, copy between eyes, per-provider quick picks, prior visits with copy forward, undo, autosave. Printable exam reports (one or many visits; Save as PDF), CSV and FHIR R4 export, light/dark/dim-room modes. Still to come: HPI/ROS/PMSFH, neuro, impression/plan, coding, signing, sign-in, settings.
 
 ## Try it
 
@@ -13,7 +13,7 @@ Requires Node.js 24 or newer. Uses Node's built-in SQLite, so there is nothing n
 ```sh
 npm install
 npm run build
-HOST=127.0.0.1 PORT=3000 node build    # Windows PowerShell: $env:HOST='127.0.0.1'; $env:PORT='3000'; node build
+HOST=127.0.0.1 PORT=3000 BODY_SIZE_LIMIT=2M node build    # PowerShell: $env:HOST='127.0.0.1'; $env:PORT='3000'; $env:BODY_SIZE_LIMIT='2M'; node build
 ```
 
 Open http://127.0.0.1:3000. A fresh install creates `data/openvision.sqlite` with two fictional patients. Set `OPENVISION_DB` to store the database elsewhere.

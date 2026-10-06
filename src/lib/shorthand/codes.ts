@@ -2,11 +2,15 @@
 // Source of truth for the full set: docs/spec/SHORTHAND.md (+ fixes in BEHAVIOR.md §2.6).
 
 import type { SectionId } from '#lib/exam/catalog.ts';
+import { WORKUP_ALIASES } from '#lib/exam/sections/workup.ts';
+import { REFRACTION_ALIASES } from '#lib/exam/sections/refraction.ts';
 
 const both = (od: string, os: string) => [od, os];
 
 /** Code -> target field ids. Field ids themselves are also valid codes (handled by the parser). */
 export const ALIASES: Record<string, string[]> = {
+	...WORKUP_ALIASES,
+	...REFRACTION_ALIASES,
 	// ---------- External (R/L field names) ----------
 	RB: ['RBROW'],
 	LB: ['LBROW'],

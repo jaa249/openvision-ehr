@@ -2,6 +2,8 @@
 // Pure, so the single and mass-print pages render the same thing and tests can pin the rules.
 
 import { SECTION_DEF, type SectionId } from './catalog.ts';
+import { workupReport } from './sections/workup.ts';
+import { refractionReport } from './sections/refraction.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 
 export interface ReportRow {
@@ -11,8 +13,13 @@ export interface ReportRow {
 }
 export interface ReportSection {
 	title: string;
+	/** OD | label | OS rows (the exam-section layout). */
 	rows: ReportRow[];
 	comments: string;
+	/** One-line result printed as plain text, e.g. "Full to CF OU" (no "Comments:" label). */
+	summary?: string;
+	/** Optional free-form table, e.g. refraction (Sph/Cyl/Axis...). Printed after the rows. */
+	table?: { head: string[]; body: string[][] };
 }
 
 /** Core rows print whenever their section prints; extra rows only when filled (§13.2 items 7, 8, 10). */
@@ -46,7 +53,8 @@ export function buildReport(findings: Findings): ReportSection[] {
 	};
 	const filled = (r: ReportRow | null): r is ReportRow => !!r && !!(r.od || r.os);
 
-	const out: ReportSection[] = [];
+	// Workup (vision, IOP, pupils, fields) and refraction come before the exam sections (§13.2 items 3-6).
+	const out: ReportSection[] = [...workupReport(findings), ...refractionReport(findings)];
 	for (const l of LAYOUT) {
 		const sec = SECTION_DEF.get(l.section)!;
 		const core = l.core.map((id) => row(l.section, id)).filter((r): r is ReportRow => !!r);

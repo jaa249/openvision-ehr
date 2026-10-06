@@ -142,7 +142,36 @@ const MIGRATIONS: string[] = [
 		printed_at TEXT NOT NULL
 	);`,
 	// The same audit log covers data exports.
-	`ALTER TABLE print_log ADD COLUMN kind TEXT NOT NULL DEFAULT 'print' CHECK (kind IN ('print', 'csv', 'fhir'));`
+	`ALTER TABLE print_log ADD COLUMN kind TEXT NOT NULL DEFAULT 'print' CHECK (kind IN ('print', 'csv', 'fhir'));`,
+	// Drawings (spec §5.3 FIX): PNG, keyed by exact encounter + zone, every save kept as a new version.
+	`CREATE TABLE drawings (
+		id INTEGER PRIMARY KEY,
+		encounter_id INTEGER NOT NULL REFERENCES encounters(id),
+		zone TEXT NOT NULL,
+		png BLOB NOT NULL,
+		created_at TEXT NOT NULL,
+		created_by INTEGER NOT NULL REFERENCES users(id)
+	);
+	CREATE INDEX drawings_latest ON drawings(encounter_id, zone, id);`,
+	// Printed spectacle / contact lens Rx (spec §12.5 with FIXes): written on Print, print date kept,
+	// values (incl. prism and ADD) as JSON keyed by eye_mag dispense column names. Soft delete records who and when.
+	`CREATE TABLE rx_dispense (
+		id INTEGER PRIMARY KEY,
+		patient_id INTEGER NOT NULL REFERENCES patients(id),
+		encounter_id INTEGER NOT NULL REFERENCES encounters(id),
+		provider_id INTEGER NOT NULL REFERENCES users(id),
+		printed_by INTEGER NOT NULL REFERENCES users(id),
+		printed_at TEXT NOT NULL,
+		refdate TEXT NOT NULL,
+		expires_on TEXT NOT NULL,
+		reftype TEXT NOT NULL CHECK (reftype IN ('W', 'MR', 'CR', 'AR', 'CTL')),
+		rx_number INTEGER,
+		rx_type TEXT NOT NULL DEFAULT '',
+		rx_values TEXT NOT NULL,
+		deleted_at TEXT,
+		deleted_by INTEGER REFERENCES users(id)
+	);
+	CREATE INDEX rx_dispense_patient ON rx_dispense(patient_id, printed_at);`
 ];
 
 export function migrate(db: DB): void {

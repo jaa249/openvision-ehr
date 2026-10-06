@@ -7,7 +7,28 @@
 	const sections = $derived(buildReport(item.findings));
 	const p = $derived(item.patient);
 	const e = $derived(item.encounter);
+
+	// Drawings (spec §13.4): the latest saved drawing prints with its section; none means nothing.
+	const DRAWING_TITLES: Record<string, string> = {
+		HPI: 'History of present illness',
+		EXT: 'External',
+		ANTSEG: 'Anterior segment',
+		NEURO: 'Neuro',
+		RETINA: 'Retina',
+		IMPPLAN: 'Impression/Plan'
+	};
+	const drawn = $derived(item.drawingZones ?? []);
+	const drawingIn = (title: string) => drawn.find((z) => DRAWING_TITLES[z] === title);
+	/** Drawn zones whose section has no recorded findings still print, after the sections. */
+	const drawnOnly = $derived(drawn.filter((z) => !sections.some((s) => s.title === DRAWING_TITLES[z])));
+	const drawingUrl = (zone: string) => `/api/patients/${p.id}/encounters/${e.id}/drawings/${zone}`;
 </script>
+
+{#snippet drawing(zone: string)}
+	<figure class="drawing">
+		<img src={drawingUrl(zone)} width="324" height="180" alt="{DRAWING_TITLES[zone] ?? zone} drawing, OD on the left" />
+	</figure>
+{/snippet}
 
 <!-- One encounter on paper. Colours are fixed (paper is white in every theme). -->
 <article class="report" aria-label="Exam report for {p.legalName}, {e.date}">
@@ -43,6 +64,8 @@
 	{#each sections as s (s.title)}
 		<section>
 			<h2>{s.title}</h2>
+			{#if s.summary}<p class="summary">{s.summary}</p>{/if}
+			{#if s.rows.length}
 			<table>
 				<thead>
 					<tr><th scope="col" class="od">OD (right)</th><th scope="col" class="label"><span class="visually-hidden">Finding</span></th><th scope="col">OS (left)</th></tr>
@@ -57,10 +80,28 @@
 					{/each}
 				</tbody>
 			</table>
+			{/if}
+			{#if s.table}
+				<table class="grid">
+					<thead><tr>{#each s.table.head as h, i (i)}<th scope="col">{h}</th>{/each}</tr></thead>
+					<tbody>
+						{#each s.table.body as row, r (r)}
+							<tr>{#each row as c, i (i)}{#if i === 0}<th scope="row">{c}</th>{:else}<td>{c}</td>{/if}{/each}</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
 			{#if s.comments}<p class="comments"><strong>Comments:</strong> {s.comments}</p>{/if}
+			{#if drawingIn(s.title)}{@render drawing(drawingIn(s.title)!)}{/if}
 		</section>
 	{:else}
 		<p class="none">No exam findings recorded for this visit.</p>
+	{/each}
+	{#each drawnOnly as z (z)}
+		<section>
+			<h2>{DRAWING_TITLES[z] ?? z}</h2>
+			{@render drawing(z)}
+		</section>
 	{/each}
 
 	<footer>
@@ -164,9 +205,34 @@
 		text-align: center;
 		font-weight: 600;
 	}
+	.grid {
+		margin-top: 0.3em;
+	}
+	.grid th,
+	.grid td {
+		text-align: left;
+		width: auto;
+	}
+	.grid tbody th {
+		font-weight: 600;
+	}
+	.summary {
+		margin: 0.2em 0 0;
+	}
 	.comments {
 		margin: 0.3em 0 0;
 		white-space: pre-wrap;
+	}
+	.drawing {
+		margin: 0.4em 0 0;
+	}
+	.drawing img {
+		display: block;
+		width: 3.375in;
+		max-width: 100%;
+		height: auto;
+		aspect-ratio: 450 / 250;
+		border: 1px solid var(--rule);
 	}
 	.none {
 		color: var(--ink-2);

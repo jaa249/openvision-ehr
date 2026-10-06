@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="250" viewBox="0 0 450 250">
+	<!-- OpenVision original art (Apache-2.0). Blank base: OD on the viewer's left. -->
+	<rect width="450" height="250" fill="#fff"/>
+	<line x1="225" y1="34" x2="225" y2="236" stroke="#d1d5db" stroke-width="1" stroke-dasharray="3 5"/>
+	<g font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#374151"><text x="12" y="22">OD</text><text x="438" y="22" text-anchor="end">OS</text></g>
+</svg>

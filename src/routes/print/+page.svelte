@@ -21,9 +21,17 @@
 				body: JSON.stringify({ ids: data.items.map((i) => i.encounter.id) })
 			}).catch(() => {});
 		window.addEventListener('afterprint', log);
-		if (data.auto) setTimeout(() => window.print(), 300);
+		if (data.auto) void printWhenReady();
 		return () => window.removeEventListener('afterprint', log);
 	});
+
+	/** Opens the print dialog once every report image (drawings, §13.4) has loaded, so none print blank. */
+	async function printWhenReady() {
+		const imgs = [...document.querySelectorAll<HTMLImageElement>('.sheets img')];
+		const loaded = Promise.all(imgs.map((img) => img.decode().catch(() => {}))); // a broken image must not block printing
+		await Promise.race([loaded, new Promise((r) => setTimeout(r, 15_000))]);
+		window.print();
+	}
 </script>
 
 <svelte:head><title>{title} · OpenVision</title></svelte:head>
@@ -36,7 +44,7 @@
 	<span class="tip">For a PDF, choose <strong>Save as PDF</strong> as the printer.</span>
 	<a class="export" href="/export/csv?ids={idList}" download>Export CSV</a>
 	<a class="export" href="/export/fhir?ids={idList}" download>Export FHIR</a>
-	<button type="button" class="primary" onclick={() => window.print()}>Print</button>
+	<button type="button" class="primary" onclick={printWhenReady}>Print</button>
 </div>
 
 <div class="sheets">

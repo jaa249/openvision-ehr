@@ -11,6 +11,8 @@
 	import QuickPickPanel from '#lib/components/QuickPickPanel.svelte';
 	import PriorsPanel from '#lib/components/PriorsPanel.svelte';
 	import ShorthandBar from '#lib/components/ShorthandBar.svelte';
+	import CustomSection from '#lib/components/sections/CustomSection.svelte';
+	import DrawingPanel from '#lib/components/DrawingPanel.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -21,7 +23,7 @@
 	let section = $state<SectionId>('ANTSEG');
 	let shorthand = $state('');
 	/** Right-hand helper: none (just type), quick picks, or prior visits (spec §1.6). */
-	let mode = $state<'text' | 'qp' | 'priors'>('text');
+	let mode = $state<'text' | 'qp' | 'priors' | 'draw'>('text');
 	let priorIndex = $state(0);
 	/** Fields filled by copy-forward; tinted until edited (spec §6.3). */
 	let copied = $state(new Set<string>());
@@ -33,11 +35,28 @@
 	const current = $derived(SECTIONS.find((s) => s.id === section)!);
 	const sec = $derived(SECTION_DEF.get(section));
 	const picks = $derived(data.quickPicks.filter((p) => p.zone === section));
-	const MODES = [
+	/** Sections drawn as their own panel component instead of OD/OS rows. */
+	const CUSTOM: SectionId[] = ['ACUITY', 'IOP', 'REFRACTION'];
+	/** Zones with a drawing canvas (spec §5.1; HPI, NEURO and IMPPLAN join when those sections exist). */
+	const DRAW_ZONES: SectionId[] = ['EXT', 'ANTSEG', 'RETINA'];
+	const ALL_MODES = [
 		{ id: 'text', label: 'Type', key: 't' },
 		{ id: 'qp', label: 'Quick picks', key: 'b' },
-		{ id: 'priors', label: 'Prior visits', key: 'p' }
+		{ id: 'priors', label: 'Prior visits', key: 'p' },
+		{ id: 'draw', label: 'Draw', key: 'd' }
 	] as const;
+	const MODES = $derived(
+		ALL_MODES.filter(
+			(m) =>
+				m.id === 'text' ||
+				(m.id === 'qp' && picks.length > 0) ||
+				(m.id === 'priors' && !!sec) ||
+				(m.id === 'draw' && DRAW_ZONES.includes(section))
+		)
+	);
+	// A helper that does not exist for this section falls back to plain typing.
+	const activeMode = $derived(MODES.some((m) => m.id === mode) ? mode : 'text');
+	const custom = $derived(CUSTOM.includes(section));
 
 	// ---------- printing ----------
 	let notice = $state<string | null>(null);
@@ -51,6 +70,19 @@
 			return;
 		}
 		const url = `/print?auto=1&ids=${data.encounter.id}`;
+		if (tab) tab.location.href = url;
+		else window.location.href = url;
+	}
+	/** Spectacle / contact lens Rx for one refraction source (spec §12.1), saved first like the report. */
+	async function printRx(source: string) {
+		const tab = window.open('about:blank', '_blank');
+		if (!(await saver.settle())) {
+			tab?.close();
+			notice = 'Rx not opened: recent changes are not saved yet. Check the connection and try again.';
+			setTimeout(() => (notice = null), 8000);
+			return;
+		}
+		const url = `/patients/${data.patient.id}/encounters/${data.encounter.id}/rx?source=${encodeURIComponent(source)}`;
 		if (tab) tab.location.href = url;
 		else window.location.href = url;
 	}
@@ -228,12 +260,12 @@
 	<div class="body">
 		<SectionRail current={section} {findings} onselect={(id) => (section = id)} />
 		<main id="exam" tabindex="-1">
-			{#if sec}
+			{#if sec || custom}
 				<div class="modes" role="group" aria-label="Helper panel">
 					{#each MODES as m (m.id)}
 						<button
 							type="button"
-							aria-pressed={mode === m.id}
+							aria-pressed={activeMode === m.id}
 							aria-keyshortcuts="Alt+{m.key.toUpperCase()}"
 							title="Alt+{m.key.toUpperCase()}"
 							onclick={() => (mode = m.id)}
@@ -242,22 +274,39 @@
 						</button>
 					{/each}
 				</div>
-				<div class="work" class:with-aside={mode !== 'text'}>
-					<SectionPanel
-						{sec}
-						{findings}
-						{preview}
-						{copied}
-						onedit={edit}
-						ondefaults={defaults}
-						oncopy={copy}
-						onclear={clearSide}
-					/>
-					{#if mode === 'qp'}
+				<div class="work" class:with-aside={activeMode !== 'text'} class:wide-aside={activeMode === 'draw'}>
+					{#if sec}
+						<SectionPanel
+							{sec}
+							{findings}
+							{preview}
+							{copied}
+							onedit={edit}
+							ondefaults={defaults}
+							oncopy={copy}
+							onclear={clearSide}
+						/>
+					{:else}
+						<CustomSection
+							{section}
+							{findings}
+							{preview}
+							{copied}
+							defaults={data.defaults}
+							onedit={edit}
+							oncommit={commit}
+							onprintrx={printRx}
+						/>
+					{/if}
+					{#if activeMode === 'qp' && sec}
 						<aside class="aside" aria-label="Quick picks">
 							<QuickPickPanel {sec} {picks} onpick={pick} />
 						</aside>
-					{:else if mode === 'priors'}
+					{:else if activeMode === 'draw'}
+						<aside class="aside" aria-label="Drawing">
+							<DrawingPanel patientId={data.patient.id} encounterId={data.encounter.id} zone={section} />
+						</aside>
+					{:else if activeMode === 'priors' && sec}
 						<aside class="aside" aria-label="Prior visits">
 							<PriorsPanel
 								{sec}
@@ -272,10 +321,7 @@
 			{:else}
 				<div class="empty">
 					<h2>{current.label}</h2>
-					<p>
-						This section isn't built yet. External, Slit lamp and Fundus (keys <kbd>5</kbd> <kbd>6</kbd>
-						<kbd>7</kbd>) are ready to try.
-					</p>
+					<p>This section isn't built yet. Keys <kbd>2</kbd>–<kbd>7</kbd> are ready to try.</p>
 				</div>
 			{/if}
 		</main>
@@ -347,6 +393,9 @@
 	.work.with-aside {
 		grid-template-columns: minmax(0, 1fr) 320px;
 	}
+	.work.with-aside.wide-aside {
+		grid-template-columns: minmax(0, 1fr) 484px;
+	}
 	.aside {
 		position: sticky;
 		top: 0;
@@ -366,7 +415,8 @@
 	}
 	/* Stack the helper under the exam when the work area (not the window) gets narrow. */
 	@container (max-width: 1000px) {
-		.work.with-aside {
+		.work.with-aside,
+		.work.with-aside.wide-aside {
 			grid-template-columns: minmax(0, 1fr);
 		}
 		.aside {

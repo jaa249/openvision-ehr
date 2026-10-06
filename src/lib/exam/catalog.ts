@@ -1,6 +1,9 @@
 // Exam field catalog. Field ids follow eye_mag's names (docs/spec/FIELDS.md) so
 // shorthand users can keep typing the codes they already know.
 
+import { WORKUP_DEFAULTS, WORKUP_FIELDS } from './sections/workup.ts';
+import { REFRACTION_DEFAULTS, REFRACTION_FIELDS } from './sections/refraction.ts';
+
 export type Eye = 'OD' | 'OS' | 'OU';
 export type SectionId =
 	| 'HPI'
@@ -23,9 +26,9 @@ export interface Section {
 
 export const SECTIONS: Section[] = [
 	{ id: 'HPI', key: '1', label: 'HPI', available: false },
-	{ id: 'ACUITY', key: '2', label: 'Acuity', available: false },
-	{ id: 'REFRACTION', key: '3', label: 'Refraction', available: false },
-	{ id: 'IOP', key: '4', label: 'IOP', available: false },
+	{ id: 'ACUITY', key: '2', label: 'Vision', available: true },
+	{ id: 'REFRACTION', key: '3', label: 'Refraction', available: true },
+	{ id: 'IOP', key: '4', label: 'IOP / pupils', available: true },
 	{ id: 'EXT', key: '5', label: 'External', available: true },
 	{ id: 'ANTSEG', key: '6', label: 'Slit lamp', available: true },
 	{ id: 'RETINA', key: '7', label: 'Fundus', available: true },
@@ -174,7 +177,8 @@ function sectionFields(sec: SectionDef): FieldDef[] {
 	return out;
 }
 
-export const FIELDS: FieldDef[] = EXAM_SECTIONS.flatMap(sectionFields);
+/** Every writable exam field: row-based sections plus the custom-panel section modules. */
+export const FIELDS: FieldDef[] = [...EXAM_SECTIONS.flatMap(sectionFields), ...WORKUP_FIELDS, ...REFRACTION_FIELDS];
 
 export const FIELD_BY_ID = new Map(FIELDS.map((f) => [f.id, f]));
 
@@ -188,6 +192,8 @@ export function isKnownField(id: string): boolean {
 
 /** Seed "normal exam" defaults (short clinical terms; spec §3.1). */
 export const SEED_DEFAULTS: Record<string, string> = {
+	...WORKUP_DEFAULTS,
+	...REFRACTION_DEFAULTS,
 	// External
 	RBROW: 'no brow ptosis',
 	LBROW: 'no brow ptosis',

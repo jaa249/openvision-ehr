@@ -1,0 +1,338 @@
+// workup section module: fields, shorthand codes, defaults and report output for this part of the exam.
+// Covers the clinical strip (spec §1.4): visual acuity (§8.1), IOP (§8.3), Amsler (§8.4),
+// confrontation fields (§8.5), pupils (§8.6) and mental status, plus their report items (§13.2 items 3-4).
+// Wired into catalog.ts (FIELDS, SEED_DEFAULTS), shorthand/codes.ts (ALIASES) and exam/report.ts (buildReport).
+// Rule: import only TYPES from catalog.ts / report.ts here (they import values from this file).
+import type { Eye, FieldDef, SectionId } from '../catalog.ts';
+import type { ReportRow, ReportSection } from '../report.ts';
+import type { Findings } from '#lib/shorthand/parse.ts';
+// Refraction imports only types, so importing its values here is not circular. Some acuity columns
+// (MR/AR/CR/CTL VA, wearing VA, post-dilation IOP) are shown in both panels; whichever module defines
+// a field first owns it, so the catalog never holds the same id twice.
+import { REFRACTION_FIELDS } from './refraction.ts';
+
+// ---------- field layout (shared with VisionPanel / PressurePanel) ----------
+
+export interface VaRow {
+	key: string;
+	label: string;
+	od: string;
+	os: string;
+	/** Near rows offer Jaeger picks instead of Snellen. */
+	near?: boolean;
+}
+
+/** Acuity rows in the report's order (spec §13.2 item 3). Ids are eye_mag's column names. */
+export const VA_ROWS: VaRow[] = [
+	{ key: 'SC', label: 'sc', od: 'SCODVA', os: 'SCOSVA' },
+	{ key: 'CC', label: 'cc', od: 'ODVA', os: 'OSVA' }, // wearing Rx #1 VA (§1.4)
+	{ key: 'AR', label: 'AR', od: 'ARODVA', os: 'AROSVA' },
+	{ key: 'MR', label: 'MR', od: 'MRODVA', os: 'MROSVA' },
+	{ key: 'CR', label: 'CR', od: 'CRODVA', os: 'CROSVA' },
+	{ key: 'PH', label: 'PH', od: 'PHODVA', os: 'PHOSVA' },
+	{ key: 'CTL', label: 'CTL', od: 'CTLODVA', os: 'CTLOSVA' },
+	{ key: 'SCNEAR', label: 'near sc', od: 'SCNEARODVA', os: 'SCNEAROSVA', near: true },
+	{ key: 'CCNEAR', label: 'near cc', od: 'WODVANEAR', os: 'OSVANEARCC', near: true },
+	{ key: 'ARNEAR', label: 'AR near', od: 'ARNEARODVA', os: 'ARNEAROSVA', near: true },
+	{ key: 'MRNEAR', label: 'MR near', od: 'MRNEARODVA', os: 'MRNEAROSVA', near: true },
+	{ key: 'PAM', label: 'PAM', od: 'PAMODVA', os: 'PAMOSVA' },
+	{ key: 'GLARE', label: 'Glare', od: 'GLAREODVA', os: 'GLAREOSVA' },
+	// eye_mag shows contrast in its acuity grid but FIELDS.md has no column; ids follow the GLARE pattern.
+	{ key: 'CONTRAST', label: 'Contrast', od: 'CONTRASTODVA', os: 'CONTRASTOSVA' },
+	{ key: 'LI', label: 'LI', od: 'LIODVA', os: 'LIOSVA' }
+];
+
+export const IOP_METHODS = [
+	{ key: 'AP', label: 'Applanation', short: 'App', od: 'ODIOPAP', os: 'OSIOPAP', numeric: true },
+	{ key: 'TPN', label: 'Tono-Pen', short: 'Tpn', od: 'ODIOPTPN', os: 'OSIOPTPN', numeric: true },
+	{ key: 'FTN', label: 'Finger tension', short: 'FTN', od: 'ODIOPFTN', os: 'OSIOPFTN', numeric: false }
+] as const;
+
+/**
+ * Confrontation quadrants, 1-4 per eye (ODVF1..4, OSVF1..4). Value '1' = defect, '0' = full, '' = not tested.
+ * Our numbering: 1 superior temporal, 2 superior nasal, 3 inferior temporal, 4 inferior nasal.
+ */
+export const VF_QUADRANTS = [
+	{ n: 1, label: 'Superior temporal', short: 'ST' },
+	{ n: 2, label: 'Superior nasal', short: 'SN' },
+	{ n: 3, label: 'Inferior temporal', short: 'IT' },
+	{ n: 4, label: 'Inferior nasal', short: 'IN' }
+] as const;
+export const VF_IDS = (['OD', 'OS'] as const).flatMap((e) => VF_QUADRANTS.map((q) => `${e}VF${q.n}`));
+
+export const PUPIL_IDS = {
+	OD: { size1: 'ODPUPILSIZE1', size2: 'ODPUPILSIZE2', react: 'ODPUPILREACTIVITY', apd: 'ODAPD' },
+	OS: { size1: 'OSPUPILSIZE1', size2: 'OSPUPILSIZE2', react: 'OSPUPILREACTIVITY', apd: 'OSAPD' }
+} as const;
+export const DIM_PUPIL_IDS = {
+	OD: { size1: 'DIMODPUPILSIZE1', size2: 'DIMODPUPILSIZE2', react: 'DIMODPUPILREACTIVITY' },
+	OS: { size1: 'DIMOSPUPILSIZE1', size2: 'DIMOSPUPILSIZE2', react: 'DIMOSPUPILREACTIVITY' }
+} as const;
+
+/** Mental status checkboxes (§1.4). Stored values follow eye_mag ('yes' / 'TPP' / 'nml'), '' = unchecked. */
+export const MENTAL_STATUS = [
+	{ id: 'ALERT', label: 'Alert', on: 'yes' },
+	{ id: 'ORIENTED', label: 'Oriented ×3', on: 'TPP' },
+	// eye_mag stores this in a column named `confused`; we keep the meaning, not the name (§1.4).
+	{ id: 'MOOD_AFFECT', label: 'Mood / affect normal', on: 'nml' }
+] as const;
+
+// ---------- fields ----------
+
+type Spec = [id: string, section: SectionId, row: string, eye: Eye, label: string, maxLength: number, expand?: boolean];
+
+const vaSpecs: Spec[] = VA_ROWS.flatMap((r) => [
+	[r.od, 'ACUITY', r.key, 'OD', `VA ${r.label} OD`, 25],
+	[r.os, 'ACUITY', r.key, 'OS', `VA ${r.label} OS`, 25]
+]);
+
+const specs: Spec[] = [
+	// Vision (§1.4, §8.1)
+	...vaSpecs,
+	['BINOCVA', 'ACUITY', 'BINOC', 'OU', 'VA binocular OU', 25],
+	['GLARECOMMENTS', 'ACUITY', 'GLARE', 'OU', 'Glare comments', 255],
+	// Amsler (§8.4): 0-5
+	['AMSLEROD', 'ACUITY', 'AMSLER', 'OD', 'Amsler OD', 1],
+	['AMSLEROS', 'ACUITY', 'AMSLER', 'OS', 'Amsler OS', 1],
+	// Mental status (§1.4)
+	...MENTAL_STATUS.map((m): Spec => [m.id, 'IOP', 'MENTAL', 'OU', m.label, 3]),
+	// IOP (§8.3)
+	...IOP_METHODS.flatMap((m): Spec[] => [
+		[m.od, 'IOP', `IOP${m.key}`, 'OD', `IOP ${m.label} OD`, 10],
+		[m.os, 'IOP', `IOP${m.key}`, 'OS', `IOP ${m.label} OS`, 10]
+	]),
+	['IOPTIME', 'IOP', 'IOPTIME', 'OU', 'IOP time', 10],
+	['ODIOPTARGET', 'IOP', 'IOPTARGET', 'OD', 'IOP target OD', 10],
+	['OSIOPTARGET', 'IOP', 'IOPTARGET', 'OS', 'IOP target OS', 10],
+	['ODIOPPOST', 'IOP', 'IOPPOST', 'OD', 'IOP post-dilation OD', 10],
+	['OSIOPPOST', 'IOP', 'IOPPOST', 'OS', 'IOP post-dilation OS', 10],
+	['IOPPOSTTIME', 'IOP', 'IOPPOST', 'OU', 'IOP post-dilation time', 10],
+	// Pupils (§8.6)
+	['PUPIL_NORMAL', 'IOP', 'PUPILS', 'OU', 'Pupils normal', 2],
+	...(['OD', 'OS'] as const).flatMap((e): Spec[] => [
+		[PUPIL_IDS[e].size1, 'IOP', 'PUPILSIZE', e, `Pupil size light (from) ${e}`, 25],
+		[PUPIL_IDS[e].size2, 'IOP', 'PUPILSIZE', e, `Pupil size light (to) ${e}`, 25],
+		[PUPIL_IDS[e].react, 'IOP', 'PUPILREACT', e, `Pupil reactivity ${e}`, 25],
+		[PUPIL_IDS[e].apd, 'IOP', 'APD', e, `APD ${e}`, 25],
+		[DIM_PUPIL_IDS[e].size1, 'IOP', 'DIMPUPILSIZE', e, `Pupil size dim (from) ${e}`, 25],
+		[DIM_PUPIL_IDS[e].size2, 'IOP', 'DIMPUPILSIZE', e, `Pupil size dim (to) ${e}`, 25],
+		[DIM_PUPIL_IDS[e].react, 'IOP', 'DIMPUPILREACT', e, `Pupil reactivity dim ${e}`, 25]
+	]),
+	['PUPIL_COMMENTS', 'IOP', 'PUPILCOMMENTS', 'OU', 'Pupil comments', 4000, true],
+	// Confrontation fields (§8.5)
+	...(['OD', 'OS'] as const).flatMap((e) =>
+		VF_QUADRANTS.map((q): Spec => [`${e}VF${q.n}`, 'IOP', 'VF', e, `Field ${q.label.toLowerCase()} ${e}`, 1])
+	)
+];
+
+const taken = new Set(REFRACTION_FIELDS.map((f) => f.id));
+
+export const WORKUP_FIELDS: FieldDef[] = specs
+	.filter(([id]) => !taken.has(id))
+	.map(([id, section, row, eye, label, maxLength, expand]) => ({ id, section, row, eye, label, maxLength, expand: !!expand }));
+
+/**
+ * Shorthand code -> field ids (codes are upper-case). Every field id above is already a code (spec §2.3
+ * stage 3, e.g. SCODVA:20/25, ODIOPAP:15); these are short convenience codes that clash with nothing.
+ */
+export const WORKUP_ALIASES: Record<string, string[]> = {
+	RVA: ['SCODVA'],
+	LVA: ['SCOSVA'],
+	BVA: ['SCODVA', 'SCOSVA'],
+	RPH: ['PHODVA'],
+	LPH: ['PHOSVA'],
+	RIOP: ['ODIOPAP'],
+	LIOP: ['OSIOPAP'],
+	IOP: ['ODIOPAP', 'OSIOPAP'],
+	BIOP: ['ODIOPAP', 'OSIOPAP'],
+	RTPN: ['ODIOPTPN'],
+	LTPN: ['OSIOPTPN'],
+	RAPD: ['ODAPD'],
+	LAPD: ['OSAPD'],
+	APD: ['ODAPD', 'OSAPD'],
+	BAPD: ['ODAPD', 'OSAPD'],
+	PUPCOM: ['PUPIL_COMMENTS'],
+	PCOM: ['PUPIL_COMMENTS']
+};
+
+/** Starter "normal" values (spec §3.1; the seed list's NEURO pupil rows). */
+export const WORKUP_DEFAULTS: Record<string, string> = {
+	ODPUPILSIZE1: '3',
+	ODPUPILSIZE2: '2',
+	ODPUPILREACTIVITY: '+2',
+	ODAPD: '0',
+	OSPUPILSIZE1: '3',
+	OSPUPILSIZE2: '2',
+	OSPUPILREACTIVITY: '+2',
+	OSAPD: '0'
+};
+
+/** Pupils "Normal" when the provider has no list values (spec §3.2 fixed-value button). */
+export const PUPILS_NORMAL: Record<string, string> = {
+	ODPUPILSIZE1: '3.0',
+	ODPUPILSIZE2: '2.0',
+	ODPUPILREACTIVITY: '+2',
+	ODAPD: '0',
+	OSPUPILSIZE1: '3.0',
+	OSPUPILSIZE2: '2.0',
+	OSPUPILREACTIVITY: '+2',
+	OSAPD: '0'
+};
+
+/** Fallback IOP target when neither the visit nor the provider's list sets one (§8.3). */
+export const DEFAULT_IOP_TARGET = 21;
+
+// ---------- entry helpers (pure, so panels and tests agree) ----------
+
+/** §8.1: "=" becomes "+", a leading "j" becomes "J" (Jaeger). FIX: works for any input method. */
+export function normalizeVA(v: string): string {
+	return v.replace(/=/g, '+').replace(/^(\s*)j/, '$1J');
+}
+
+/** §8.6: a single-digit reactivity gets a "+" prefix. */
+export function normalizeReactivity(v: string): string {
+	const t = v.trim();
+	return /^\d$/.test(t) ? `+${t}` : v;
+}
+
+/** "h:mm AM/PM" (§8.3). */
+export function formatTime(d: Date): string {
+	const h = d.getHours();
+	const m = String(d.getMinutes()).padStart(2, '0');
+	return `${h % 12 || 12}:${m} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/** An empty or midnight time is replaced with the current time (§8.3, parity). */
+export function needsTimeStamp(time: string): boolean {
+	const t = time.trim().toUpperCase();
+	return !t || /^(12:00\s*AM|0?0:00(:00)?)$/.test(t);
+}
+
+function num(v: string | undefined): number | null {
+	const t = (v ?? '').trim();
+	return /^\d+(\.\d+)?$/.test(t) ? Number(t) : null;
+}
+
+/**
+ * The IOP target for one eye: this visit's value, else the provider's list entry, else 21 (§8.3).
+ * (The latest-prior-visit step needs priors, which the panels do not receive.)
+ */
+export function iopTarget(eye: 'OD' | 'OS', findings: Findings, defaults: Record<string, string> = {}): number {
+	const id = `${eye}IOPTARGET`;
+	return num(findings[id]?.value) ?? num(defaults[id]) ?? DEFAULT_IOP_TARGET;
+}
+
+/** FIX (§8.3): numeric comparison against the eye's target; text such as "soft" is never high. */
+export function isHighIop(value: string | undefined, target: number = DEFAULT_IOP_TARGET): boolean {
+	const n = num(value);
+	return n !== null && n > target;
+}
+
+export type FieldsState = 'untested' | 'full' | 'defect';
+
+/** One eye's confrontation result: nothing recorded, all full, or at least one defect (§8.5, §13.2 FIX). */
+export function fieldsState(findings: Findings, eye: 'OD' | 'OS'): FieldsState {
+	const vals = VF_QUADRANTS.map((q) => findings[`${eye}VF${q.n}`]?.value?.trim() ?? '');
+	if (vals.some((v) => v === '1')) return 'defect';
+	return vals.some((v) => v !== '') ? 'full' : 'untested';
+}
+
+/** Amsler severity 0-5, or null when not recorded. */
+export function amslerValue(findings: Findings, eye: 'OD' | 'OS'): number | null {
+	const v = findings[`AMSLER${eye}`]?.value?.trim() ?? '';
+	return /^[0-5]$/.test(v) ? Number(v) : null;
+}
+
+// ---------- report (§13.2 items 3-4) ----------
+
+const range = (a: string, b: string) => (a && b ? `${a} → ${b}` : a || b);
+
+/** Printed report sections for this module, in spec §13.2 order. */
+export function workupReport(findings: Findings): ReportSection[] {
+	const v = (id: string) => findings[id]?.value?.trim() ?? '';
+	const filled = (r: ReportRow) => !!(r.od || r.os);
+	const out: ReportSection[] = [];
+
+	// Visual acuities: a row only when either eye has a value.
+	const va = VA_ROWS.map((r) => ({ label: r.label, od: v(r.od), os: v(r.os) })).filter(filled);
+	const vaNotes = [v('BINOCVA') && `Binocular VA ${v('BINOCVA')}`, v('GLARECOMMENTS') && `Glare: ${v('GLARECOMMENTS')}`]
+		.filter(Boolean)
+		.join('. ');
+	if (va.length || vaNotes) out.push({ title: 'Visual acuities', rows: va, comments: vaNotes });
+
+	// Intraocular pressures: each method only when present; time only when an IOP exists (FIX).
+	const unit = (s: string) => (num(s) !== null ? `${s} mmHg` : s);
+	const iop = IOP_METHODS.map((m) => ({
+		label: m.short,
+		od: m.numeric ? unit(v(m.od)) : v(m.od),
+		os: m.numeric ? unit(v(m.os)) : v(m.os)
+	})).filter(filled);
+	const post = { label: 'Post-dilation', od: unit(v('ODIOPPOST')), os: unit(v('OSIOPPOST')) };
+	if (filled(post) && v('IOPPOSTTIME')) post.label += ` @ ${v('IOPPOSTTIME')}`;
+	if (iop.length || filled(post)) {
+		const time = iop.length && v('IOPTIME') ? ` @ ${v('IOPTIME')}` : '';
+		out.push({ title: `Intraocular pressures${time}`, rows: filled(post) ? [...iop, post] : iop, comments: '' });
+	}
+
+	// Pupils: "Round and reactive" when Normal is checked and sizes are blank; else a row per measure.
+	const pupils = [
+		{ label: 'Size', od: range(v('ODPUPILSIZE1'), v('ODPUPILSIZE2')), os: range(v('OSPUPILSIZE1'), v('OSPUPILSIZE2')) },
+		{ label: 'Reactivity', od: v('ODPUPILREACTIVITY'), os: v('OSPUPILREACTIVITY') },
+		{ label: 'APD', od: v('ODAPD'), os: v('OSAPD') }
+	].filter(filled);
+	const pupilsNormal = !!v('PUPIL_NORMAL') && v('PUPIL_NORMAL') !== '0';
+	const sizesBlank = !['ODPUPILSIZE1', 'ODPUPILSIZE2', 'OSPUPILSIZE1', 'OSPUPILSIZE2'].some(v);
+
+	// Fields print only alongside other strip items, so an empty exam prints nothing.
+	const strip = out.length > 0 || pupils.length > 0 || pupilsNormal || VF_IDS.some(v);
+	if (strip) {
+		const od = fieldsState(findings, 'OD');
+		const os = fieldsState(findings, 'OS');
+		if (od === 'defect' || os === 'defect') {
+			const cell = (eye: 'OD' | 'OS', n: number) => {
+				const s = fieldsState(findings, eye);
+				if (s === 'untested') return 'not tested';
+				return v(`${eye}VF${n}`) === '1' ? 'defect' : 'full';
+			};
+			out.push({
+				title: 'Confrontation fields',
+				rows: [],
+				comments: '',
+				table: {
+					head: ['', 'OD temporal', 'OD nasal', 'OS nasal', 'OS temporal'],
+					body: [
+						['Superior', cell('OD', 1), cell('OD', 2), cell('OS', 2), cell('OS', 1)],
+						['Inferior', cell('OD', 3), cell('OD', 4), cell('OS', 4), cell('OS', 3)]
+					]
+				}
+			});
+		} else {
+			const word = (s: FieldsState) => (s === 'full' ? 'Full to CF' : 'not tested');
+			const text = od === os ? `${word(od)} OU` : `${word(od)} OD, ${word(os)} OS`;
+			out.push({ title: 'Confrontation fields', rows: [], comments: '', summary: text });
+		}
+	}
+
+	if (pupilsNormal && sizesBlank) out.push({ title: 'Pupils', rows: [], comments: '', summary: 'Round and reactive' });
+	else if (pupils.length) out.push({ title: 'Pupils', rows: pupils, comments: '' });
+
+	// Dim pupils and Amsler: only when any dim value, pupil comment or Amsler value exists.
+	const dim = [
+		{
+			label: 'Dim size',
+			od: range(v('DIMODPUPILSIZE1'), v('DIMODPUPILSIZE2')),
+			os: range(v('DIMOSPUPILSIZE1'), v('DIMOSPUPILSIZE2'))
+		},
+		{ label: 'Dim reactivity', od: v('DIMODPUPILREACTIVITY'), os: v('DIMOSPUPILREACTIVITY') }
+	].filter(filled);
+	const ams = (e: 'OD' | 'OS') => {
+		const a = amslerValue(findings, e);
+		return a === null ? '' : `${a}/5`;
+	};
+	const amsler = { label: 'Amsler', od: ams('OD'), os: ams('OS') };
+	if (filled(amsler)) dim.push(amsler);
+	if (dim.length || v('PUPIL_COMMENTS')) {
+		out.push({ title: 'Dim pupils and Amsler', rows: dim, comments: v('PUPIL_COMMENTS') });
+	}
+	return out;
+}

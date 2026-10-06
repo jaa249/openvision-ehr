@@ -1,6 +1,7 @@
 // Printing: report data for one or many encounters, the mass-print list, and the print log.
 import type { DB } from './db.ts';
 import { getEncounter, getFindings, getPatientHeader } from './exam.ts';
+import { drawingZones } from './drawings.ts';
 import { MAX_EXPORT, MAX_PRINT } from '#lib/exam/print.ts';
 import type { Practice, PrintableEncounter } from '#lib/exam/types.ts';
 
@@ -16,7 +17,12 @@ export function getPrintable(db: DB, patientId: number, encounterId: number): Pr
 	const patient = getPatientHeader(db, patientId);
 	const encounter = patient ? getEncounter(db, patientId, encounterId) : null;
 	if (!patient || !encounter) return null;
-	return { patient, encounter, findings: getFindings(db, patientId, encounterId) ?? {} };
+	return {
+		patient,
+		encounter,
+		findings: getFindings(db, patientId, encounterId) ?? {},
+		drawingZones: drawingZones(db, encounterId)
+	};
 }
 
 /** Many encounters by id, ordered by patient then visit date. Unknown ids are skipped. */

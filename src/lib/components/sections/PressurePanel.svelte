@@ -1,0 +1,697 @@
+<script lang="ts">
+	// IOP / pupils (spec §1.4 clinical strip: mental status, tension, fields, pupils; §8.3, §8.5, §8.6).
+	import {
+		DIM_PUPIL_IDS,
+		IOP_METHODS,
+		MENTAL_STATUS,
+		PUPILS_NORMAL,
+		PUPIL_IDS,
+		VF_IDS,
+		VF_QUADRANTS,
+		fieldsState,
+		formatTime,
+		iopTarget,
+		isHighIop,
+		needsTimeStamp,
+		normalizeReactivity
+	} from '#lib/exam/sections/workup.ts';
+	import type { PanelProps } from './types.ts';
+	import { cellState, withValues } from './workup/cell.ts';
+
+	type Side = 'OD' | 'OS';
+	let { findings, preview, copied, defaults, onedit, oncommit }: PanelProps = $props();
+
+	const cell = (id: string) => cellState(id, findings, preview, copied);
+	const val = (id: string) => findings[id]?.value ?? '';
+
+	// ---------- IOP ----------
+	const target = $derived({ OD: iopTarget('OD', findings, defaults), OS: iopTarget('OS', findings, defaults) });
+	/** Placeholder for an empty target box: what applies when nothing is typed (list value, else 21). */
+	const fallbackTarget = $derived({
+		OD: iopTarget('OD', {}, defaults),
+		OS: iopTarget('OS', {}, defaults)
+	});
+	const IOP_IDS: string[] = IOP_METHODS.flatMap((m) => [m.od, m.os]);
+
+	/** Typing an IOP stamps the time when it is empty or midnight (§8.3; we stamp on entry, not on save). */
+	function typeIop(id: string, value: string, timeId: 'IOPTIME' | 'IOPPOSTTIME') {
+		if (value.trim() && needsTimeStamp(val(timeId))) {
+			const { next, changed } = withValues(findings, { [id]: value, [timeId]: formatTime(new Date()) });
+			oncommit(next, changed, '');
+		} else onedit(id, value);
+	}
+
+	function now(timeId: 'IOPTIME' | 'IOPPOSTTIME') {
+		onedit(timeId, formatTime(new Date()));
+	}
+
+	function clearIop() {
+		const ids = [...IOP_IDS, 'IOPTIME'];
+		const { next, changed } = withValues(findings, Object.fromEntries(ids.map((id) => [id, ''])));
+		oncommit(next, changed, 'Cleared IOP');
+	}
+
+	// ---------- pupils ----------
+	const pupilsNormal = $derived(!!val('PUPIL_NORMAL') && val('PUPIL_NORMAL') !== '0');
+	const DIM_IDS = (['OD', 'OS'] as const).flatMap((e) => Object.values(DIM_PUPIL_IDS[e]));
+	const dimHas = $derived([...DIM_IDS, 'PUPIL_COMMENTS'].some((id) => val(id).trim()));
+	/** FIX (§1.4): the dim-light panel opens by itself whenever it holds a value. */
+	let dimOverride = $state<boolean | null>(null);
+	const showDim = $derived(dimOverride ?? dimHas);
+
+	function setPupilsNormal(on: boolean) {
+		if (!on) return onedit('PUPIL_NORMAL', '');
+		// The provider's list values when present, else the fixed normal (spec §3.2).
+		const values = Object.fromEntries(Object.entries(PUPILS_NORMAL).map(([id, v]) => [id, defaults[id] ?? v]));
+		const filled = withValues(findings, values, true);
+		const { next, changed } = withValues(filled.next, { PUPIL_NORMAL: '1' });
+		oncommit(next, [...new Set([...filled.changed, ...changed])], 'Pupils normal');
+	}
+
+	// ---------- confrontation fields ----------
+	const vfState = $derived({ OD: fieldsState(findings, 'OD'), OS: fieldsState(findings, 'OS') });
+	const ftcf = $derived(vfState.OD !== 'defect' && vfState.OS !== 'defect' && (vfState.OD === 'full' || vfState.OS === 'full'));
+	const vfSummary = $derived.by(() => {
+		if (vfState.OD === 'untested' && vfState.OS === 'untested') return 'Not tested';
+		if (ftcf && vfState.OD === vfState.OS) return 'Full to CF OU';
+		const flagged = (['OD', 'OS'] as const).flatMap((e) =>
+			VF_QUADRANTS.filter((q) => val(`${e}VF${q.n}`) === '1').map((q) => `${e} ${q.label.toLowerCase()}`)
+		);
+		return flagged.length ? `Defect: ${flagged.join(', ')}` : `Full to CF ${vfState.OD === 'full' ? 'OD' : 'OS'}, other eye not tested`;
+	});
+	/** Doctor's view facing the patient: OD temporal on the left, OS temporal on the right (D9). */
+	const GRID: Record<Side, number[]> = { OD: [1, 2, 3, 4], OS: [2, 1, 4, 3] };
+
+	/** Toggling a quadrant marks the fields as tested: other blank quadrants become "full" (0). */
+	function toggleQuadrant(id: string) {
+		const values: Record<string, string> = {};
+		for (const q of VF_IDS) if (!val(q)) values[q] = '0';
+		values[id] = val(id) === '1' ? '0' : '1';
+		const { next, changed } = withValues(findings, values);
+		oncommit(next, changed, '');
+	}
+
+	/** FTCF (§8.5, FIX §3.2): checking stores 0 in all eight quadrants; unchecking means not tested. */
+	function setFtcf(on: boolean) {
+		const { next, changed } = withValues(findings, Object.fromEntries(VF_IDS.map((id) => [id, on ? '0' : ''])));
+		oncommit(next, changed, on ? 'Fields full to CF' : 'Fields cleared');
+	}
+
+	function clearFields() {
+		setFtcf(false);
+	}
+</script>
+
+{#snippet text(id: string, label: string, opts: { numeric?: boolean; size?: 'xs' | 's' | 'm'; react?: boolean } = {})}
+	{@const c = cell(id)}
+	<span class="inp" class:ghost={c.ghost} class:is-default={c.isDefault} class:copied={c.copied} data-field={id}>
+		<input
+			class="{opts.size ?? 's'}{opts.numeric ? ' num' : ''}"
+			value={c.value}
+			inputmode={opts.numeric ? 'decimal' : 'text'}
+			autocomplete="off"
+			aria-label="{label}{c.isDefault ? ' (default)' : ''}"
+			placeholder="–"
+			oninput={(e) => onedit(id, e.currentTarget.value)}
+			onchange={opts.react
+				? (e) => {
+						const v = normalizeReactivity(e.currentTarget.value);
+						if (v !== e.currentTarget.value) onedit(id, v);
+					}
+				: undefined}
+		/>
+	</span>
+{/snippet}
+
+{#snippet iopCell(id: string, eye: Side, label: string, numeric: boolean, timeId: 'IOPTIME' | 'IOPPOSTTIME')}
+	{@const c = cell(id)}
+	{@const high = numeric && isHighIop(c.value, target[eye])}
+	<td class="cell" class:ghost={c.ghost} class:copied={c.copied} class:high data-field={id}>
+		<input
+			class="s{numeric ? ' num' : ''}"
+			value={c.value}
+			inputmode={numeric ? 'decimal' : 'text'}
+			autocomplete="off"
+			maxlength="10"
+			aria-label="{label}{high ? `, above target ${target[eye]}` : ''}"
+			placeholder="–"
+			oninput={(e) => typeIop(id, e.currentTarget.value, timeId)}
+		/>
+		{#if high}<span class="flag" title="Above target {target[eye]} mmHg">▲ high</span>{/if}
+	</td>
+{/snippet}
+
+{#snippet timeBox(id: 'IOPTIME' | 'IOPPOSTTIME', label: string)}
+	{@const c = cell(id)}
+	<span class="time" class:ghost={c.ghost} class:copied={c.copied} data-field={id}>
+		<input class="s num" value={c.value} maxlength="10" autocomplete="off" aria-label={label} placeholder="h:mm AM" oninput={(e) => onedit(id, e.currentTarget.value)} />
+		<button type="button" class="mini" aria-label="{label}: now" onclick={() => now(id)}>Now</button>
+	</span>
+{/snippet}
+
+<section aria-labelledby="iop-title">
+	<div class="head">
+		<h2 id="iop-title">IOP / pupils</h2>
+	</div>
+
+	<div class="cards">
+		<!-- Tension -->
+		<div class="panel" role="group" aria-labelledby="tension-title">
+			<div class="card-head">
+				<h3 id="tension-title">Tension <span class="unit">mmHg</span></h3>
+				<button type="button" class="mini" onclick={clearIop}>Clear</button>
+			</div>
+			<table>
+				<thead>
+					<tr>
+						<th scope="col" class="rowhead"><span class="visually-hidden">Method</span></th>
+						<th scope="col"><span class="eye od">OD (R)</span></th>
+						<th scope="col"><span class="eye os">OS (L)</span></th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each IOP_METHODS as m (m.key)}
+						<tr>
+							<th scope="row">{m.label}<span class="code">{m.od} · {m.os}</span></th>
+							{@render iopCell(m.od, 'OD', `IOP ${m.label} OD`, m.numeric, 'IOPTIME')}
+							{@render iopCell(m.os, 'OS', `IOP ${m.label} OS`, m.numeric, 'IOPTIME')}
+						</tr>
+					{/each}
+					<tr>
+						<th scope="row">Time<span class="code">IOPTIME</span></th>
+						<td colspan="2" class="cell">{@render timeBox('IOPTIME', 'IOP time')}</td>
+					</tr>
+					<tr>
+						<th scope="row">Target<span class="code">ODIOPTARGET · OSIOPTARGET</span></th>
+						{#each ['OD', 'OS'] as const as eye (eye)}
+							{@const id = `${eye}IOPTARGET`}
+							{@const c = cell(id)}
+							<td class="cell" class:ghost={c.ghost} class:copied={c.copied} data-field={id}>
+								<input
+									class="s num"
+									value={c.value}
+									inputmode="decimal"
+									maxlength="10"
+									autocomplete="off"
+									aria-label="IOP target {eye}"
+									placeholder={String(fallbackTarget[eye])}
+									oninput={(e) => onedit(id, e.currentTarget.value)}
+								/>
+							</td>
+						{/each}
+					</tr>
+					<tr class="divider"><td colspan="3"></td></tr>
+					<tr>
+						<th scope="row">Post-dilation<span class="code">ODIOPPOST · OSIOPPOST</span></th>
+						{@render iopCell('ODIOPPOST', 'OD', 'IOP post-dilation OD', true, 'IOPPOSTTIME')}
+						{@render iopCell('OSIOPPOST', 'OS', 'IOP post-dilation OS', true, 'IOPPOSTTIME')}
+					</tr>
+					<tr>
+						<th scope="row">Post time<span class="code">IOPPOSTTIME</span></th>
+						<td colspan="2" class="cell">{@render timeBox('IOPPOSTTIME', 'IOP post-dilation time')}</td>
+					</tr>
+				</tbody>
+			</table>
+			<p class="hint">Values above the eye's target (21 unless set) show <span class="flag inline">▲ high</span>. Typing a pressure stamps the time.</p>
+		</div>
+
+		<!-- Pupils -->
+		<div class="panel" role="group" aria-labelledby="pupils-title">
+			<div class="card-head">
+				<h3 id="pupils-title">Pupils</h3>
+				<label class="check">
+					<input type="checkbox" aria-label="Pupils normal" checked={pupilsNormal} onchange={(e) => setPupilsNormal(e.currentTarget.checked)} />
+					Normal
+				</label>
+			</div>
+			<table>
+				<thead>
+					<tr>
+						<th scope="col" class="rowhead"><span class="visually-hidden">Measure</span></th>
+						<th scope="col"><span class="eye od">OD (R)</span></th>
+						<th scope="col"><span class="eye os">OS (L)</span></th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<th scope="row">Size light <span class="unit">mm</span></th>
+						{#each ['OD', 'OS'] as const as eye (eye)}
+							<td class="cell">
+								<span class="range">
+									{@render text(PUPIL_IDS[eye].size1, `Pupil size light (from) ${eye}`, { numeric: true, size: 'xs' })}
+									<span aria-hidden="true">→</span>
+									{@render text(PUPIL_IDS[eye].size2, `Pupil size light (to) ${eye}`, { numeric: true, size: 'xs' })}
+								</span>
+							</td>
+						{/each}
+					</tr>
+					<tr>
+						<th scope="row">Reactivity</th>
+						{#each ['OD', 'OS'] as const as eye (eye)}
+							<td class="cell">{@render text(PUPIL_IDS[eye].react, `Pupil reactivity ${eye}`, { react: true })}</td>
+						{/each}
+					</tr>
+					<tr>
+						<th scope="row">APD<span class="code">RAPD · LAPD</span></th>
+						{#each ['OD', 'OS'] as const as eye (eye)}
+							<td class="cell">{@render text(PUPIL_IDS[eye].apd, `APD ${eye}`)}</td>
+						{/each}
+					</tr>
+				</tbody>
+			</table>
+			<button
+				type="button"
+				class="disclose"
+				aria-expanded={showDim}
+				aria-controls="dim-pupils"
+				onclick={() => (dimOverride = !showDim)}
+			>
+				<span aria-hidden="true">{showDim ? '▾' : '▸'}</span> Dim-light pupils
+			</button>
+			{#if showDim}
+				{@const pc = cell('PUPIL_COMMENTS')}
+				<div id="dim-pupils">
+					<table>
+						<tbody>
+							<tr>
+								<th scope="row" class="rowhead">Size dim <span class="unit">mm</span></th>
+								{#each ['OD', 'OS'] as const as eye (eye)}
+									<td class="cell">
+										<span class="range">
+											{@render text(DIM_PUPIL_IDS[eye].size1, `Pupil size dim (from) ${eye}`, { numeric: true, size: 'xs' })}
+											<span aria-hidden="true">→</span>
+											{@render text(DIM_PUPIL_IDS[eye].size2, `Pupil size dim (to) ${eye}`, { numeric: true, size: 'xs' })}
+										</span>
+									</td>
+								{/each}
+							</tr>
+							<tr>
+								<th scope="row">Reactivity dim</th>
+								{#each ['OD', 'OS'] as const as eye (eye)}
+									<td class="cell">{@render text(DIM_PUPIL_IDS[eye].react, `Pupil reactivity dim ${eye}`, { react: true })}</td>
+								{/each}
+							</tr>
+						</tbody>
+					</table>
+					<label class="comments">
+						<span>Pupil comments <span class="code inline">PUPCOM</span></span>
+						<textarea
+							rows="2"
+							class:ghost={pc.ghost}
+							class:copied={pc.copied}
+							value={pc.value}
+							oninput={(e) => onedit('PUPIL_COMMENTS', e.currentTarget.value)}
+						></textarea>
+					</label>
+				</div>
+			{/if}
+		</div>
+
+		<!-- Confrontation fields -->
+		<div class="panel" role="group" aria-labelledby="fields-title">
+			<div class="card-head">
+				<h3 id="fields-title">Fields <span class="unit">confrontation</span></h3>
+				<label class="check">
+					<input type="checkbox" aria-label="Fields full to CF" checked={ftcf} onchange={(e) => setFtcf(e.currentTarget.checked)} />
+					Full to CF
+				</label>
+				<button type="button" class="mini" onclick={clearFields}>Not tested</button>
+			</div>
+			<div class="vf">
+				{#each ['OD', 'OS'] as const as eye (eye)}
+					<div class="vf-eye" role="group" aria-label="Confrontation field {eye}">
+						<span class="eye {eye.toLowerCase()}">{eye}</span>
+						<div class="quads">
+							{#each GRID[eye] as n (n)}
+								{@const q = VF_QUADRANTS[n - 1]}
+								{@const id = `${eye}VF${n}`}
+								{@const c = cell(id)}
+								<button
+									type="button"
+									class="quad"
+									class:defect={c.value === '1'}
+									class:full={c.value === '0'}
+									class:ghost={c.ghost}
+									class:copied={c.copied}
+									data-field={id}
+									aria-pressed={c.value === '1'}
+									aria-label="{q.label} {eye} defect"
+									title="{q.label} {eye}"
+									onclick={() => toggleQuadrant(id)}
+								>
+									<span class="q-short">{q.short}</span>
+									<span class="q-state">{c.value === '1' ? '✕ defect' : c.value === '0' ? 'full' : '–'}</span>
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/each}
+			</div>
+			<p class="status" aria-live="polite">{vfSummary}</p>
+		</div>
+
+		<!-- Mental status -->
+		<div class="panel" role="group" aria-labelledby="mental-title">
+			<div class="card-head"><h3 id="mental-title">Mental status</h3></div>
+			<div class="mental">
+				{#each MENTAL_STATUS as m (m.id)}
+					<label class="check">
+						<input
+							type="checkbox"
+							checked={!!cell(m.id).value}
+							onchange={(e) => onedit(m.id, e.currentTarget.checked ? m.on : '')}
+						/>
+						{m.label}
+					</label>
+				{/each}
+			</div>
+		</div>
+	</div>
+	<p class="legend">
+		<span class="swatch" aria-hidden="true"></span> Tinted: still the default "normal" value.
+		<span class="swatch copied" aria-hidden="true"></span> Copied from a prior visit.
+		<span class="sep">Shorthand: <code>ODIOPAP:15</code>, <code>IOP:16</code>, <code>APD:0</code>.</span>
+	</p>
+</section>
+
+<style>
+	.head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin-bottom: var(--space-3);
+	}
+	h2 {
+		font-size: var(--text-md);
+		font-weight: var(--weight-semibold);
+		margin: 0;
+	}
+	h3 {
+		font-size: var(--text-sm);
+		font-weight: var(--weight-semibold);
+		margin: 0 auto 0 0;
+	}
+	.cards {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+		gap: var(--space-4);
+		align-items: start;
+	}
+	.panel {
+		background: var(--surface-1);
+		border: 1px solid var(--hairline);
+		border-radius: var(--radius-2);
+		overflow: hidden;
+		min-width: 0;
+	}
+	.card-head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		flex-wrap: wrap;
+		padding: var(--space-2) var(--space-3);
+		border-bottom: 1px solid var(--hairline);
+		background: var(--surface-2);
+	}
+	.unit {
+		color: var(--text-3);
+		font-size: var(--text-xs);
+		font-weight: var(--weight-regular);
+		margin-left: var(--space-1);
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		table-layout: fixed;
+	}
+	th,
+	td {
+		text-align: left;
+		padding: 0 var(--space-3);
+		border-bottom: 1px solid var(--hairline);
+		vertical-align: middle;
+	}
+	.rowhead {
+		width: 34%;
+	}
+	thead th {
+		height: calc(var(--row-height) + var(--space-1));
+	}
+	tbody th {
+		font-weight: var(--weight-regular);
+		color: var(--text-2);
+		height: var(--row-height);
+	}
+	.code {
+		display: block;
+		font: var(--text-xs) var(--font-mono);
+		color: var(--text-3);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.code.inline {
+		display: inline;
+	}
+	.eye {
+		display: inline-flex;
+		padding: 1px 6px;
+		border-radius: var(--radius-1);
+		font-weight: var(--weight-semibold);
+	}
+	.eye.od {
+		color: var(--od);
+		background: var(--od-soft);
+	}
+	.eye.os {
+		color: var(--os);
+		background: var(--os-soft);
+	}
+	.cell {
+		padding: 2px var(--space-1);
+	}
+	.cell.ghost,
+	.inp.ghost,
+	.time.ghost {
+		background: var(--accent-soft);
+	}
+	.ghost input,
+	textarea.ghost {
+		color: var(--accent);
+		font-style: italic;
+	}
+	.cell.copied,
+	.inp.copied,
+	.time.copied,
+	textarea.copied {
+		background: var(--copied-tint);
+	}
+	.inp.is-default {
+		background: var(--default-tint);
+		border-radius: var(--radius-1);
+	}
+	.inp,
+	.time {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		border-radius: var(--radius-1);
+	}
+	input:not([type='checkbox']),
+	textarea {
+		font: inherit;
+		color: var(--text-1);
+		background: transparent;
+		border: 1px solid var(--hairline);
+		border-radius: var(--radius-1);
+		padding: 4px var(--space-2);
+		min-height: calc(var(--row-height) - 4px);
+		max-width: 100%;
+	}
+	input.xs {
+		width: 3.6em;
+	}
+	input.s {
+		width: 6.5em;
+	}
+	input.m {
+		width: 10em;
+	}
+	input::placeholder,
+	textarea::placeholder {
+		color: var(--text-3);
+	}
+	input:focus,
+	textarea:focus {
+		border-color: var(--accent);
+		background: var(--surface-1);
+		outline: none;
+		box-shadow: 0 0 0 1px var(--focus-ring);
+	}
+	.cell.high input {
+		border-color: var(--danger);
+		color: var(--danger);
+		font-weight: var(--weight-semibold);
+	}
+	.flag {
+		color: var(--danger);
+		font-size: var(--text-xs);
+		font-weight: var(--weight-semibold);
+		margin-left: var(--space-1);
+		white-space: nowrap;
+	}
+	.flag.inline {
+		margin: 0;
+	}
+	.range {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		color: var(--text-3);
+	}
+	.divider td {
+		height: var(--space-1);
+		background: var(--surface-2);
+		padding: 0;
+	}
+	tbody tr:last-child > * {
+		border-bottom: 0;
+	}
+	.mini {
+		font-size: var(--text-xs);
+		padding: 0 var(--space-2);
+		color: var(--text-2);
+	}
+	.check {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-height: var(--target-min);
+		cursor: pointer;
+	}
+	.check input {
+		width: 18px;
+		height: 18px;
+		accent-color: var(--accent);
+	}
+	.hint,
+	.status {
+		margin: 0;
+		padding: var(--space-2) var(--space-3);
+		font-size: var(--text-xs);
+		color: var(--text-3);
+		border-top: 1px solid var(--hairline);
+	}
+	.status {
+		color: var(--text-2);
+	}
+	.disclose {
+		width: 100%;
+		text-align: left;
+		border: 0;
+		border-top: 1px solid var(--hairline);
+		border-radius: 0;
+		background: var(--surface-2);
+		color: var(--text-2);
+	}
+	#dim-pupils {
+		border-top: 1px solid var(--hairline);
+	}
+	.comments {
+		display: grid;
+		gap: var(--space-1);
+		padding: var(--space-2) var(--space-3);
+		color: var(--text-2);
+		border-top: 1px solid var(--hairline);
+	}
+	.comments textarea {
+		width: 100%;
+		resize: vertical;
+	}
+	.vf {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--space-3);
+		padding: var(--space-3);
+	}
+	.vf-eye {
+		display: grid;
+		gap: var(--space-1);
+		justify-items: start;
+	}
+	.quads {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 2px;
+		width: 100%;
+		max-width: 180px;
+	}
+	.quad {
+		display: grid;
+		justify-items: center;
+		align-content: center;
+		gap: 0;
+		min-height: max(var(--target-min), 44px);
+		padding: 2px;
+		line-height: 1.15;
+	}
+	.q-short {
+		font-weight: var(--weight-semibold);
+		font-size: var(--text-xs);
+		color: var(--text-2);
+	}
+	.q-state {
+		font-size: var(--text-xs);
+		color: var(--text-3);
+	}
+	.quad.full .q-state {
+		color: var(--ok);
+	}
+	.quad.defect {
+		background: var(--abnormal-soft);
+		border-color: var(--abnormal);
+	}
+	.quad.defect .q-state,
+	.quad.defect .q-short {
+		color: var(--abnormal);
+		font-weight: var(--weight-semibold);
+	}
+	.quad.ghost {
+		outline: 2px dashed var(--accent);
+		outline-offset: -2px;
+	}
+	.quad.copied {
+		background: var(--copied-tint);
+	}
+	.mental {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1) var(--space-4);
+		padding: var(--space-2) var(--space-3);
+	}
+	.legend {
+		color: var(--text-3);
+		font-size: var(--text-xs);
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+	}
+	.legend code {
+		font-family: var(--font-mono);
+	}
+	.swatch {
+		width: 14px;
+		height: 14px;
+		border-radius: 3px;
+		background: var(--default-tint);
+		border: 1px solid var(--hairline);
+	}
+	.swatch.copied {
+		background: var(--copied-tint);
+		margin-left: var(--space-3);
+	}
+	.sep {
+		margin-left: var(--space-3);
+	}
+</style>

@@ -12,7 +12,11 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			// Single self-hosted Node server: `npm run build && node build`.
-			adapter: adapter()
+			adapter: adapter(),
+			// adapter-node assumes https unless a proxy header says otherwise, so on a plain-http
+			// local install Kit's own form-origin check rejects every same-site form post. Our
+			// hooks.server.ts instead requires Origin host == Host for ALL mutating requests.
+			csrf: { trustedOrigins: ['*'] }
 		})
 	],
 	test: {
