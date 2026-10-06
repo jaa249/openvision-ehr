@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenVision Preview</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font: var(--weight-regular) var(--text-sm)/var(--leading-body) var(--font-sans);
+    background: var(--surface-0); color: var(--text-1);
+    display: grid; grid-template-rows: auto 1fr auto; overflow: hidden;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  button {
+    font: inherit; color: inherit; background: var(--surface-1);
+    border: 1px solid var(--hairline); border-radius: var(--radius-1);
+    min-height: var(--target-min); padding: 0 var(--space-3); cursor: pointer;
+    transition: background var(--dur-micro-in) var(--ease-standard);
+  }
+  button:hover { background: var(--surface-2); }
+  .skip { position: absolute; left: -999px; }
+  .skip:focus { left: var(--space-2); top: var(--space-2); z-index: 10; background: var(--surface-3); padding: var(--space-2); }
+
+  /* Banner */
+  .banner {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+    padding: var(--space-2) var(--space-4); background: var(--surface-1);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .avatar { width: 36px; height: 36px; border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-weight: var(--weight-semibold); flex: none; }
+  .who { font-size: var(--text-md); font-weight: var(--weight-semibold); }
+  .meta { color: var(--text-2); }
+  .allergy { color: var(--danger); font-weight: var(--weight-semibold); }
+  .spacer { flex: 1; }
+  .saved { color: var(--ok); }
+  .theme { display: inline-flex; border: 1px solid var(--hairline); border-radius: var(--radius-1); overflow: hidden; }
+  .theme button { border: 0; border-radius: 0; }
+  .theme button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+
+  /* Body */
+  .body { display: grid; grid-template-columns: 148px 1fr 260px; min-height: 0; }
+  nav.rail { border-right: 1px solid var(--hairline); padding: var(--space-2); overflow: auto; background: var(--surface-1); }
+  nav.rail a {
+    display: flex; align-items: center; gap: var(--space-2); min-height: var(--target-min);
+    padding: 0 var(--space-2); border-radius: var(--radius-1); color: var(--text-2); text-decoration: none;
+  }
+  nav.rail a:hover { background: var(--surface-2); }
+  nav.rail a[aria-current="true"] { background: var(--accent-soft); color: var(--text-1); font-weight: var(--weight-semibold); }
+  .key { font: var(--text-xs)/1 var(--font-mono); color: var(--text-3); width: 1.2em; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; margin-left: auto; border: 1px solid var(--text-3); }
+  .dot.done { background: var(--ok); border-color: var(--ok); }
+  .dot.abn { background: var(--abnormal); border-color: var(--abnormal); }
+
+  main { overflow: auto; padding: var(--space-4) var(--space-5); }
+  .sec-head { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-3); }
+  .sec-head h2 { font-size: var(--text-md); font-weight: var(--weight-semibold); margin: 0; margin-right: auto; }
+  .panel { background: var(--surface-1); border: 1px solid var(--hairline); border-radius: var(--radius-2); margin-bottom: var(--space-5); }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 0 var(--space-3); height: var(--row-height); border-bottom: 1px solid var(--hairline); }
+  tr:last-child td { border-bottom: 0; }
+  thead th { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); font-weight: var(--weight-semibold); }
+  th.od, td.od { width: 42%; }
+  .eye { display: inline-flex; gap: 4px; align-items: center; padding: 1px 6px; border-radius: var(--radius-1); font-weight: var(--weight-semibold); }
+  .eye.od { color: var(--od); background: var(--od-soft); }
+  .eye.os { color: var(--os); background: var(--os-soft); }
+  tbody th { font-weight: var(--weight-regular); color: var(--text-2); width: 16%; }
+  td.cell { transition: background var(--dur-small-in) var(--ease-enter); }
+  td.flash { background: var(--accent-soft); }
+  td.ghost { color: var(--text-3); font-style: italic; }
+  .abn-val { color: var(--abnormal); font-weight: var(--weight-semibold); }
+  .rx td, .rx th { text-align: right; }
+  .rx td:first-child, .rx th:first-child { text-align: left; }
+
+  aside.priors { border-left: 1px solid var(--hairline); background: var(--surface-1); overflow: auto; padding: var(--space-3); }
+  aside h3 { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); margin: var(--space-2) 0; }
+  .prior { border: 1px solid var(--hairline); border-radius: var(--radius-1); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); }
+  .prior b { font-weight: var(--weight-semibold); }
+  .prior .meta { font-size: var(--text-xs); }
+
+  /* Shorthand bar */
+  .bar { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-4);
+    background: var(--surface-1); border-top: 1px solid var(--hairline); }
+  .bar label { font-size: var(--text-xs); color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+  .bar input { flex: 1; min-height: var(--target-min); font: var(--text-sm) var(--font-mono); color: var(--text-1);
+    background: var(--surface-0); border: 1px solid var(--hairline); border-radius: var(--radius-1); padding: 0 var(--space-3); }
+  .preview { display: flex; gap: var(--space-2); flex-wrap: wrap; max-width: 45%; }
+  .chip { font-size: var(--text-xs); padding: 2px 8px; border-radius: var(--radius-pill); background: var(--surface-2); border: 1px solid var(--hairline); }
+  .chip.err { color: var(--danger); border-color: var(--danger); }
+
+  /* Palette */
+  dialog { border: 0; padding: 0; border-radius: var(--radius-2); background: var(--surface-3); color: var(--text-1);
+    box-shadow: var(--shadow-overlay); width: min(560px, calc(100vw - 32px)); margin-top: 12vh; }
+  dialog[open] { animation: pin var(--dur-panel-in) var(--ease-enter); }
+  dialog::backdrop { background: rgb(0 0 0 / .35); }
+  @keyframes pin { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+  dialog input { width: 100%; border: 0; border-bottom: 1px solid var(--hairline); background: transparent; color: var(--text-1);
+    font: var(--text-md) var(--font-sans); padding: var(--space-3) var(--space-4); outline: none; }
+  [role="listbox"] { list-style: none; margin: 0; padding: var(--space-1); max-height: 320px; overflow: auto; }
+  [role="option"] { display: flex; justify-content: space-between; padding: 0 var(--space-3); min-height: var(--target-min); align-items: center; border-radius: var(--radius-1); cursor: pointer; }
+  [role="option"][aria-selected="true"] { background: var(--accent-soft); } /* instant: no transition while typing */
+  kbd { font: var(--text-xs) var(--font-mono); color: var(--text-3); border: 1px solid var(--hairline); border-radius: 3px; padding: 1px 5px; }
+
+  .note { color: var(--text-3); font-size: var(--text-xs); max-width: var(--measure-prose); }
+
+  @media (max-width: 900px) {
+    .body { grid-template-columns: 1fr; }
+    nav.rail { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--hairline); }
+    nav.rail a { white-space: nowrap; }
+    aside.priors { display: none; }
+    main { padding: var(--space-3) var(--space-4); }
+    .preview { display: none; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#exam">Skip to exam</a>
+
+<header class="banner" aria-label="Patient">
+  <div class="avatar" aria-hidden="true">JD</div>
+  <div>
+    <div class="who">Jordan Demo <span class="meta">(fictional)</span></div>
+    <div class="meta num">58 y · DOB 03/14/1968 · MRN 000123</div>
+  </div>
+  <div class="allergy">⚠ Allergy: Sulfa</div>
+  <div class="meta">Comprehensive · Dr. Example</div>
+  <div class="spacer"></div>
+  <div class="saved" id="saved" role="status">Saved 9:42</div>
+  <div class="theme" role="group" aria-label="Color mode">
+    <button data-t="light" aria-pressed="false">Light</button>
+    <button data-t="dark" aria-pressed="false">Dark</button>
+    <button data-t="dim" aria-pressed="false">Dim room</button>
+  </div>
+  <button id="openPal" aria-keyshortcuts="Control+K">Search <kbd>Ctrl K</kbd></button>
+</header>
+
+<div class="body">
+  <nav class="rail" aria-label="Exam sections">
+    <a href="#"><span class="key">1</span>HPI<span class="dot done"></span></a>
+    <a href="#"><span class="key">2</span>Acuity<span class="dot done"></span></a>
+    <a href="#"><span class="key">3</span>Refraction<span class="dot done"></span></a>
+    <a href="#"><span class="key">4</span>IOP<span class="dot abn" title="Above target"></span></a>
+    <a href="#"><span class="key">5</span>External<span class="dot done"></span></a>
+    <a href="#" aria-current="true"><span class="key">6</span>Slit lamp<span class="dot"></span></a>
+    <a href="#"><span class="key">7</span>Fundus<span class="dot"></span></a>
+    <a href="#"><span class="key">8</span>Neuro<span class="dot"></span></a>
+    <a href="#"><span class="key">9</span>Imp / Plan<span class="dot"></span></a>
+    <a href="#"><span class="key">0</span>Coding<span class="dot"></span></a>
+  </nav>
+
+  <main id="exam" tabindex="-1">
+    <div class="sec-head">
+      <h2>Anterior segment (slit lamp)</h2>
+      <button>Normal OU</button>
+      <button aria-label="Copy right eye to left eye">OD → OS</button>
+    </div>
+    <div class="panel">
+      <table aria-label="Anterior segment findings">
+        <thead><tr><th scope="col"></th><th scope="col" class="od"><span class="eye od">OD (R)</span></th><th scope="col"><span class="eye os">OS (L)</span></th></tr></thead>
+        <tbody id="sle">
+          <tr data-f="lid"><th scope="row">Lids</th><td class="cell od">WNL</td><td class="cell os">WNL</td></tr>
+          <tr data-f="c"><th scope="row">Conjunctiva</th><td class="cell od">WNL</td><td class="cell os">WNL</td></tr>
+          <tr data-f="k"><th scope="row">Cornea</th><td class="cell od">Clear</td><td class="cell os">Clear</td></tr>
+          <tr data-f="ac"><th scope="row">Anterior chamber</th><td class="cell od">Deep and quiet</td><td class="cell os">Deep and quiet</td></tr>
+          <tr data-f="i"><th scope="row">Iris</th><td class="cell od">Flat, round</td><td class="cell os">Flat, round</td></tr>
+          <tr data-f="ln"><th scope="row">Lens</th><td class="cell od">1+ NS</td><td class="cell os">1+ NS</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sec-head"><h2>Manifest refraction</h2><button>Transpose</button><button>Print glasses Rx</button></div>
+    <div class="panel">
+      <table class="rx num" aria-label="Manifest refraction">
+        <thead><tr><th scope="col">Eye</th><th scope="col">Sphere</th><th scope="col">Cyl</th><th scope="col">Axis</th><th scope="col">Add</th><th scope="col">VA</th></tr></thead>
+        <tbody>
+          <tr><td><span class="eye od">OD (R)</span></td><td>−2.25</td><td>−0.75</td><td>180</td><td>+2.00</td><td>20/20</td></tr>
+          <tr><td><span class="eye os">OS (L)</span></td><td>−2.50</td><td>−0.50</td><td>175</td><td>+2.00</td><td>20/20−1</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sec-head"><h2>IOP</h2></div>
+    <div class="panel">
+      <table class="rx num" aria-label="Intraocular pressure">
+        <thead><tr><th scope="col">Eye</th><th scope="col">Applanation</th><th scope="col">Target</th><th scope="col">Time</th></tr></thead>
+        <tbody>
+          <tr><td><span class="eye od">OD (R)</span></td><td><span class="abn-val">▲ 24</span></td><td>≤ 18</td><td>9:31</td></tr>
+          <tr><td><span class="eye os">OS (L)</span></td><td>17</td><td>≤ 18</td><td>9:31</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Preview only. All data is fictional. The shorthand grammar below follows eye_mag (<code>r/l/b</code> + field code, <code>:</code> value, <code>;</code> next, <code>.a</code> append). Try <code>rc:1+ injection; lk:trace SPK</code> then Enter, or <code>bx:oops</code> to see an error chip. Keys 1–0 jump sections.</p>
+  </main>
+
+  <aside class="priors" aria-label="Prior visits">
+    <h3>Slit lamp, prior visits</h3>
+    <div class="prior"><b class="num">2025-09-14</b><div class="meta">Dr. Example</div>Lens 1+ NS OU · otherwise WNL</div>
+    <div class="prior"><b class="num">2024-08-02</b><div class="meta">Dr. Example</div>Lens trace NS OU · Conj WNL</div>
+    <h3>IOP trend OD</h3>
+    <div class="prior num">17 → 19 → 21 → <span class="abn-val">24</span></div>
+  </aside>
+</div>
+
+<footer class="bar">
+  <label for="sh">Shorthand</label>
+  <input id="sh" autocomplete="off" spellcheck="false" placeholder="rc:1+ injection; lk:trace SPK" aria-describedby="shp">
+  <div class="preview" id="shp" aria-live="polite"></div>
+</footer>
+
+<dialog id="pal" aria-label="Command palette">
+  <input id="palq" role="combobox" aria-expanded="true" aria-controls="pall" aria-autocomplete="list" placeholder="Search sections, actions, patients…">
+  <ul id="pall" role="listbox"></ul>
+</dialog>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  // Theme
+  const btns = document.querySelectorAll('.theme button');
+  function setTheme(t) {
+    if (t === 'light') root.setAttribute('data-theme', 'light'); else root.setAttribute('data-theme', t);
+    btns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === t)));
+    try { localStorage.setItem('oe-theme', t); } catch (e) {}
+  }
+  let saved = null; try { saved = localStorage.getItem('oe-theme'); } catch (e) {}
+  setTheme(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+  btns.forEach(b => b.addEventListener('click', () => setTheme(b.dataset.t)));
+
+  // Shorthand
+  const FIELDS = { lid: 'Lids', c: 'Conjunctiva', k: 'Cornea', ac: 'Anterior chamber', i: 'Iris', ln: 'Lens' };
+  const EYES = { r: ['od'], l: ['os'], b: ['od', 'os'] };
+  const sh = document.getElementById('sh'), shp = document.getElementById('shp');
+  function parse(s) {
+    return s.split(';').map(x => x.trim()).filter(Boolean).map(part => {
+      const m = part.match(/^([rlb])([a-z]+):(.*?)(\.a)?$/i);
+      if (!m) return { err: part };
+      const eyes = EYES[m[1].toLowerCase()], f = m[2].toLowerCase();
+      if (!FIELDS[f]) return { err: part };
+      return { eyes, f, val: m[3].trim(), append: !!m[4] };
+    });
+  }
+  function cells(p) { return p.eyes.map(e => document.querySelector(`#sle tr[data-f="${p.f}"] td.${e}`)); }
+  let ghosts = [];
+  function clearGhosts() { ghosts.reverse().forEach(([td, v]) => { td.textContent = v; td.classList.remove('ghost'); }); ghosts = []; }
+  sh.addEventListener('input', () => {
+    clearGhosts(); shp.innerHTML = '';
+    parse(sh.value).forEach(p => {
+      const chip = document.createElement('span'); chip.className = 'chip';
+      if (p.err) { chip.classList.add('err'); chip.textContent = 'Unknown: ' + p.err; }
+      else {
+        chip.textContent = p.eyes.map(e => e.toUpperCase()).join('+') + ' ' + FIELDS[p.f] + ' = ' + (p.val || '…');
+        cells(p).forEach(td => { ghosts.push([td, td.textContent]); td.textContent = p.append ? td.textContent + ', ' + p.val : p.val; td.classList.add('ghost'); });
+      }
+      shp.appendChild(chip);
+    });
+  });
+  sh.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { clearGhosts(); sh.value = ''; shp.innerHTML = ''; }
+    if (e.key !== 'Enter') return;
+    const parts = parse(sh.value);
+    if (parts.some(p => p.err)) return; // errors stay visible; nothing commits
+    clearGhosts();
+    parts.forEach(p => cells(p).forEach(td => {
+      td.textContent = p.append ? td.textContent + ', ' + p.val : p.val;
+      td.classList.add('flash'); setTimeout(() => td.classList.remove('flash'), 600);
+    }));
+    sh.value = ''; shp.innerHTML = '';
+    const s = document.getElementById('saved');
+    const t = setTimeout(() => s.textContent = 'Saving…', 400); // only show if slow
+    setTimeout(() => { clearTimeout(t); const d = new Date(); s.textContent = 'Saved ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); }, 150);
+  });
+
+  // Section keys
+  const links = [...document.querySelectorAll('nav.rail a')];
+  links.forEach(a => a.addEventListener('click', e => { e.preventDefault(); select(a); }));
+  function select(a) { links.forEach(l => l.removeAttribute('aria-current')); a.setAttribute('aria-current', 'true'); }
+  document.addEventListener('keydown', e => {
+    const typing = e.target.closest('input, textarea');
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPal(); return; }
+    if (!typing && /^[0-9]$/.test(e.key)) { select(links[e.key === '0' ? 9 : +e.key - 1]); }
+  });
+
+  // Palette
+  const CMDS = [
+    ['Go to IOP', '4', 'pressure tonometry'], ['Go to Slit lamp', '6', 'sle anterior segment'], ['Go to Fundus', '7', 'retina dfe dilated'],
+    ['Copy forward last visit', 'Shift F', 'previous prior'], ['Print glasses Rx', 'Shift G', 'spectacle prescription'],
+    ['Print contact lens Rx', '', 'ctl cl'], ['Dim room mode', 'Shift D', 'dark night'], ['Sign & close exam', 'Ctrl Enter', 'finish lock'],
+  ];
+  const pal = document.getElementById('pal'), q = document.getElementById('palq'), list = document.getElementById('pall');
+  let active = 0, shown = [], opener = null;
+  function render() {
+    const s = q.value.toLowerCase().trim();
+    shown = CMDS.filter(c => !s || (c[0] + ' ' + c[2]).toLowerCase().includes(s));
+    active = Math.min(active, Math.max(0, shown.length - 1));
+    list.innerHTML = shown.length ? shown.map((c, i) => `<li role="option" id="o${i}" aria-selected="${i === active}"><span>${c[0]}</span>${c[1] ? `<kbd>${c[1]}</kbd>` : ''}</li>`).join('')
+      : '<li class="note" style="padding:12px">No match. Try "iop", "glasses" or "sign".</li>';
+    q.setAttribute('aria-activedescendant', shown.length ? 'o' + active : '');
+  }
+  function openPal() { opener = document.activeElement; q.value = ''; active = 0; render(); pal.showModal(); q.focus(); }
+  function run(i) {
+    const c = shown[i]; if (!c) return;
+    if (c[0] === 'Dim room mode') setTheme('dim');
+    const m = c[0].match(/^Go to (.+)/); if (m) select(links.find(l => l.textContent.includes(m[1])));
+    pal.close();
+  }
+  document.getElementById('openPal').addEventListener('click', openPal);
+  pal.addEventListener('close', () => opener && opener.focus());
+  q.addEventListener('input', () => { active = 0; render(); });
+  q.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, shown.length - 1); render(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); render(); }
+    if (e.key === 'Enter') { e.preventDefault(); run(active); }
+  });
+  list.addEventListener('click', e => { const o = e.target.closest('[role=option]'); if (o) run(+o.id.slice(1)); });
+})();
+</script>
+</body>
+</html>

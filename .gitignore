@@ -1,0 +1,13 @@
+# Local-only reference extract of OpenEMR's GPL seed data (see CONTRIBUTING.md)
+docs/spec/LISTS.md
+
+node_modules/
+dist/
+.svelte-kit/
+*.sqlite
+*.sqlite3
+*.db
+.env
+.env.*
+.DS_Store
+Thumbs.db

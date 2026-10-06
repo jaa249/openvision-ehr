@@ -1,0 +1,163 @@
+/* OpenVision design tokens v0.1 — see DESIGN.md for the rationale.
+   Themes: light (default), dark (OS or data-theme="dark"), dim room (data-theme="dim").
+   Density: compact for fine pointers, touch for coarse pointers. */
+
+:root {
+  /* ---- Type ---- */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
+  --text-xs: 11px;
+  --text-sm: 13px;  /* base */
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --leading-tight: 1.2;
+  --leading-body: 1.4;
+  --leading-prose: 1.5;
+  --measure-prose: 68ch;
+
+  /* ---- Space / size ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --row-height: 28px;
+  --target-min: 28px;
+  --icon-size: 16px;
+
+  /* ---- Radius ---- */
+  --radius-1: 4px;
+  --radius-2: 8px;
+  --radius-pill: 999px;
+
+  /* ---- Motion: productive (default) ---- */
+  --ease-standard: cubic-bezier(.2, 0, .38, .9);
+  --ease-enter: cubic-bezier(0, 0, .38, .9);
+  --ease-exit: cubic-bezier(.2, 0, 1, .9);
+  --dur-micro-in: 70ms;   --dur-micro-out: 50ms;
+  --dur-small-in: 150ms;  --dur-small-out: 110ms;
+  --dur-panel-in: 240ms;  --dur-panel-out: 160ms;
+  /* ---- Motion: expressive (critical alerts only) ---- */
+  --ease-expressive: cubic-bezier(.4, .14, .3, 1);
+  --dur-expressive: 400ms;
+  --stagger-step: 20ms;
+  --stagger-max: 120ms;
+  --save-indicator-delay: 400ms;
+
+  /* ---- Color: light ---- */
+  color-scheme: light;
+  --surface-0: #f4f5f7;  /* page */
+  --surface-1: #ffffff;  /* panel */
+  --surface-2: #f9fafb;  /* raised / zebra */
+  --surface-3: #ffffff;  /* overlay */
+  --hairline: #e2e5ea;
+  --text-1: #14171c;
+  --text-2: #4a5160;
+  --text-3: #626a78;
+  --accent: #2457d6;
+  --accent-text: #ffffff;
+  --accent-soft: #e7eefc;
+  --focus-ring: #2457d6;
+  --od: #1d4ed8;      --od-soft: #eaf1fe;
+  --os: #8a4b00;      --os-soft: #fdf2e3;
+  --abnormal: #b4235a; --abnormal-soft: #fcebf1;
+  --danger: #c62828;  --warn: #9a5b00;  --ok: #157f3b;
+  --shadow-overlay: 0 8px 24px rgb(16 24 40 / .14), 0 1px 3px rgb(16 24 40 / .08);
+}
+
+/* Touch density: driven by input capability, not device name */
+@media (pointer: coarse) {
+  :root {
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-md: 16px;
+    --text-lg: 20px;
+    --text-xl: 24px;
+    --row-height: 44px;
+    --target-min: 44px;
+    --icon-size: 20px;
+  }
+}
+
+/* Dark: follows OS unless the user forced light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dim"]) {
+    color-scheme: dark;
+    --surface-0: #0f1115;
+    --surface-1: #161920;
+    --surface-2: #1c2029;
+    --surface-3: #232834;
+    --hairline: #2a2f3a;
+    --text-1: #e6e8ec;
+    --text-2: #a7adb9;
+    --text-3: #8b92a0;
+    --accent: #7aa2ff;
+    --accent-text: #0b1020;
+    --accent-soft: #1d2a4a;
+    --focus-ring: #7aa2ff;
+    --od: #8ab4ff;      --od-soft: #18233d;
+    --os: #f0b465;      --os-soft: #33250f;
+    --abnormal: #ff8fb1; --abnormal-soft: #3a1724;
+    --danger: #ff7b72;  --warn: #e3b341;  --ok: #56d364;
+    --shadow-overlay: 0 8px 24px rgb(0 0 0 / .5), 0 0 0 1px #2a2f3a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #0f1115;
+  --surface-1: #161920;
+  --surface-2: #1c2029;
+  --surface-3: #232834;
+  --hairline: #2a2f3a;
+  --text-1: #e6e8ec;
+  --text-2: #a7adb9;
+  --text-3: #8b92a0;
+  --accent: #7aa2ff;
+  --accent-text: #0b1020;
+  --accent-soft: #1d2a4a;
+  --focus-ring: #7aa2ff;
+  --od: #8ab4ff;      --od-soft: #18233d;
+  --os: #f0b465;      --os-soft: #33250f;
+  --abnormal: #ff8fb1; --abnormal-soft: #3a1724;
+  --danger: #ff7b72;  --warn: #e3b341;  --ok: #56d364;
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / .5), 0 0 0 1px #2a2f3a;
+}
+
+/* Dim room: exam room with lights down. Lower luminance, no pure white, desaturated accent.
+   Every pair still meets WCAG AA (verify on change). */
+:root[data-theme="dim"] {
+  color-scheme: dark;
+  --surface-0: #08090b;
+  --surface-1: #0d0f12;
+  --surface-2: #121419;
+  --surface-3: #171a20;
+  --hairline: #1f232b;
+  --text-1: #bfc3ca;
+  --text-2: #959aa3;
+  --text-3: #7d828b;
+  --accent: #7d93c9;
+  --accent-text: #08090b;
+  --accent-soft: #161d2e;
+  --focus-ring: #8fa3d4;
+  --od: #8ea6d6;      --od-soft: #111829;
+  --os: #c9a06a;      --os-soft: #1f1a10;
+  --abnormal: #d68aa3; --abnormal-soft: #24121a;
+  --danger: #d9837c;  --warn: #c4a45a;  --ok: #74b783;
+  --shadow-overlay: 0 8px 24px rgb(0 0 0 / .6), 0 0 0 1px #1f232b;
+}
+
+/* Reduced motion: keep meaning, drop movement */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-micro-in: 0ms;   --dur-micro-out: 0ms;
+    --dur-small-in: 80ms;  --dur-small-out: 60ms;
+    --dur-panel-in: 100ms; --dur-panel-out: 80ms;
+    --dur-expressive: 100ms;
+    --stagger-step: 0ms;
+    --stagger-max: 0ms;
+  }
+}
