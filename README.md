@@ -1,6 +1,6 @@
 # OpenVision
 
-A free, open-source, standalone eye exam and eye-care records app for optometrists and ophthalmologists — fast enough for a busy clinic, light enough for an old office PC, with optional extras (AI drafting, imaging) for practices that have the hardware.
+A free, open-source, standalone eye exam and eye-care records app for optometrists and ophthalmologists. Fast enough for a busy clinic, light enough for an old office PC, with optional extras (AI drafting, imaging) for practices that have the hardware.
 
 Inspired by the well-regarded OpenEMR Eye Exam form (eye_mag), rebuilt from scratch with a modern, tablet-first design.
 
