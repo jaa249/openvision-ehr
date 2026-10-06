@@ -3,6 +3,10 @@
 
 import { WORKUP_DEFAULTS, WORKUP_FIELDS } from './sections/workup.ts';
 import { REFRACTION_DEFAULTS, REFRACTION_FIELDS } from './sections/refraction.ts';
+import { HISTORY_DEFAULTS, HISTORY_FIELDS } from './sections/history.ts';
+import { NEURO_DEFAULTS, NEURO_FIELDS } from './sections/neuro.ts';
+import { DILATION_DEFAULTS, DILATION_FIELDS } from './sections/dilation.ts';
+import { GLAUCOMA_DEFAULTS, GLAUCOMA_FIELDS } from './sections/glaucoma.ts';
 
 export type Eye = 'OD' | 'OS' | 'OU';
 export type SectionId =
@@ -25,16 +29,16 @@ export interface Section {
 }
 
 export const SECTIONS: Section[] = [
-	{ id: 'HPI', key: '1', label: 'HPI', available: false },
+	{ id: 'HPI', key: '1', label: 'HPI', available: true },
 	{ id: 'ACUITY', key: '2', label: 'Vision', available: true },
 	{ id: 'REFRACTION', key: '3', label: 'Refraction', available: true },
 	{ id: 'IOP', key: '4', label: 'IOP / pupils', available: true },
 	{ id: 'EXT', key: '5', label: 'External', available: true },
 	{ id: 'ANTSEG', key: '6', label: 'Slit lamp', available: true },
 	{ id: 'RETINA', key: '7', label: 'Fundus', available: true },
-	{ id: 'NEURO', key: '8', label: 'Neuro', available: false },
-	{ id: 'IMPPLAN', key: '9', label: 'Imp / Plan', available: false },
-	{ id: 'CODING', key: '0', label: 'Coding', available: false }
+	{ id: 'NEURO', key: '8', label: 'Neuro', available: true },
+	{ id: 'IMPPLAN', key: '9', label: 'Imp / Plan', available: true },
+	{ id: 'CODING', key: '0', label: 'Coding', available: true }
 ];
 
 export interface Row {
@@ -178,7 +182,7 @@ function sectionFields(sec: SectionDef): FieldDef[] {
 }
 
 /** Every writable exam field: row-based sections plus the custom-panel section modules. */
-export const FIELDS: FieldDef[] = [...EXAM_SECTIONS.flatMap(sectionFields), ...WORKUP_FIELDS, ...REFRACTION_FIELDS];
+export const FIELDS: FieldDef[] = [...EXAM_SECTIONS.flatMap(sectionFields), ...WORKUP_FIELDS, ...REFRACTION_FIELDS, ...HISTORY_FIELDS, ...NEURO_FIELDS, ...DILATION_FIELDS, ...GLAUCOMA_FIELDS];
 
 export const FIELD_BY_ID = new Map(FIELDS.map((f) => [f.id, f]));
 
@@ -194,6 +198,10 @@ export function isKnownField(id: string): boolean {
 export const SEED_DEFAULTS: Record<string, string> = {
 	...WORKUP_DEFAULTS,
 	...REFRACTION_DEFAULTS,
+	...HISTORY_DEFAULTS,
+	...NEURO_DEFAULTS,
+	...DILATION_DEFAULTS,
+	...GLAUCOMA_DEFAULTS,
 	// External
 	RBROW: 'no brow ptosis',
 	LBROW: 'no brow ptosis',

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { fieldId, type Row, type SectionDef } from '#lib/exam/catalog.ts';
 	import type { Findings } from '#lib/shorthand/parse.ts';
+	import { page } from '$app/state';
+	import ZoneDocuments from '#lib/components/documents/ZoneDocuments.svelte';
 
 	type Side = 'OD' | 'OS' | 'OU';
 	let {
@@ -11,7 +13,8 @@
 		onedit,
 		ondefaults,
 		oncopy,
-		onclear
+		onclear,
+		context
 	}: {
 		sec: SectionDef;
 		findings: Findings;
@@ -23,7 +26,16 @@
 		ondefaults: (side: Side) => void;
 		oncopy: (from: 'OD' | 'OS') => void;
 		onclear: (side: 'OD' | 'OS') => void;
+		/** Which chart this is (documents strip). Falls back to the page's route ids. */
+		context?: { patientId: number; encounterId: number };
 	} = $props();
+
+	/** Zones with a documents strip (§15.4): External, Anterior segment, Retina. */
+	const DOC_ZONES = ['EXT', 'ANTSEG', 'RETINA'] as const;
+	const docZone = $derived((DOC_ZONES as readonly string[]).includes(sec.id) ? (sec.id as (typeof DOC_ZONES)[number]) : null);
+	const chart = $derived(
+		context ?? { patientId: Number(page.params.pid), encounterId: Number(page.params.eid) }
+	);
 
 	const textRows = $derived(sec.rows.filter((r) => r.measure === undefined));
 	const measureRows = $derived(sec.rows.filter((r) => r.measure !== undefined));
@@ -165,6 +177,9 @@
 		<span class="swatch" aria-hidden="true"></span> Tinted: still the default "normal" value.
 		<span class="swatch copied" aria-hidden="true"></span> Copied from a prior visit.
 	</p>
+	{#if docZone && chart.patientId > 0 && chart.encounterId > 0}
+		<ZoneDocuments patientId={chart.patientId} encounterId={chart.encounterId} zone={docZone} />
+	{/if}
 </section>
 
 <style>

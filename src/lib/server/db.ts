@@ -3,6 +3,12 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { SEED_DEFAULTS } from '#lib/exam/catalog.ts';
+import { PLAN_SQL } from './migrations/plan.ts';
+import { CODING_SQL } from './migrations/coding.ts';
+import { SIGNING_SQL } from './migrations/signing.ts';
+import { AUTH_SQL } from './migrations/auth.ts';
+import { DOCUMENTS_SQL } from './migrations/documents.ts';
+import { DEMO_USERS, demoPasswordHash } from './auth.ts';
 
 /** Earlier visits for the demo patient, so prior-visit review has something to show. */
 const DEMO_PRIORS: { id: number; date: string; type: string; findings: Record<string, string> }[] = [
@@ -58,6 +64,16 @@ const DEMO_PRIORS: { id: number; date: string; type: string; findings: Record<st
 			RETINA_COMMENTS: 'Watch OS cup; OCT RNFL next visit.'
 		}
 	}
+];
+
+/** Fictional history for the demo patient: [type, title, codes, begin, occurrence, reaction, comments]. */
+const DEMO_ISSUES: [string, string, string, string, string, string, string][] = [
+	['ALLERGY', 'Sulfa', '', '', '', 'hives', ''],
+	['POH', 'Glaucoma suspect', '', '2024-08-02', '', '', 'Watch cup-to-disc ratio OS'],
+	['PMH', 'Hypertension', 'I10', '2015-01-01', 'chronic', '', 'Controlled on lisinopril'],
+	['PMH', 'Type 2 diabetes', 'E11.9', '2019-06-01', 'chronic', '', 'Diet controlled, last A1c 6.4'],
+	['EYEMED', 'Artificial tears', '', '2025-09-14', '', '', 'Both eyes as needed'],
+	['MED', 'Lisinopril', '', '2015-01-01', '', '', '10 mg daily']
 ];
 
 export type DB = DatabaseSync;
@@ -171,14 +187,61 @@ const MIGRATIONS: string[] = [
 		deleted_at TEXT,
 		deleted_by INTEGER REFERENCES users(id)
 	);
-	CREATE INDEX rx_dispense_patient ON rx_dispense(patient_id, printed_at);`
+	CREATE INDEX rx_dispense_patient ON rx_dispense(patient_id, printed_at);`,
+	// Patient history (spec §7.2-7.7): one issues table for POH/POS/eye meds/PMH/meds/surgery/allergies
+	// (the type encodes the eye subtype, so a PMH can never overwrite a POH), versioned family/social
+	// history (§7.5 FIX: every save is a new version), and the "No known allergies" confirmation
+	// (who and when) so an empty list no longer reads as NKDA. Old allergy rows move into issues.
+	// created_by/updated_by are NULL only for rows carried over from the old allergies table.
+	`CREATE TABLE issues (
+		id INTEGER PRIMARY KEY,
+		patient_id INTEGER NOT NULL REFERENCES patients(id),
+		type TEXT NOT NULL CHECK (type IN ('POH', 'POS', 'EYEMED', 'PMH', 'MED', 'SURG', 'ALLERGY')),
+		title TEXT NOT NULL,
+		codes TEXT NOT NULL DEFAULT '',
+		begin_date TEXT NOT NULL DEFAULT '',
+		end_date TEXT NOT NULL DEFAULT '',
+		occurrence TEXT NOT NULL DEFAULT '',
+		reaction TEXT NOT NULL DEFAULT '',
+		outcome TEXT NOT NULL DEFAULT '',
+		provider TEXT NOT NULL DEFAULT '',
+		comments TEXT NOT NULL DEFAULT '',
+		encounter_id INTEGER REFERENCES encounters(id),
+		created_at TEXT NOT NULL,
+		created_by INTEGER REFERENCES users(id),
+		updated_at TEXT NOT NULL,
+		updated_by INTEGER REFERENCES users(id)
+	);
+	CREATE INDEX issues_patient ON issues(patient_id, type);
+	CREATE TABLE patient_history (
+		id INTEGER PRIMARY KEY,
+		patient_id INTEGER NOT NULL REFERENCES patients(id),
+		kind TEXT NOT NULL CHECK (kind IN ('family', 'social')),
+		data TEXT NOT NULL,
+		saved_at TEXT NOT NULL,
+		saved_by INTEGER NOT NULL REFERENCES users(id)
+	);
+	CREATE INDEX patient_history_latest ON patient_history(patient_id, kind, id);
+	ALTER TABLE patients ADD COLUMN allergies_none_at TEXT;
+	ALTER TABLE patients ADD COLUMN allergies_none_by INTEGER REFERENCES users(id);
+	INSERT INTO issues (patient_id, type, title, reaction, created_at, updated_at)
+		SELECT patient_id, 'ALLERGY', title, COALESCE(reaction, ''), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		  FROM allergies ORDER BY id;
+	DROP TABLE allergies;`,
+	// Fixed slots for the phase 5/6 features; each feature owns its file under ./migrations/.
+	PLAN_SQL,
+	CODING_SQL,
+	SIGNING_SQL,
+	AUTH_SQL,
+	DOCUMENTS_SQL
 ];
 
-export function migrate(db: DB): void {
+/** Brings the schema up to `target` (default: latest). Tests pass a lower target to check data migrations. */
+export function migrate(db: DB, target = MIGRATIONS.length): void {
 	db.exec('PRAGMA foreign_keys = ON');
 	db.exec('CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)');
 	const row = db.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number | null };
-	for (let v = row.v ?? 0; v < MIGRATIONS.length; v++) {
+	for (let v = row.v ?? 0; v < Math.min(target, MIGRATIONS.length); v++) {
 		db.exec('BEGIN');
 		try {
 			db.exec(MIGRATIONS[v]);
@@ -195,8 +258,16 @@ export function migrate(db: DB): void {
 export function seedDemo(db: DB, today = new Date().toISOString().slice(0, 10)): void {
 	const has = db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number };
 	if (has.n > 0) return;
+	// A real install sets OPENVISION_DEMO=0 before first start: no demo data, /setup creates the first admin.
+	if (process.env.OPENVISION_DEMO === '0') return;
+	const hash = demoPasswordHash();
 	db.exec('BEGIN');
-	db.prepare('INSERT INTO users (id, display_name) VALUES (1, ?)').run('Dr. Example');
+	// Demo sign-ins (password "openvision-demo"; listed on the sign-in page only while unchanged).
+	// demo-provider keeps id 1: the demo encounters and history reference it.
+	const u = db.prepare(
+		'INSERT INTO users (id, username, display_name, role, password_hash, active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)'
+	);
+	for (const d of DEMO_USERS) u.run(d.id, d.username, d.displayName, d.role, hash, `${today}T08:00:00.000Z`);
 	db.prepare('UPDATE practice SET name = ?, address = ?, phone = ?, fax = ? WHERE id = 1').run(
 		'Example Eye Care (demo)',
 		'100 Sample Street, Anytown, ST 00000',
@@ -208,10 +279,25 @@ export function seedDemo(db: DB, today = new Date().toISOString().slice(0, 10)):
 	);
 	p.run(1, '000123', 'Jordan', 'Demo', null, '1968-03-14');
 	p.run(2, '000124', 'Alexandra', 'Sample', 'Alex', '1991-11-02');
-	db.prepare('INSERT INTO allergies (patient_id, title, reaction) VALUES (1, ?, ?)').run('Sulfa', 'hives');
 	const e = db.prepare('INSERT INTO encounters (id, patient_id, provider_id, date, visit_type) VALUES (?, ?, 1, ?, ?)');
 	e.run(1, 1, today, 'Comprehensive');
 	e.run(2, 2, today, 'Follow-up');
+	// Patient history for Jordan Demo. Alex Sample has none, so "Allergies not recorded" (amber) is demoable.
+	const at = `${today}T14:00:00.000Z`;
+	const iss = db.prepare(
+		`INSERT INTO issues (patient_id, type, title, codes, begin_date, occurrence, reaction, comments, encounter_id, created_at, created_by, updated_at, updated_by)
+		 VALUES (1, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 1, ?, 1)`
+	);
+	for (const [type, title, codes, begin, occurrence, reaction, comments] of DEMO_ISSUES) {
+		iss.run(type, title, codes, begin, occurrence, reaction, comments, at, at);
+	}
+	const hist = db.prepare("INSERT INTO patient_history (patient_id, kind, data, saved_at, saved_by) VALUES (1, ?, ?, ?, 1)");
+	hist.run('family', JSON.stringify({ glaucoma: 'mother', amd: 'negative', diabetes: 'father', htn: 'negative' }), at);
+	hist.run(
+		'social',
+		JSON.stringify({ marital: 'married', occupation: 'teacher', tobacco_status: 'never', alcohol: '1-2 drinks a week', alcohol_status: 'current' }),
+		at
+	);
 	const f = db.prepare(
 		"INSERT INTO findings (encounter_id, field, value, is_default, updated_at, updated_by) VALUES (?, ?, ?, 0, ?, 1)"
 	);
@@ -219,8 +305,8 @@ export function seedDemo(db: DB, today = new Date().toISOString().slice(0, 10)):
 		e.run(prior.id, 1, prior.date, prior.type);
 		for (const [field, value] of Object.entries(prior.findings)) f.run(prior.id, field, value, `${prior.date}T15:00:00.000Z`);
 	}
-	const d = db.prepare('INSERT INTO user_defaults (user_id, field, value) VALUES (1, ?, ?)');
-	for (const [field, value] of Object.entries(SEED_DEFAULTS)) d.run(field, value);
+	const d = db.prepare('INSERT INTO user_defaults (user_id, field, value) VALUES (?, ?, ?)');
+	for (const du of DEMO_USERS) for (const [field, value] of Object.entries(SEED_DEFAULTS)) d.run(du.id, field, value);
 	db.exec('COMMIT');
 }
 

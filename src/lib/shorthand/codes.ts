@@ -4,6 +4,10 @@
 import type { SectionId } from '#lib/exam/catalog.ts';
 import { WORKUP_ALIASES } from '#lib/exam/sections/workup.ts';
 import { REFRACTION_ALIASES } from '#lib/exam/sections/refraction.ts';
+import { HISTORY_ALIASES } from '#lib/exam/sections/history.ts';
+import { NEURO_ALIASES } from '#lib/exam/sections/neuro.ts';
+import { DILATION_ALIASES } from '#lib/exam/sections/dilation.ts';
+import { GLAUCOMA_ALIASES } from '#lib/exam/sections/glaucoma.ts';
 
 const both = (od: string, os: string) => [od, os];
 
@@ -11,6 +15,10 @@ const both = (od: string, os: string) => [od, os];
 export const ALIASES: Record<string, string[]> = {
 	...WORKUP_ALIASES,
 	...REFRACTION_ALIASES,
+	...HISTORY_ALIASES,
+	...NEURO_ALIASES,
+	...DILATION_ALIASES,
+	...GLAUCOMA_ALIASES,
 	// ---------- External (R/L field names) ----------
 	RB: ['RBROW'],
 	LB: ['LBROW'],

@@ -34,6 +34,8 @@
 	} from '#lib/exam/sections/refraction.ts';
 	import type { Findings } from '#lib/shorthand/parse.ts';
 	import type { PanelProps } from './types.ts';
+	import { defaultPrefs, type PrefKey, type Prefs as StoredPrefs } from '#lib/prefs/keys.ts';
+	import { loadPrefs, savePrefs } from '#lib/prefs/client.ts';
 
 	let {
 		findings,
@@ -47,7 +49,8 @@
 	type Eye = 'OD' | 'OS';
 	const EYES: Eye[] = ['OD', 'OS'];
 
-	// ---------- per-user panel prefs (§1.5: visibility follows prefs and clicks, never data) ----------
+	// ---------- per-user panel prefs (§1.7 / §1.5: visibility follows prefs and clicks, never data) ----------
+	// Stored per user on the server (/api/prefs); see #lib/prefs/client.ts for the offline fallback.
 	interface Prefs {
 		W: boolean;
 		MR: boolean;
@@ -56,23 +59,29 @@
 		wide: boolean;
 		cyl: CylSign;
 	}
-	const PREFS_KEY = 'openvision.refraction.v1';
-	let prefs = $state<Prefs>({ W: true, MR: true, AR: true, CTL: false, wide: false, cyl: '+' });
+	const PREF_KEY = {
+		W: 'refraction.W',
+		MR: 'refraction.MR',
+		AR: 'refraction.AR',
+		CTL: 'refraction.CTL',
+		wide: 'refraction.wide',
+		cyl: 'cylinder'
+	} as const satisfies Record<keyof Prefs, PrefKey>;
+	const fromStore = (p: StoredPrefs): Prefs => ({
+		W: p['refraction.W'],
+		MR: p['refraction.MR'],
+		AR: p['refraction.AR'],
+		CTL: p['refraction.CTL'],
+		wide: p['refraction.wide'],
+		cyl: p.cylinder
+	});
+	let prefs = $state<Prefs>(fromStore(defaultPrefs()));
 	onMount(() => {
-		try {
-			const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null');
-			if (saved && typeof saved === 'object') prefs = { ...prefs, ...saved };
-		} catch {
-			/* private window or blocked storage: defaults are fine */
-		}
+		loadPrefs().then((p) => (prefs = fromStore(p)));
 	});
 	function setPref<K extends keyof Prefs>(k: K, v: Prefs[K]) {
 		prefs = { ...prefs, [k]: v };
-		try {
-			localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
-		} catch {
-			/* ignore */
-		}
+		void savePrefs({ [PREF_KEY[k]]: v });
 	}
 
 	/** Glasses slots revealed by "Additional Rx" this session; slots with values always show (§1.5). */

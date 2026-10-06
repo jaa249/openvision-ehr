@@ -2,6 +2,9 @@
 import type { DB } from './db.ts';
 import { getEncounter, getFindings, getPatientHeader } from './exam.ts';
 import { drawingZones } from './drawings.ts';
+import { getPmsfh } from './history.ts';
+import { getPlanForReport } from './plan.ts';
+import { getSignature } from './signing.ts';
 import { MAX_EXPORT, MAX_PRINT } from '#lib/exam/print.ts';
 import type { Practice, PrintableEncounter } from '#lib/exam/types.ts';
 
@@ -21,7 +24,10 @@ export function getPrintable(db: DB, patientId: number, encounterId: number): Pr
 		patient,
 		encounter,
 		findings: getFindings(db, patientId, encounterId) ?? {},
-		drawingZones: drawingZones(db, encounterId)
+		drawingZones: drawingZones(db, encounterId),
+		history: getPmsfh(db, patientId),
+		plan: getPlanForReport(db, encounterId),
+		signature: getSignature(db, encounterId)
 	};
 }
 

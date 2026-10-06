@@ -1,6 +1,34 @@
+import { json, redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
+import { getDb } from '#lib/server/db.ts';
+import { SESSION_COOKIE, isBackgroundRequest, needsSetup, resolveSession, routeKind } from '#lib/server/auth.ts';
+import { securityAudit } from '#lib/server/security_audit.ts';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const CHART_PAGE = /^\/patients\/(\d+)$/;
+const EXAM_PAGE = /^\/patients\/(\d+)\/encounters\/(\d+)$/;
+
+/** Chart access audit (164.312(b)): a successful GET of a chart or exam page (full load or client navigation). */
+function auditChartView(db: ReturnType<typeof getDb>, userId: number, path: string): void {
+	const exam = EXAM_PAGE.exec(path);
+	const chart = exam ? null : CHART_PAGE.exec(path);
+	if (!exam && !chart) return;
+	try {
+		if (exam) securityAudit(db, { action: 'view_exam', userId, patientId: Number(exam[1]), encounterId: Number(exam[2]) });
+		else if (chart) securityAudit(db, { action: 'view_patient', userId, patientId: Number(chart[1]) });
+	} catch (e) {
+		console.error('audit: could not record chart view', e);
+	}
+}
+
+function secure(response: Response, signedIn: boolean): Response {
+	response.headers.set('X-Content-Type-Options', 'nosniff');
+	response.headers.set('Referrer-Policy', 'same-origin');
+	response.headers.set('X-Frame-Options', 'DENY');
+	// Signed-in pages carry patient data: keep them out of shared caches and the back-forward disk cache.
+	if (signedIn && !response.headers.has('Cache-Control')) response.headers.set('Cache-Control', 'no-store');
+	return response;
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// SvelteKit's built-in origin check only covers form posts. Our API takes JSON,
@@ -20,13 +48,33 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	// Single-user build: sign-in arrives in a later release. Until then every request
-	// acts as the seeded provider, and the server should only listen on localhost.
-	event.locals.userId = 1;
+	// Sign-in: the ov_session cookie resolves to a user (or nothing). Every non-public route needs one.
+	const db = getDb();
+	const token = event.cookies.get(SESSION_COOKIE);
+	const path = event.url.pathname;
+	// Background requests (lock heartbeat, session-status poll) read the session without extending it.
+	const user = resolveSession(db, token, Date.now(), { touch: !isBackgroundRequest(event.request, path) });
+	if (user) {
+		event.locals.userId = user.id;
+		event.locals.user = { id: user.id, displayName: user.displayName, role: user.role, username: user.username };
+		event.locals.sessionToken = token;
+		event.locals.mustChangePassword = user.mustChangePassword;
+	}
+
+	const kind = routeKind(path);
+	if (!user && kind !== 'public') {
+		if (token) event.cookies.delete(SESSION_COOKIE, { path: '/' }); // expired or revoked
+		if (kind === 'api') return secure(json({ error: 'Sign in first' }, { status: 401 }), false);
+		// Pages (and their data requests) go to sign-in and come back afterwards.
+		redirect(303, needsSetup(db) ? '/setup' : `/login?next=${encodeURIComponent(path + event.url.search)}`);
+	}
+
+	// A temporary password (new account or admin reset) must be changed before anything else.
+	if (user?.mustChangePassword && kind === 'page' && event.request.method === 'GET' && path !== '/settings/me') {
+		redirect(303, '/settings/me?required=1');
+	}
 
 	const response = await resolve(event);
-	response.headers.set('X-Content-Type-Options', 'nosniff');
-	response.headers.set('Referrer-Policy', 'same-origin');
-	response.headers.set('X-Frame-Options', 'DENY');
-	return response;
+	if (user && kind === 'page' && event.request.method === 'GET' && response.status === 200) auditChartView(db, user.id, path);
+	return secure(response, !!user);
 };

@@ -4,7 +4,7 @@ A free, open-source, standalone eye exam and eye-care records app for optometris
 
 Inspired by the well-regarded OpenEMR Eye Exam form (eye_mag), rebuilt from scratch with a modern, tablet-first design.
 
-**Status:** early. Patients and visits (create, search, chart, allergies, new visit). Exam: vision (acuity, Amsler), IOP / pupils / confrontation fields, refraction (current glasses, manifest, cycloplegic, autorefraction, contact lens, transpose) with printable spectacle and contact-lens Rx and dispensed history, external, slit lamp and fundus with drawings (own canvas, touch and pen, versioned autosave, prior drawings). Shorthand, normal defaults, copy between eyes, per-provider quick picks, prior visits with copy forward, undo, autosave. Printable exam reports (one or many visits; Save as PDF), CSV and FHIR R4 export, light/dark/dim-room modes. Still to come: HPI/ROS/PMSFH, neuro, impression/plan, coding, signing, sign-in, settings.
+**Status:** early. Patients and visits (create, search, chart, new visit). Allergies are explicit: "not recorded", "no known allergies" (who confirmed and when) or a list. Past history: eye and medical problems, surgeries, eye and other medications, allergies, family and social history, with an editor, summary and shorthand (`poh:dry eye; all:penicillin rash`). Exam: HPI (three complaints, elements, chronic problems fed from history, Limited/Detailed hint), review of systems, vision (acuity, Amsler), IOP / pupils / confrontation fields, refraction (current glasses, manifest, cycloplegic, autorefraction, contact lens, transpose) with printable spectacle and contact-lens Rx and dispensed history, external, slit lamp, fundus, neuro (motility, alternate cover test with builder, color, stereo, NPC, amplitudes), and drawings (own canvas, touch and pen, versioned autosave, prior drawings). Shorthand, normal defaults, copy between eyes, per-provider quick picks, prior visits with copy forward, undo, autosave. Printable exam reports (one or many visits; Save as PDF), CSV and FHIR R4 export, light/dark/dim-room modes. Impression/plan builder (from exam findings and history, ICD-10-CM FY2027 code search, orders and next visit), coding suggestions with their reasons (eye-visit or office-visit codes, modifiers, justifiers, tests performed, superbill), exam locking while someone edits, final electronic signing with addenda. Sign-in with roles (admin, provider, technician), automatic logoff, an audit log of sign-ins and chart views, practice settings, users, per-user preferences and quick-pick editing. Documents and images per patient and exam area, visual-acuity history and a glaucoma flow sheet with IOP targets. Still to come: the desktop installer (encrypted database, automatic updates), see [`docs/SECURITY.md`](docs/SECURITY.md).
 
 ## Try it
 
@@ -13,12 +13,12 @@ Requires Node.js 24 or newer. Uses Node's built-in SQLite, so there is nothing n
 ```sh
 npm install
 npm run build
-HOST=127.0.0.1 PORT=3000 BODY_SIZE_LIMIT=2M node build    # PowerShell: $env:HOST='127.0.0.1'; $env:PORT='3000'; $env:BODY_SIZE_LIMIT='2M'; node build
+HOST=127.0.0.1 PORT=3000 BODY_SIZE_LIMIT=20M node build    # PowerShell: $env:HOST='127.0.0.1'; $env:PORT='3000'; $env:BODY_SIZE_LIMIT='20M'; node build
 ```
 
-Open http://127.0.0.1:3000. A fresh install creates `data/openvision.sqlite` with two fictional patients. Set `OPENVISION_DB` to store the database elsewhere.
+Open http://127.0.0.1:3000. A fresh install creates `data/openvision.sqlite` with two fictional patients and three demo accounts, all with the password `openvision-demo`: `demo-provider`, `demo-tech` and `demo-admin`. Set `OPENVISION_DB` to store the database elsewhere. Set `OPENVISION_DEMO=0` before the first start for an empty install; the first visit then asks you to create the admin account. Locked out? `node scripts/reset-admin.mjs <admin username>` on the server gives an admin a temporary password.
 
-> **Not for real patients yet.** There is no sign-in in this release, so keep the server bound to `127.0.0.1`.
+> **Not for real patients yet.** The database is not encrypted until the desktop installer ships. Keep the server bound to `127.0.0.1`, and read [`docs/SECURITY.md`](docs/SECURITY.md).
 
 Development: `npm run dev`, `npm test`, `npm run check`.
 
@@ -26,7 +26,7 @@ In the exam: press `Alt+K` for the shorthand bar, then try `das; rc:1+ inj; lk:t
 
 ## Docs
 
-
+- Security and what the clinic is responsible for: [`docs/SECURITY.md`](docs/SECURITY.md)
 - Design direction: [`docs/design/DESIGN.md`](docs/design/DESIGN.md)
 - Design tokens: [`src/lib/styles/tokens.css`](src/lib/styles/tokens.css)
 - Clickable exam-screen preview: open [`docs/design/preview.html`](docs/design/preview.html) in a browser (all data fictional)

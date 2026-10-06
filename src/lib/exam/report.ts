@@ -4,6 +4,9 @@
 import { SECTION_DEF, type SectionId } from './catalog.ts';
 import { workupReport } from './sections/workup.ts';
 import { refractionReport } from './sections/refraction.ts';
+import { historyReport } from './sections/history.ts';
+import { neuroReport } from './sections/neuro.ts';
+import { dilationReport } from './sections/dilation.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 
 export interface ReportRow {
@@ -53,9 +56,13 @@ export function buildReport(findings: Findings): ReportSection[] {
 	};
 	const filled = (r: ReportRow | null): r is ReportRow => !!r && !!(r.od || r.os);
 
-	// Workup (vision, IOP, pupils, fields) and refraction come before the exam sections (§13.2 items 3-6).
-	const out: ReportSection[] = [...workupReport(findings), ...refractionReport(findings)];
+	// HPI first (item 1); PMSFH is patient-level, so ExamReport prints it from PrintableEncounter (item 2).
+	// Then workup (vision, IOP, pupils, fields), motility, and refraction (items 3-6).
+	const neuro = neuroReport(findings);
+	const out: ReportSection[] = [...historyReport(findings), ...workupReport(findings), ...neuro.strip, ...refractionReport(findings)];
 	for (const l of LAYOUT) {
+		// Dilation prints just before Retina (§13.2 item 10 "Dilation Time").
+		if (l.section === 'RETINA') out.push(...dilationReport(findings));
 		const sec = SECTION_DEF.get(l.section)!;
 		const core = l.core.map((id) => row(l.section, id)).filter((r): r is ReportRow => !!r);
 		const extra = l.extra.map((id) => row(l.section, id)).filter(filled);
@@ -68,12 +75,17 @@ export function buildReport(findings: Findings): ReportSection[] {
 		out.push({ title: l.title, rows: [...core, ...extra], comments });
 		if (l.section === 'EXT') out.push(...additional());
 	}
+	// Cover test and neuro comments after Retina (item 11).
+	out.push(...neuro.after);
 	return out;
 
 	function additional(): ReportSection[] {
 		const rows = ADDITIONAL.map((id) => row('EXT', id)).filter(filled);
 		const [od, base, os] = [v('ODHERTEL'), v('HERTELBASE'), v('OSHERTEL')];
 		if (od || os || base) rows.push({ label: `Hertel${base ? ` (base ${base})` : ''}`, od: od && `${od} mm`, os: os && `${os} mm` });
-		return rows.length ? [{ title: 'Additional findings', rows, comments: '' }] : [];
+		// Neuro block (item 9): color, red desaturation, coins, NPA, NPC, accommodation, amplitudes, stereopsis.
+		rows.push(...neuro.additional);
+		const title = neuro.orthophoric ? 'Additional findings (orthophoric)' : 'Additional findings';
+		return rows.length || neuro.orthophoric ? [{ title, rows, comments: '' }] : [];
 	}
 }

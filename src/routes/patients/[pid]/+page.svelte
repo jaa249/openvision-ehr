@@ -17,6 +17,7 @@
 
 	const editErrors = $derived(errorsFor('update'));
 	const allergyErrors = $derived(errorsFor('allergy'));
+	const nkdaErrors = $derived(errorsFor('nkda'));
 	const visitErrors = $derived(errorsFor('visit'));
 	const editValues = $derived(
 		Object.keys(editErrors).length
@@ -49,6 +50,12 @@
 			<p class="meta num">{p.age} y · DOB {p.dob} · MRN {p.mrn}</p>
 		</div>
 	</section>
+
+	<!-- Patient records (documents §15.4, glaucoma flow sheet §8.3). -->
+	<nav aria-label="Patient records" style="display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4);">
+		<a href="/patients/{p.id}/documents" style="display: inline-flex; align-items: center; min-height: max(40px, var(--target-min));">Documents and images</a>
+		<a href="/patients/{p.id}/flowsheet" style="display: inline-flex; align-items: center; min-height: max(40px, var(--target-min));">Glaucoma flow sheet</a>
+	</nav>
 
 	<p class="visually-hidden" role="status" aria-live="polite">{status}</p>
 
@@ -104,9 +111,31 @@
 					</li>
 				{/each}
 			</ul>
+		{:else if p.allergyStatus.kind === 'none'}
+			<p class="nkda">
+				<strong>No known allergies</strong>
+				<span class="reaction">· confirmed by {p.allergyStatus.confirmedBy} on {p.allergyStatus.confirmedAt.slice(0, 10)}</span>
+			</p>
 		{:else}
-			<p class="empty">No known allergies</p>
+			<p class="unknown"><span aria-hidden="true">!</span> Allergies not recorded</p>
 		{/if}
+		{#if !p.allergies.length}
+			<!-- Only offered while no allergy is listed: adding one clears it, removing the last never sets it. -->
+			<form
+				method="POST"
+				action="?/nkda"
+				class="nkda-form"
+				use:enhance={() =>
+					async ({ result, update }) => {
+						await update();
+						if (result.type === 'success') status = p.allergyStatus.kind === 'none' ? 'Marked no known allergies.' : 'No known allergies unmarked.';
+					}}
+			>
+				<input type="hidden" name="on" value={p.allergyStatus.kind === 'none' ? '0' : '1'} />
+				<button type="submit">{p.allergyStatus.kind === 'none' ? 'Unmark no known allergies' : 'Mark no known allergies'}</button>
+			</form>
+		{/if}
+		{#if nkdaErrors.nkda}<p class="err" role="alert">{nkdaErrors.nkda}</p>{/if}
 		<form
 			method="POST"
 			action="?/addAllergy"
@@ -331,9 +360,21 @@
 	.allergies form {
 		flex-direction: row;
 	}
-	.empty {
+	.empty,
+	.nkda,
+	.unknown {
 		margin: 0;
 		color: var(--text-2);
+	}
+	.nkda strong {
+		color: var(--text-1);
+	}
+	.unknown {
+		color: var(--warn);
+		font-weight: var(--weight-semibold);
+	}
+	.nkda-form {
+		align-items: flex-start;
 	}
 	.vmain {
 		display: flex;

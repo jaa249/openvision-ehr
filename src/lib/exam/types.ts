@@ -1,4 +1,6 @@
 // Shapes shared by server loaders and client components.
+import type { PlanReport, Signature } from '#lib/plan/types.ts';
+import type { AllergyStatus, Pmsfh } from '#lib/history/types.ts';
 
 export interface PatientHeader {
 	id: number;
@@ -11,7 +13,8 @@ export interface PatientHeader {
 	dob: string;
 	age: number;
 	photoUrl: string | null;
-	allergies: { title: string; reaction: string | null }[];
+	/** Not recorded / NKDA (confirmed) / listed; an empty list is never shown as NKDA. */
+	allergyStatus: AllergyStatus;
 }
 
 export interface EncounterInfo {
@@ -41,4 +44,10 @@ export interface PrintableEncounter {
 	findings: Findings;
 	/** Zones with a saved drawing for this visit (spec §13.4), e.g. ['EXT', 'RETINA']. */
 	drawingZones?: string[];
+	/** Patient history at print time (spec §13.2 item 2); absent = not loaded. */
+	history?: Pmsfh;
+	/** Impression/Plan and orders (§13.2 item 12); null = nothing recorded. */
+	plan?: PlanReport | null;
+	/** null = not signed. */
+	signature?: Signature | null;
 }

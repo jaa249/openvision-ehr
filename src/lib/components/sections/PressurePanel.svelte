@@ -15,21 +15,40 @@
 		needsTimeStamp,
 		normalizeReactivity
 	} from '#lib/exam/sections/workup.ts';
+	import { DILATION_DROPS, DIL_MEDS, DIL_RISKS, DIL_TIME, dropGiven, isDilated, risksDiscussed } from '#lib/exam/sections/dilation.ts';
 	import type { PanelProps } from './types.ts';
 	import { cellState, withValues } from './workup/cell.ts';
+	import { effectiveTarget, type Fallback } from './workup/IopTargets.svelte';
 
 	type Side = 'OD' | 'OS';
-	let { findings, preview, copied, defaults, onedit, oncommit }: PanelProps = $props();
+	let { context, findings, preview, copied, defaults, onedit, oncommit }: PanelProps = $props();
 
 	const cell = (id: string) => cellState(id, findings, preview, copied);
 	const val = (id: string) => findings[id]?.value ?? '';
 
 	// ---------- IOP ----------
-	const target = $derived({ OD: iopTarget('OD', findings, defaults), OS: iopTarget('OS', findings, defaults) });
-	/** Placeholder for an empty target box: what applies when nothing is typed (list value, else 21). */
+	// Targets (§8.3 FIX): this visit's value, else the latest prior visit's, else the provider's default, else 21.
+	// The prior-visit step needs the server; until it answers, the provider default / 21 applies.
+	let priorFallback = $state<Fallback | null>(null);
+	$effect(() => {
+		const ctrl = new AbortController();
+		fetch(`/patients/${context.patientId}/flowsheet/targets?encounter=${context.encounterId}`, { signal: ctrl.signal })
+			.then((r) => (r.ok ? r.json() : null))
+			.then((j: { fallback: Fallback } | null) => {
+				if (j) priorFallback = j.fallback;
+			})
+			.catch(() => {});
+		return () => ctrl.abort();
+	});
+	const target = $derived(
+		priorFallback
+			? { OD: effectiveTarget('OD', findings, priorFallback), OS: effectiveTarget('OS', findings, priorFallback) }
+			: { OD: iopTarget('OD', findings, defaults), OS: iopTarget('OS', findings, defaults) }
+	);
+	/** Placeholder for an empty target box: what applies when nothing is typed. */
 	const fallbackTarget = $derived({
-		OD: iopTarget('OD', {}, defaults),
-		OS: iopTarget('OS', {}, defaults)
+		OD: priorFallback?.OD.value ?? iopTarget('OD', {}, defaults),
+		OS: priorFallback?.OS.value ?? iopTarget('OS', {}, defaults)
 	});
 	const IOP_IDS: string[] = IOP_METHODS.flatMap((m) => [m.od, m.os]);
 
@@ -49,6 +68,18 @@
 		const ids = [...IOP_IDS, 'IOPTIME'];
 		const { next, changed } = withValues(findings, Object.fromEntries(ids.map((id) => [id, ''])));
 		oncommit(next, changed, 'Cleared IOP');
+	}
+
+	// ---------- dilation (spec §1.6 dilation box; no defaults) ----------
+	const dilated = $derived(isDilated(findings));
+	const mc = $derived(cell(DIL_MEDS));
+	const tc = $derived(cell(DIL_TIME));
+	/** A drop toggle stores its strength. The first drop stamps the time when it is empty (risks stay the provider's call). */
+	function toggleDrop(id: string, strength: string) {
+		const values: Record<string, string> = { [id]: dropGiven(findings, id) ? '' : strength };
+		if (values[id] && needsTimeStamp(val(DIL_TIME))) values[DIL_TIME] = formatTime(new Date());
+		const { next, changed } = withValues(findings, values);
+		oncommit(next, changed, '');
 	}
 
 	// ---------- pupils ----------
@@ -212,6 +243,58 @@
 					</tr>
 				</tbody>
 			</table>
+			<div class="dil" role="group" aria-labelledby="dil-title">
+				<div class="dil-head">
+					<h4 id="dil-title">Dilation</h4>
+					<span class="dil-state" aria-live="polite">{dilated ? 'Dilated' : 'Not dilated'}</span>
+				</div>
+				<div class="drops">
+					{#each DILATION_DROPS as d (d.id)}
+						{@const c = cell(d.id)}
+						{@const on = dropGiven(findings, d.id)}
+						<span class="drop" class:on class:ghost={c.ghost} class:copied={c.copied} data-field={d.id}>
+							<button type="button" class="drop-btn" aria-pressed={on} onclick={() => toggleDrop(d.id, d.strengths[0])}>
+								<span class="tick" aria-hidden="true">{on ? '✓' : '+'}</span>
+								{d.name}
+								{#if d.strengths.length === 1}<span class="strength">{d.strengths[0]}</span>{/if}
+							</button>
+							{#if d.strengths.length > 1}
+								<select
+									class="strength-pick"
+									aria-label="{d.name} strength"
+									value={on ? c.value : d.strengths[0]}
+									onchange={(e) => {
+										if (on) onedit(d.id, e.currentTarget.value);
+										else toggleDrop(d.id, e.currentTarget.value);
+									}}
+								>
+									{#each new Set([...d.strengths, ...(on && !d.strengths.includes(c.value) ? [c.value] : [])]) as s (s)}
+										<option value={s}>{s}</option>
+									{/each}
+								</select>
+							{/if}
+						</span>
+					{/each}
+				</div>
+				<div class="dil-row">
+					<label class="dil-other" class:ghost={mc.ghost} class:copied={mc.copied} data-field={DIL_MEDS}>
+						<span>Other drops <span class="code inline">DIL</span></span>
+						<input value={mc.value} maxlength="200" autocomplete="off" placeholder="e.g. proparacaine" oninput={(e) => onedit(DIL_MEDS, e.currentTarget.value)} />
+					</label>
+					<span class="dil-time">
+						<span id="dil-time-label">Time <span class="code inline">DILTIME</span></span>
+						<span class="time" class:ghost={tc.ghost} class:copied={tc.copied} data-field={DIL_TIME}>
+							<input class="s num" value={tc.value} maxlength="10" autocomplete="off" aria-labelledby="dil-time-label" placeholder="h:mm AM" oninput={(e) => onedit(DIL_TIME, e.currentTarget.value)} />
+							<button type="button" class="mini tall" aria-label="Dilation time: now" onclick={() => onedit(DIL_TIME, formatTime(new Date()))}>Now</button>
+						</span>
+					</span>
+					<label class="check tall">
+						<input type="checkbox" checked={risksDiscussed(findings)} onchange={(e) => onedit(DIL_RISKS, e.currentTarget.checked ? 'on' : '')} />
+						Risks discussed
+					</label>
+				</div>
+				<p class="dil-hint">Drops are never filled by Defaults. The first drop stamps the time if it is empty. Shorthand: <code>TROP:1%</code>, <code>NEO:2.5%</code>.</p>
+			</div>
 			<p class="hint">Values above the eye's target (21 unless set) show <span class="flag inline">▲ high</span>. Typing a pressure stamps the time.</p>
 		</div>
 
@@ -693,5 +776,124 @@
 	}
 	.sep {
 		margin-left: var(--space-3);
+	}
+	/* ---- dilation block ---- */
+	.dil {
+		border-top: 1px solid var(--hairline);
+		padding: var(--space-2) var(--space-3);
+		display: grid;
+		gap: var(--space-2);
+	}
+	.dil-head {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+	h4 {
+		font-size: var(--text-sm);
+		font-weight: var(--weight-semibold);
+		margin: 0;
+	}
+	.dil-state {
+		font-size: var(--text-xs);
+		color: var(--text-3);
+	}
+	.drops {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1);
+	}
+	.drop {
+		display: inline-flex;
+		align-items: stretch;
+		border: 1px solid var(--hairline);
+		border-radius: var(--radius-1);
+		min-width: 0;
+	}
+	.drop.on {
+		border-color: var(--accent);
+		background: var(--accent-soft);
+	}
+	.drop.ghost {
+		outline: 2px dashed var(--accent);
+		outline-offset: -2px;
+	}
+	.drop.copied {
+		background: var(--copied-tint);
+	}
+	.drop-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-height: max(var(--target-min), 40px);
+		border: 0;
+		background: transparent;
+		color: var(--text-1);
+		font-size: var(--text-xs);
+		padding: 0 var(--space-2);
+	}
+	.drop.on .drop-btn {
+		color: var(--accent);
+		font-weight: var(--weight-semibold);
+	}
+	.tick {
+		width: 1em;
+		text-align: center;
+	}
+	.strength {
+		color: var(--text-2);
+	}
+	.strength-pick {
+		font: inherit;
+		font-size: var(--text-xs);
+		color: var(--text-1);
+		background: transparent;
+		border: 0;
+		border-left: 1px solid var(--hairline);
+		min-height: max(var(--target-min), 40px);
+		padding: 0 var(--space-1);
+	}
+	.drop-btn:focus-visible,
+	.strength-pick:focus-visible {
+		outline: 2px solid var(--focus-ring);
+		outline-offset: 1px;
+	}
+	.dil-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		gap: var(--space-2) var(--space-3);
+	}
+	.dil-other,
+	.dil-time {
+		display: grid;
+		gap: 2px;
+		font-size: var(--text-xs);
+		color: var(--text-2);
+		min-width: 0;
+	}
+	.dil-other {
+		flex: 1 1 10em;
+	}
+	.dil-other input {
+		width: 100%;
+	}
+	.dil-other.ghost input {
+		color: var(--accent);
+		font-style: italic;
+	}
+	.dil-other.copied input {
+		background: var(--copied-tint);
+	}
+	.tall {
+		min-height: max(var(--target-min), 40px);
+	}
+	.dil-hint {
+		margin: 0;
+		font-size: var(--text-xs);
+		color: var(--text-3);
+	}
+	.dil-hint code {
+		font-family: var(--font-mono);
 	}
 </style>

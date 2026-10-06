@@ -74,4 +74,22 @@ describe('drawing autosave', () => {
 		expect(s.dirty).toBe(false);
 		expect(s.status).toBe('saved');
 	});
+
+	it('sends the lock token and stops for good on 423', async () => {
+		const { ExamLock } = await import('#lib/exam/lock.svelte.ts');
+		const lock = new ExamLock('/e', { signature: null, lock: null }, () => {}, (async () => new Response('{}')) as unknown as typeof fetch, 'tok-0123456789abcdef');
+		await lock.start();
+		const f = vi.fn(async () => new Response(JSON.stringify({ message: 'This exam is signed.', reason: 'signed' }), { status: 423 }));
+		const s = new DrawingSaver('/x', png, f as unknown as typeof fetch);
+		s.changed(0);
+		await vi.advanceTimersByTimeAsync(10);
+		expect(((f.mock.calls[0] as unknown[])[1] as RequestInit).headers).toMatchObject({ 'x-lock-token': 'tok-0123456789abcdef' });
+		expect(s.status).toBe('failed');
+		expect(s.message).toBe('Not saved: This exam is signed.');
+		s.changed(0);
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(f).toHaveBeenCalledTimes(1);
+		expect(s.message).toBe('Not saved: This exam is signed.');
+		lock.stop();
+	});
 });

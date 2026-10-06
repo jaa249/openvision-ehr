@@ -6,8 +6,11 @@
 	import type { PanelProps } from './types.ts';
 	import { cellState, replaceKeepingCaret, withValues } from './workup/cell.ts';
 	import AmslerGrid from './workup/AmslerGrid.svelte';
+	import VaHistory from './workup/VaHistory.svelte';
 
-	let { findings, preview, copied, onedit, oncommit }: PanelProps = $props();
+	let { context, findings, preview, copied, onedit, oncommit }: PanelProps = $props();
+	/** Acuity history dialog (§8.2). */
+	let historyOpen = $state(false);
 
 	const GROUPS: { title: string; keys: string[] }[] = [
 		{ title: 'Distance', keys: ['SC', 'CC', 'PH'] },
@@ -138,8 +141,14 @@
 <section aria-labelledby="vision-title" bind:this={root}>
 	<div class="head">
 		<h2 id="vision-title">Vision</h2>
+		<button type="button" aria-haspopup="dialog" title="Acuity at every visit up to this one, as a table and chart" onclick={() => (historyOpen = true)}>
+			History
+		</button>
 		<button type="button" onclick={clearAll}>Clear vision</button>
 	</div>
+	{#if historyOpen}
+		<VaHistory {context} {findings} onclose={() => (historyOpen = false)} />
+	{/if}
 
 	<div class="layout">
 		<div class="panel">
