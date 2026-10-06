@@ -1,0 +1,114 @@
+<script lang="ts">
+	import { FIELD_BY_ID } from '#lib/exam/catalog.ts';
+	import type { ParseResult } from '#lib/shorthand/parse.ts';
+
+	let {
+		text = $bindable(''),
+		result,
+		onsubmit
+	}: { text: string; result: ParseResult; onsubmit: () => void } = $props();
+
+	let input: HTMLInputElement;
+	export function focus() {
+		input.focus();
+	}
+
+	function label(op: ParseResult['ops'][number]): string {
+		if (op.kind === 'defaults') return `Normal: ${op.sections === 'all' ? 'all sections' : op.sections.join(', ')}`;
+		if (op.kind === 'clear') return `Clear: ${op.sections === 'all' ? 'all sections' : op.sections.join(', ')}`;
+		const names = op.fields.map((f) => FIELD_BY_ID.get(f)?.label ?? f).join(' + ');
+		return `${names} ${op.append ? '+=' : '='} ${op.text || '(empty)'}`;
+	}
+
+	function onkeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			onsubmit();
+		} else if (e.key === 'Escape') {
+			text = '';
+		}
+	}
+</script>
+
+<div class="bar">
+	<label for="shorthand">Shorthand <kbd>Alt K</kbd></label>
+	<input
+		id="shorthand"
+		bind:this={input}
+		bind:value={text}
+		{onkeydown}
+		autocomplete="off"
+		autocapitalize="off"
+		spellcheck="false"
+		placeholder="rc:1+ inj; lk:tr spk.a; das"
+		aria-describedby="shorthand-preview"
+		aria-invalid={result.errors.length > 0}
+	/>
+	<div class="preview" id="shorthand-preview" aria-live="polite">
+		{#each result.ops as op, i (i)}
+			<span class="chip">{label(op)}</span>
+		{/each}
+		{#each result.errors as err, i (i)}
+			<span class="chip err">{err.message}</span>
+		{/each}
+		{#if text && !result.ops.length && !result.errors.length}
+			<span class="hint">Type code:value, separate entries with ;</span>
+		{/if}
+	</div>
+</div>
+
+<style>
+	.bar {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		padding: var(--space-2) var(--space-4);
+		background: var(--surface-1);
+		border-top: 1px solid var(--hairline);
+		flex-wrap: wrap;
+	}
+	label {
+		font-size: var(--text-xs);
+		color: var(--text-3);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		display: inline-flex;
+		gap: var(--space-2);
+		align-items: center;
+	}
+	input {
+		flex: 1 1 320px;
+		min-height: var(--target-min);
+		font: var(--text-sm) var(--font-mono);
+		color: var(--text-1);
+		background: var(--surface-0);
+		border: 1px solid var(--hairline);
+		border-radius: var(--radius-1);
+		padding: 0 var(--space-3);
+	}
+	input[aria-invalid='true'] {
+		border-color: var(--danger);
+	}
+	.preview {
+		display: flex;
+		gap: var(--space-2);
+		flex-wrap: wrap;
+		flex: 1 1 280px;
+		min-height: 1.5em;
+	}
+	.chip {
+		font-size: var(--text-xs);
+		padding: 2px 8px;
+		border-radius: var(--radius-pill);
+		background: var(--surface-2);
+		border: 1px solid var(--hairline);
+	}
+	.chip.err {
+		color: var(--danger);
+		border-color: var(--danger);
+	}
+	.hint {
+		color: var(--text-3);
+		font-size: var(--text-xs);
+	}
+</style>

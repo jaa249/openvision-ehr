@@ -11,3 +11,8 @@ dist/
 .env.*
 .DS_Store
 Thumbs.db
+
+# Local database
+data/
+build/
+.svelte-kit/

@@ -1,7 +1,7 @@
 # Design Direction — v0.1
 
 > **OpenVision**. Status: draft for review.
-> Companion files: [`tokens.css`](tokens.css) (the values) and [`preview.html`](preview.html) (the exam screen rendered with them).
+> Companion files: [`tokens.css`](../../src/lib/styles/tokens.css) (the values) and [`preview.html`](preview.html) (the exam screen rendered with them).
 
 ## 1. Who we design for
 
@@ -26,7 +26,7 @@ Hardware ranges from a 10-year-old office PC to a workstation with a GPU. **The 
 
 ### 3.1 Color
 
-Neutral, low-saturation UI so clinical color (findings, alerts) stands out. Full values in `tokens.css`.
+Neutral, low-saturation UI so clinical color (findings, alerts) stands out. Full values in `src/lib/styles/tokens.css`.
 
 | Role | Purpose |
 |---|---|

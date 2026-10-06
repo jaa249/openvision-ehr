@@ -14,6 +14,8 @@
 | D8 | AI | Not in the base install; optional downloadable pack, hardware-checked | Keep it light for low-power users; let capable machines do more |
 | D9 | Laterality layout | OD-left doctor view for panels/drawings; OD top row in Rx tables; text labels always | No published standard; labels make either orientation safe |
 | D10 | Name | **OpenVision**, repo `jaa249/openvision-ehr`, public | Plain, descriptive; qualifier avoids clashes with other "OpenVision" software |
+| D11 | Shorthand submit key | **Enter only**; Tab keeps its normal focus move | Original also captured Tab, which traps keyboard users in the box |
+| D12 | First slice | Slit lamp section end to end; single local user, no sign-in yet | Proves stack, shorthand, autosave and ownership checks before widening |
 
 ## Still open
 
