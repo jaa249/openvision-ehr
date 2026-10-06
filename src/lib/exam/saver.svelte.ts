@@ -72,4 +72,15 @@ export class Saver {
 		}
 		if (this.#pending.size && this.status !== 'error') this.flush();
 	}
+
+	/** Saves everything now and waits for it (e.g. before printing). False if it could not save in time. */
+	async settle(timeout = 5000): Promise<boolean> {
+		const end = Date.now() + timeout;
+		while (this.hasUnsaved && Date.now() < end) {
+			if (this.status === 'error') return false;
+			await this.flush();
+			if (this.hasUnsaved) await new Promise((r) => setTimeout(r, 50));
+		}
+		return !this.hasUnsaved;
+	}
 }

@@ -20,6 +20,10 @@
 | D14 | Quick-pick starter list | Our own short list per section, spellings corrected; copied into each provider's list on first use | Clean room; providers own and can later edit their list |
 | D15 | Copy forward | Copies only fields the prior visit recorded; blank prior fields leave today's value alone. Copied fields get a tint until edited; one Undo reverts | Avoids wiping today's work with empties; tint makes carried-over findings visible for review |
 | D16 | Pre-release databases | No data migrations for seed changes before v0.1; delete `data/` to pick up new demo data | Only fictional demo data exists; keeps the migration list for real schema changes |
+| D17 | Printing and PDF | Browser printing of an HTML report (spec §13.2 rules); PDF via the print dialog's "Save as PDF". Mass print up to 200 visits per job, one per page, grouped by patient. Each print is logged when the dialog closes | No PDF engine in the install keeps it light; every modern browser saves PDF. Browsers cannot tell print from cancel, so the log records "print dialog opened" |
+| D18 | Print shortcut | `Ctrl+P` in the exam prints the report (saving first); Alt+P stays Prior visits per D4 | Users already press Ctrl+P to print; printing the editing screen is never what they want |
+| D19 | CSV export | One row per visit, one column per exam field, UTF-8 with BOM, CRLF. Cells starting with = + - @ get a leading apostrophe | Opens cleanly in Excel/Sheets; the apostrophe blocks formula injection and keeps values like "+1 NS" from turning into #NAME? |
+| D20 | FHIR export | R4 "collection" Bundle: Patient (MRN, legal + preferred name), Practitioner, Encounter, AllergyIntolerance, one Observation per finding (category exam, SNOMED eye laterality, valueString, status preliminary until signing exists). Codes use our own CodeSystem URL until findings are mapped to SNOMED/LOINC. Stable name-based UUIDs. Exports are logged like prints | Validates with 0 errors on the HL7 validator (only "unknown CodeSystem" warnings); stable ids let a receiving system de-duplicate re-imports |
 
 ## Still open
 

@@ -125,7 +125,24 @@ const MIGRATIONS: string[] = [
 		mode TEXT NOT NULL CHECK (mode IN ('add', 'replace', 'append')),
 		seq INTEGER NOT NULL
 	);
-	CREATE INDEX qp_items_user ON qp_items(user_id, zone, seq);`
+	CREATE INDEX qp_items_user ON qp_items(user_id, zone, seq);`,
+	// Report header (spec §13.3) and the print audit log (§12.4: printing is logged).
+	`CREATE TABLE practice (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		name TEXT NOT NULL,
+		address TEXT NOT NULL DEFAULT '',
+		phone TEXT NOT NULL DEFAULT '',
+		fax TEXT NOT NULL DEFAULT ''
+	);
+	INSERT INTO practice (id, name) VALUES (1, 'Your Practice Name');
+	CREATE TABLE print_log (
+		id INTEGER PRIMARY KEY,
+		user_id INTEGER NOT NULL REFERENCES users(id),
+		encounter_id INTEGER NOT NULL REFERENCES encounters(id),
+		printed_at TEXT NOT NULL
+	);`,
+	// The same audit log covers data exports.
+	`ALTER TABLE print_log ADD COLUMN kind TEXT NOT NULL DEFAULT 'print' CHECK (kind IN ('print', 'csv', 'fhir'));`
 ];
 
 export function migrate(db: DB): void {
@@ -151,6 +168,12 @@ export function seedDemo(db: DB, today = new Date().toISOString().slice(0, 10)):
 	if (has.n > 0) return;
 	db.exec('BEGIN');
 	db.prepare('INSERT INTO users (id, display_name) VALUES (1, ?)').run('Dr. Example');
+	db.prepare('UPDATE practice SET name = ?, address = ?, phone = ?, fax = ? WHERE id = 1').run(
+		'Example Eye Care (demo)',
+		'100 Sample Street, Anytown, ST 00000',
+		'(555) 010-0100',
+		'(555) 010-0101'
+	);
 	const p = db.prepare(
 		'INSERT INTO patients (id, mrn, legal_first, legal_last, preferred_name, dob) VALUES (?, ?, ?, ?, ?, ?)'
 	);

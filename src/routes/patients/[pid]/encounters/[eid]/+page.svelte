@@ -34,10 +34,26 @@
 	const sec = $derived(SECTION_DEF.get(section));
 	const picks = $derived(data.quickPicks.filter((p) => p.zone === section));
 	const MODES = [
-		{ id: 'text', label: 'Type' },
-		{ id: 'qp', label: 'Quick picks' },
-		{ id: 'priors', label: 'Prior visits' }
+		{ id: 'text', label: 'Type', key: 't' },
+		{ id: 'qp', label: 'Quick picks', key: 'b' },
+		{ id: 'priors', label: 'Prior visits', key: 'p' }
 	] as const;
+
+	// ---------- printing ----------
+	let notice = $state<string | null>(null);
+	/** Saves first so the report matches the screen, then opens it in a new tab (spec §13). */
+	async function printExam() {
+		const tab = window.open('about:blank', '_blank'); // opened now, while the click still counts
+		if (!(await saver.settle())) {
+			tab?.close();
+			notice = 'Not printed: recent changes are not saved yet. Check the connection and try again.';
+			setTimeout(() => (notice = null), 8000);
+			return;
+		}
+		const url = `/print?auto=1&ids=${data.encounter.id}`;
+		if (tab) tab.location.href = url;
+		else window.location.href = url;
+	}
 
 	// ---------- undo (bulk actions only; typing has the browser's own undo) ----------
 	interface UndoEntry {
@@ -162,6 +178,19 @@
 			bar.focus();
 			return;
 		}
+		// Alt+T / Alt+B / Alt+P: Type, Quick picks, Prior visits (decision D4).
+		const m = e.altKey && !e.ctrlKey && !e.metaKey ? MODES.find((m) => m.key === e.key.toLowerCase()) : undefined;
+		if (m) {
+			e.preventDefault();
+			mode = m.id;
+			return;
+		}
+		// Ctrl+P prints the exam report, not a screenshot of the editing screen.
+		if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'p') {
+			e.preventDefault();
+			printExam();
+			return;
+		}
 		if (typing || e.altKey || e.ctrlKey || e.metaKey) {
 			if (!typing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && undoEntry) {
 				e.preventDefault();
@@ -193,15 +222,22 @@
 <svelte:head><title>{data.patient.name} · Exam · OpenVision</title></svelte:head>
 
 <a class="skip" href="#exam">Skip to exam</a>
+<p class="print-hint">To print this exam, use the Print button at the top of the exam (or Ctrl+P), which prints the formatted report.</p>
 <div class="frame">
-	<PatientBanner patient={data.patient} encounter={data.encounter} {saver} />
+	<PatientBanner patient={data.patient} encounter={data.encounter} {saver} onprint={printExam} />
 	<div class="body">
 		<SectionRail current={section} {findings} onselect={(id) => (section = id)} />
 		<main id="exam" tabindex="-1">
 			{#if sec}
 				<div class="modes" role="group" aria-label="Helper panel">
 					{#each MODES as m (m.id)}
-						<button type="button" aria-pressed={mode === m.id} onclick={() => (mode = m.id)}>
+						<button
+							type="button"
+							aria-pressed={mode === m.id}
+							aria-keyshortcuts="Alt+{m.key.toUpperCase()}"
+							title="Alt+{m.key.toUpperCase()}"
+							onclick={() => (mode = m.id)}
+						>
 							{m.label}{#if m.id === 'priors' && data.priors.length}<span class="count">{data.priors.length}</span>{/if}
 						</button>
 					{/each}
@@ -247,7 +283,9 @@
 	<ShorthandBar bind:this={bar} bind:text={shorthand} result={parsed} onsubmit={submitShorthand} />
 </div>
 
-{#if undoEntry}
+{#if notice}
+	<div class="toast error" role="alert">{notice}</div>
+{:else if undoEntry}
 	<div class="toast" role="status">
 		<span>{undoEntry.label}</span>
 		<button type="button" onclick={undo}>Undo <kbd>Ctrl Z</kbd></button>
@@ -368,6 +406,26 @@
 		border-radius: var(--radius-2);
 		box-shadow: var(--shadow-overlay);
 		animation: toast-in var(--dur-panel-in) var(--ease-enter);
+	}
+	.print-hint {
+		display: none;
+	}
+	/* Printing the editing screen from the browser menu would waste paper; point to the report instead. */
+	@media print {
+		.frame,
+		.toast,
+		.skip {
+			display: none;
+		}
+		.print-hint {
+			display: block;
+			font-size: 14pt;
+			margin: 1in;
+		}
+	}
+	.toast.error {
+		color: var(--danger);
+		padding-right: var(--space-4);
 	}
 	@keyframes toast-in {
 		from {

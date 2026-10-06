@@ -1,0 +1,71 @@
+// Printed exam report: which sections and rows appear (docs/spec/BEHAVIOR.md §13.2).
+// Pure, so the single and mass-print pages render the same thing and tests can pin the rules.
+
+import { SECTION_DEF, type SectionId } from './catalog.ts';
+import type { Findings } from '#lib/shorthand/parse.ts';
+
+export interface ReportRow {
+	label: string;
+	od: string;
+	os: string;
+}
+export interface ReportSection {
+	title: string;
+	rows: ReportRow[];
+	comments: string;
+}
+
+/** Core rows print whenever their section prints; extra rows only when filled (§13.2 items 7, 8, 10). */
+const LAYOUT: { section: SectionId; title: string; core: string[]; extra: string[] }[] = [
+	{ section: 'EXT', title: 'External', core: ['BROW', 'UL', 'LL', 'MCT'], extra: ['ADNEXA'] },
+	{
+		section: 'ANTSEG',
+		title: 'Anterior segment',
+		core: ['CONJ', 'CORNEA', 'AC', 'LENS', 'IRIS'],
+		extra: ['GONIO', 'KTHICKNESS', 'SCHIRMER1', 'SCHIRMER2', 'TBUT']
+	},
+	{
+		section: 'RETINA',
+		title: 'Retina',
+		core: ['DISC', 'CUP', 'MACULA', 'VESSELS', 'VITREOUS', 'PERIPH'],
+		extra: ['CMT']
+	}
+];
+
+/** "Additional findings": External measurements, each only when filled (§13.2 item 9, with the MRD/fissure FIX). */
+const ADDITIONAL = ['LF', 'MRD', 'VFISSURE', 'CAROTID', 'TEMPART', 'CNV', 'CNVII'];
+
+export function buildReport(findings: Findings): ReportSection[] {
+	const v = (id: string) => findings[id]?.value?.trim() ?? '';
+	const row = (section: SectionId, id: string): ReportRow | null => {
+		const r = SECTION_DEF.get(section)?.rows.find((x) => x.id === id);
+		if (!r) return null;
+		const unit = r.measure ? ` ${r.measure}` : '';
+		const fmt = (s: string) => (s ? s + unit : '');
+		return { label: r.label, od: fmt(v(r.od)), os: fmt(v(r.os)) };
+	};
+	const filled = (r: ReportRow | null): r is ReportRow => !!r && !!(r.od || r.os);
+
+	const out: ReportSection[] = [];
+	for (const l of LAYOUT) {
+		const sec = SECTION_DEF.get(l.section)!;
+		const core = l.core.map((id) => row(l.section, id)).filter((r): r is ReportRow => !!r);
+		const extra = l.extra.map((id) => row(l.section, id)).filter(filled);
+		const comments = v(sec.comments.field);
+		// A section prints when anything in it was recorded, for either eye (FIX: not OD-only).
+		if (!core.some(filled) && !extra.length && !comments) {
+			if (l.section === 'EXT') out.push(...additional());
+			continue;
+		}
+		out.push({ title: l.title, rows: [...core, ...extra], comments });
+		if (l.section === 'EXT') out.push(...additional());
+	}
+	return out;
+
+	function additional(): ReportSection[] {
+		const rows = ADDITIONAL.map((id) => row('EXT', id)).filter(filled);
+		const [od, base, os] = [v('ODHERTEL'), v('HERTELBASE'), v('OSHERTEL')];
+		if (od || os || base) rows.push({ label: `Hertel${base ? ` (base ${base})` : ''}`, od: od && `${od} mm`, os: os && `${os} mm` });
+		return rows.length ? [{ title: 'Additional findings', rows, comments: '' }] : [];
+	}
+}

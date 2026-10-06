@@ -3,7 +3,12 @@
 	import type { Saver } from '#lib/exam/saver.svelte.ts';
 	import ThemeToggle from './ThemeToggle.svelte';
 
-	let { patient, encounter, saver }: { patient: PatientHeader; encounter: EncounterInfo; saver: Saver } = $props();
+	let {
+		patient,
+		encounter,
+		saver,
+		onprint
+	}: { patient: PatientHeader; encounter: EncounterInfo; saver: Saver; onprint: () => void } = $props();
 
 	const initials = $derived(
 		patient.name
@@ -46,6 +51,7 @@
 			Saved {time(saver.savedAt)}
 		{/if}
 	</div>
+	<button type="button" class="print" onclick={onprint} title="Print this exam (Ctrl+P)">Print</button>
 	<ThemeToggle />
 	<a class="close" href="/">Patients</a>
 </header>

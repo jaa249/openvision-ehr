@@ -5,7 +5,10 @@
 
 <main>
 	<h1>OpenVision</h1>
-	<p class="sub">Today's patients <span class="note">(all demo data is fictional)</span></p>
+	<p class="sub">
+		Today's patients <span class="note">(all demo data is fictional)</span>
+		<a class="enc" href="/encounters">All encounters &amp; printing →</a>
+	</p>
 	<table>
 		<thead>
 			<tr><th scope="col">Patient</th><th scope="col">DOB</th><th scope="col">MRN</th><th scope="col"></th></tr>
@@ -19,6 +22,7 @@
 					<td>
 						{#if p.latestEncounter}
 							<a href="/patients/{p.id}/encounters/{p.latestEncounter}">Open exam</a>
+							<a class="print" href="/print?ids={p.latestEncounter}" target="_blank" rel="noopener">Print</a>
 						{/if}
 					</td>
 				</tr>
@@ -41,6 +45,18 @@
 	.sub {
 		color: var(--text-2);
 		margin: 0 0 var(--space-4);
+	}
+	.sub {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+		align-items: baseline;
+	}
+	.enc {
+		margin-left: auto;
+	}
+	.print {
+		margin-left: var(--space-3);
 	}
 	.note {
 		color: var(--text-3);

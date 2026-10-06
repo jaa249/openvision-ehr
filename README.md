@@ -4,7 +4,7 @@ A free, open-source, standalone eye exam and eye-care records app for optometris
 
 Inspired by the well-regarded OpenEMR Eye Exam form (eye_mag), rebuilt from scratch with a modern, tablet-first design.
 
-**Status:** early. External, slit lamp and fundus sections work end to end: shorthand (including `HERT:15-100-16` for Hertel), normal defaults, copy between eyes, per-provider quick picks with grade/size/location modifiers, prior-visit review with copy forward (one section or the whole exam), undo, autosave, and light/dark/dim-room modes. HPI, acuity, refraction, IOP, neuro, impression/plan, coding and drawings are still design and spec.
+**Status:** early. External, slit lamp and fundus sections work end to end: shorthand (including `HERT:15-100-16` for Hertel), normal defaults, copy between eyes, per-provider quick picks with grade/size/location modifiers, prior-visit review with copy forward (one section or the whole exam), printable exam reports (one visit, or many at once from the Encounters page, each on its own page; Save as PDF from the print dialog), CSV and FHIR R4 export, undo, autosave, and light/dark/dim-room modes. HPI, acuity, refraction, IOP, neuro, impression/plan, coding and drawings are still design and spec.
 
 ## Try it
 
@@ -22,7 +22,7 @@ Open http://127.0.0.1:3000. A fresh install creates `data/openvision.sqlite` wit
 
 Development: `npm run dev`, `npm test`, `npm run check`.
 
-In the exam: press `Alt+K` for the shorthand bar, then try `das; rc:1+ inj; lk:tr spk.a` and Enter. Keys `1`–`0` switch sections (`5` External, `6` Slit lamp, `7` Fundus). The **Quick picks** and **Prior visits** buttons open a helper panel; the demo patient Jordan Demo has two earlier visits to copy from.
+In the exam: press `Alt+K` for the shorthand bar, then try `das; rc:1+ inj; lk:tr spk.a` and Enter. Keys `1`–`0` switch sections (`5` External, `6` Slit lamp, `7` Fundus). The **Quick picks** and **Prior visits** buttons open a helper panel; the demo patient Jordan Demo has two earlier visits to copy from. **Print** (or `Ctrl+P`) in the exam prints the report; **All encounters & printing** on the home page prints or exports many visits at once: **CSV** (one row per visit, for spreadsheets) or **FHIR R4** (a Bundle of Patient, Encounter, AllergyIntolerance and Observation resources, for other EHR systems).
 
 ## Docs
 
