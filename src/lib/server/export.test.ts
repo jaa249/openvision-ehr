@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, seedDemo, type DB } from './db.ts';
 import { getPrintables, logPrint } from './report.ts';
-import { exportName, FHIR_CODESYSTEM, ICD11_URI_EXTENSION, toCsv, toFhirBundle } from './export.ts';
+import { exportName, FHIR_CODESYSTEM, ICD11_URI_EXTENSION, TITLE_LANG_EXTENSION, toCsv, toFhirBundle } from './export.ts';
 import { addItem, saveOrders } from './plan.ts';
 import { updateCodeSettings } from './settings.ts';
 import { signExam } from './signing.ts';
 import { loadIcd11 } from './icd11.ts';
-import { ICD11_FIXTURE } from '#lib/codesets/icd11.fixture.ts';
+import { loadIcd10 } from './icd10.ts';
+import { HAVE_ICD11_FILE, ICD11_FIXTURE, needsCodes } from '#lib/codesets/icd11.fixture.ts';
 import { saveFindings } from './exam.ts';
 import { setNoKnownAllergies } from './patients.ts';
 import { FIELDS } from '#lib/exam/catalog.ts';
@@ -160,6 +161,8 @@ describe('FHIR impression/plan (D47)', () => {
 	const resources = (ids = [1]) =>
 		(toFhirBundle(getPrintables(db, ids), NOW) as { entry: { resource: Record<string, any> }[] }).entry.map((e) => e.resource);
 	const conditions = (ids = [1]) => resources(ids).filter((r) => r.resourceType === 'Condition');
+	// The ICD-10-CM code used here (a CMS FY2027 line), so the test needs no downloaded code set (D49).
+	beforeEach(() => loadIcd10(db, 'H40003  Preglaucoma, unspecified, bilateral\n', 'fixture-export'));
 
 	it('one Condition per impression item, coded or not, with the plan as its note', () => {
 		addItem(db, 1, 1, 1, { title: 'Glaucoma suspect', codes: 'H40.003', plan: 'OCT RNFL next visit' });
@@ -183,7 +186,7 @@ describe('FHIR impression/plan (D47)', () => {
 		expect(glc.encounter.reference).toBe(ref('Encounter'));
 	});
 
-	it('ICD-11: code with extensions, WHO titles and the WHO URI of each part in our extension', () => {
+	it.skipIf(!HAVE_ICD11_FILE)(needsCodes('ICD-11: code with extensions, WHO titles and the WHO URI of each part in our extension', HAVE_ICD11_FILE), () => {
 		loadIcd11(db, ICD11_FIXTURE, 'fixture-test');
 		updateCodeSettings(db, { codeSet: 'icd11' }, null);
 		addItem(db, 1, 1, 1, { codes: '9c61.0z&xk9j' });
@@ -192,7 +195,8 @@ describe('FHIR impression/plan (D47)', () => {
 			{
 				extension: [
 					{ url: ICD11_URI_EXTENSION, valueUri: 'http://id.who.int/icd/release/11/mms/1849071057/unspecified' },
-					{ url: ICD11_URI_EXTENSION, valueUri: 'http://id.who.int/icd/release/11/mms/627678743' }
+					{ url: ICD11_URI_EXTENSION, valueUri: 'http://id.who.int/icd/release/11/mms/627678743' },
+					{ url: TITLE_LANG_EXTENSION, valueCode: 'en' }
 				],
 				system: 'http://id.who.int/icd/release/11/mms',
 				code: '9C61.0Z&XK9J',

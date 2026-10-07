@@ -1,0 +1,16 @@
+{
+	"mainNav": "Principal",
+	"navPatients": "Patients",
+	"navVisits": "Consultations",
+	"navSettings": "Paramètres",
+	"mySettings": "Mes paramètres",
+	"signOut": "Se déconnecter",
+	"colorMode": "Mode d'affichage",
+	"themeLight": "Clair",
+	"themeDark": "Sombre",
+	"themeDim": "Salle obscure",
+	"sessionWarnAnnounce": "Vous serez déconnecté dans environ une minute pour cause d'inactivité.",
+	"sessionWarnCountdown": "Vous serez déconnecté dans {seconds} s pour cause d'inactivité.",
+	"staySignedIn": "Rester connecté",
+	"signingOut": "Déconnexion…"
+}

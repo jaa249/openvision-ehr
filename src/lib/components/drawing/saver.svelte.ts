@@ -5,17 +5,7 @@
 // the saver for good with the server's message (spec §15.1 FIX: read-only pages never post).
 import { backoff } from './history.ts';
 import { lockHeaders, registerFlush } from '#lib/exam/lock.svelte.ts';
-
-/**
- * Why the last save failed, for the screen to word in the page language (D48); `message` keeps the
- * English text. `detail` is the server's own message, if it sent one.
- */
-export type DrawingSaveProblem =
-	| { kind: 'readonly'; detail?: string }
-	| { kind: 'signedOut' }
-	| { kind: 'tooLarge' }
-	| { kind: 'refused'; detail?: string; status: number }
-	| { kind: 'retrying' };
+import { english, type Translate } from '#lib/coding/english.ts';
 
 export type DrawingSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'retrying' | 'failed';
 
@@ -25,8 +15,8 @@ const KEEPALIVE_MAX = 60_000;
 export class DrawingSaver {
 	status = $state<DrawingSaveStatus>('idle');
 	savedAt = $state<Date | null>(null);
+	/** Why the last save failed, in the page language (the server's own detail text stays as sent). */
 	message = $state<string | null>(null);
-	problem = $state<DrawingSaveProblem | null>(null);
 
 	#url: string;
 	#getImage: () => Promise<Blob>;
@@ -39,10 +29,13 @@ export class DrawingSaver {
 	#stopped = false;
 	#disabled = false;
 	#unregister: () => void;
+	/** Messages made here are in the page language (D48); English when left out. */
+	#t: Translate;
 
-	constructor(url: string, getImage: () => Promise<Blob>, fetchImpl: typeof fetch = (...a) => fetch(...a)) {
+	constructor(url: string, getImage: () => Promise<Blob>, t: Translate = english, fetchImpl: typeof fetch = (...a) => fetch(...a)) {
 		this.#url = url;
 		this.#getImage = getImage;
+		this.#t = t;
 		this.#fetch = fetchImpl;
 		// The exam page saves every canvas before signing.
 		this.#unregister = registerFlush(() => this.flush());
@@ -103,27 +96,28 @@ export class DrawingSaver {
 				// Signed, or another page holds the edit lock: read-only now, never retry.
 				const body = (await res.json().catch(() => null)) as { message?: string } | null;
 				this.status = 'failed';
-				this.message = `Not saved: ${body?.message || 'this exam is read-only now'}`;
-				this.problem = { kind: 'readonly', detail: body?.message || undefined };
+				this.message = body?.message ? this.#t('drawing.notSavedBecause', { reason: body.message }) : this.#t('drawing.notSavedReadOnly');
 				this.disable();
 				return;
 			}
 			if (res.status === 401) {
 				// Session ended (idle auto-logoff): retrying cannot work until the user signs in again.
 				this.status = 'failed';
-				this.message = 'Signed out. Your last changes may not be saved; sign in again.';
-				this.problem = { kind: 'signedOut' };
+				this.message = this.#t('drawing.signedOut');
 				return;
 			}
 			if (!res.ok) {
 				// The server refused this image; sending it again would only fail again.
 				if (res.status === 400 || res.status === 404 || res.status === 413 || res.status === 415) {
 					const detail = res.status === 413 ? '' : await res.text().catch(() => '');
-					const text = res.status === 413 ? 'drawing is too large' : detail || `error ${res.status}`;
 					this.#savedVersion = version; // the next change tries again
 					this.status = 'failed';
-					this.message = `Not saved: ${text}`;
-					this.problem = res.status === 413 ? { kind: 'tooLarge' } : { kind: 'refused', detail: detail || undefined, status: res.status };
+					this.message =
+						res.status === 413
+							? this.#t('drawing.notSavedTooLarge')
+							: detail
+								? this.#t('drawing.notSavedBecause', { reason: detail })
+								: this.#t('drawing.notSavedError', { status: res.status });
 					return;
 				}
 				throw new Error(`Server answered ${res.status}`);
@@ -132,14 +126,12 @@ export class DrawingSaver {
 			this.#savedVersion = version;
 			this.#failures = 0;
 			this.message = null;
-			this.problem = null;
 			this.savedAt = new Date(saved.savedAt);
 			this.status = this.dirty ? 'pending' : 'saved';
 		} catch {
 			this.#failures++;
 			this.status = 'retrying';
-			this.message = 'Not saved, retrying';
-			this.problem = { kind: 'retrying' };
+			this.message = this.#t('drawing.notSavedRetrying');
 			retry = true;
 		} finally {
 			this.#inFlight = false;

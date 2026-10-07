@@ -16,3 +16,8 @@ Thumbs.db
 data/
 build/
 .svelte-kit/
+
+# Diagnosis code files are downloaded by each practice, never shipped (D49). codes/ is the development
+# cache filled by `npm run codes:fetch`; only its README is tracked.
+codes/*
+!codes/README.md

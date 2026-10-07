@@ -4,6 +4,7 @@ import { render } from 'svelte/server';
 import { getPractice, getPrintable, getPrintables, listEncounters, logPrint, MAX_PRINT, parseIds } from './report.ts';
 import { saveCodingState, validateCodingState } from './coding.ts';
 import { addItem } from './plan.ts';
+import { loadIcd10 } from './icd10.ts';
 import { updateCodeSettings } from './settings.ts';
 import { EMPTY_CODING_STATE } from '#lib/coding/types.ts';
 import ExamReport from '#lib/components/ExamReport.svelte';
@@ -48,6 +49,8 @@ describe('codes on the report (D46)', () => {
 		render(ExamReport, { props: { item: getPrintable(db, pid, eid)!, practice: getPractice(db), generatedOn: 'today' } }).body;
 	const choose = (o: Record<string, unknown>) => saveCodingState(db, 1, 1, 1, validateCodingState({ ...EMPTY_CODING_STATE, ...o }));
 	beforeEach(() => {
+		// The two codes used here (CMS FY2027 lines), so the test needs no downloaded code set (D49).
+		loadIcd10(db, 'E119    Type 2 diabetes mellitus without complications\nH40003  Preglaucoma, unspecified, bilateral\n', 'fixture-report');
 		addItem(db, 1, 1, 1, { title: 'Glaucoma suspect', codes: 'H40.003', plan: 'OCT next visit' });
 	});
 

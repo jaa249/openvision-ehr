@@ -3,6 +3,7 @@ import { openDatabase, type DB } from './db.ts';
 import { ensureIcd10, findCodeFile, getIcd10, icd10Lookup, loadIcd10, searchIcd10 } from './icd10.ts';
 import { ICD10_FIXTURE } from '#lib/plan/icd10.fixture.ts';
 import { parseCodeFile } from '#lib/plan/codes.ts';
+import { HAVE_ICD10_FILE, needsCodes } from '#lib/codesets/icd11.fixture.ts';
 
 let db: DB;
 beforeEach(() => {
@@ -24,10 +25,10 @@ describe('loader', () => {
 		expect(n).toBeGreaterThan(100);
 		expect(loadIcd10(db, ICD10_FIXTURE, 'fixture-test')).toBe(n);
 		expect((db.prepare('SELECT COUNT(*) AS n FROM icd10').get() as { n: number }).n).toBe(n);
-		expect(ensureIcd10(db)).toBe(true); // a fixture is never replaced by the shipped file
+		expect(ensureIcd10(db)).toBe(true); // a fixture is never replaced by the downloaded file
 		expect(db.prepare('SELECT source, row_count FROM icd10_meta').get()).toEqual({ source: 'fixture-test', row_count: n });
 	});
-	it('finds the shipped code file from the working directory', () => {
+	it.skipIf(!HAVE_ICD10_FILE)(needsCodes('finds the downloaded code file (development: codes/)', HAVE_ICD10_FILE), () => {
 		expect(findCodeFile()).toMatch(/codes[\\/]icd10cm_codes_2027\.txt\.gz$/);
 	});
 	it('looks codes up by display or bare form', () => {
@@ -64,7 +65,7 @@ describe('search', () => {
 	});
 });
 
-describe('the shipped file', () => {
+describe.skipIf(!HAVE_ICD10_FILE)(needsCodes('the downloaded CMS file', HAVE_ICD10_FILE), () => {
 	it('loads all 2027 codes quickly and finds an eye code', () => {
 		const fresh = openDatabase(':memory:');
 		const t = performance.now();

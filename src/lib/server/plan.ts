@@ -7,13 +7,14 @@ import { getEncounter } from './exam.ts';
 import { listIssues } from './history.ts';
 import { getIcd10, icd10Loaded, icd10Lookup, isIcd10Category } from './icd10.ts';
 import { getIcd11, icd11Loaded, icd11Lookup, resolveIcd11Code } from './icd11.ts';
+import { icd11TitlesLoaded } from './icd11_titles.ts';
 import { currentCodeSet, getCodeSettings } from './settings.ts';
 import { displayCode, type IcdCode } from '#lib/plan/codes.ts';
 import { codeSetOfCode, codeTag, codeTextFor, icd11Normalize, isCodeSetId, type CodeSetId } from '#lib/codesets/index.ts';
 import { findingCandidates, issueCandidates } from '#lib/plan/engine.ts';
 import { CPT_RE, ORDER_SEED } from '#lib/plan/orders.ts';
 import { parseNewDx } from '#lib/plan/newdx.ts';
-import type { CandidateSet, ImpItem, ImpKind, OrderOption, PlanData, PlanReport, VisitOrder } from '#lib/plan/types.ts';
+import type { Candidate, CandidateSet, ImpItem, ImpKind, OrderOption, PlanData, PlanReport, VisitOrder } from '#lib/plan/types.ts';
 
 export const TITLE_MAX = 200;
 export const PLAN_MAX = 4000;
@@ -52,8 +53,9 @@ type ItemRow = {
 	link: string;
 	code_system: string;
 	code_uris: string;
+	title_lang: string;
 };
-const ITEM_COLS = 'id, seq, kind, title, codes, code_text, plan, link, code_system, code_uris';
+const ITEM_COLS = 'id, seq, kind, title, codes, code_text, plan, link, code_system, code_uris, title_lang';
 const systemOf = (r: { code_system: string }): CodeSetId => (isCodeSetId(r.code_system) ? r.code_system : 'icd10cm');
 
 const toItem = (r: ItemRow): ImpItem => ({
@@ -65,6 +67,7 @@ const toItem = (r: ItemRow): ImpItem => ({
 	codeText: r.code_text,
 	codeSystem: systemOf(r),
 	codeUris: r.code_uris,
+	titleLang: r.title_lang,
 	plan: r.plan,
 	link: r.link,
 	codeType: r.codes ? codeTag(systemOf(r)) : ''
@@ -105,20 +108,31 @@ export interface NormalizedCodes {
 	codeSystem: CodeSetId;
 	/** ICD-11: each code's part URIs ("&"-joined), ", "-separated like `codes`; '' for ICD-10-CM. */
 	codeUris: string;
+	/** Language of the titles in codeText (D50): 'en', or WHO's titles in the saving user's language. */
+	titleLang: string;
 }
+
+/** Refusal for a typed code while the practice's code set is not downloaded (D49). */
+export const CODES_NOT_DOWNLOADED = 'Diagnosis codes are not downloaded yet. An admin can download them in Settings › Code sets.';
 
 /**
  * Normalises a codes string to the set's codes and fresh code text from the code set (§10.4 FIX:
  * never stale). `set` defaults to the practice's current set.
- * ICD-10-CM ("h2513, ICD10:H40.1131"): with the code set loaded, each code must be a billable code.
+ * ICD-10-CM ("h2513, ICD10:H40.1131"): each code must be a billable code; nothing is saved while the code
+ * set is not downloaded (D49; `lenient` history codes are then kept as typed).
  * ICD-11 ("9C61.0Z&XK9J"): the stem must be a leaf and every "&" part an extension code; WHO's titles
- * and URIs are stored with it (licence), so nothing is saved while the ICD-11 file is missing.
+ * and URIs are stored with it (licence), so nothing is saved while the ICD-11 file is not downloaded.
  * `lenient` (issue codes) skips codes it cannot use instead of refusing.
  */
-export function normalizeCodes(db: DB, raw: unknown, lenient = false, set: CodeSetId = currentCodeSet(db)): NormalizedCodes {
+export function normalizeCodes(db: DB, raw: unknown, lenient = false, set: CodeSetId = currentCodeSet(db), lang = 'en'): NormalizedCodes {
 	const s = line(raw, 'Codes', CODES_MAX);
-	if (!s) return { codes: '', codeText: '', codeSystem: set, codeUris: '' };
-	if (set === 'icd11') return normalizeIcd11(db, s, lenient);
+	if (!s) return { codes: '', codeText: '', codeSystem: set, codeUris: '', titleLang: '' };
+	if (set === 'icd11') {
+		// WHO's titles in the saving user's language (D50) when every code has them; else all in English,
+		// so one item's code text is never in two languages.
+		const local = lang !== 'en' ? normalizeIcd11(db, s, lenient, lang) : null;
+		return local && local.titleLang === lang ? local : normalizeIcd11(db, s, lenient, 'en');
+	}
 	const checked = icd10Loaded(db);
 	const out: IcdCode[] = [];
 	for (const part of s.split(/[,;\s]+/).filter(Boolean)) {
@@ -127,6 +141,7 @@ export function normalizeCodes(db: DB, raw: unknown, lenient = false, set: CodeS
 			if (lenient) continue;
 			throw new PlanValidationError(`"${part}" is not an ICD-10-CM code.`);
 		}
+		if (!checked && !lenient) throw new PlanValidationError(CODES_NOT_DOWNLOADED);
 		if (out.some((c) => c.code === d)) continue;
 		const found = checked ? getIcd10(db, d) : null;
 		if (checked && (!found || !found.billable)) {
@@ -139,19 +154,19 @@ export function normalizeCodes(db: DB, raw: unknown, lenient = false, set: CodeS
 		}
 		out.push(found ?? { code: d, description: '', billable: true });
 	}
-	return { codes: out.map((c) => c.code).join(', '), codeText: codeTextFor('icd10cm', out), codeSystem: 'icd10cm', codeUris: '' };
+	return { codes: out.map((c) => c.code).join(', '), codeText: codeTextFor('icd10cm', out), codeSystem: 'icd10cm', codeUris: '', titleLang: out.length ? 'en' : '' };
 }
 
 /** ICD-11 half of normalizeCodes. */
-function normalizeIcd11(db: DB, s: string, lenient: boolean): NormalizedCodes {
-	const out: { code: string; description: string; uris: string }[] = [];
+function normalizeIcd11(db: DB, s: string, lenient: boolean, lang: string): NormalizedCodes {
+	const out: { code: string; description: string; uris: string; titleLang: string }[] = [];
 	const loaded = icd11Loaded(db);
 	for (const part of s.replace(/\s*&\s*/g, '&').split(/[,;\s]+/).filter(Boolean)) {
 		if (!loaded) {
 			if (lenient) continue;
-			throw new PlanValidationError('The ICD-11 code set is not available on this computer, so ICD-11 codes cannot be checked or saved.');
+			throw new PlanValidationError(CODES_NOT_DOWNLOADED);
 		}
-		const r = resolveIcd11Code(db, part);
+		const r = resolveIcd11Code(db, part, lang);
 		if ('error' in r) {
 			if (lenient) continue;
 			if (codeSetOfCode(displayCode(part) ?? '') === 'icd10cm') {
@@ -159,13 +174,14 @@ function normalizeIcd11(db: DB, s: string, lenient: boolean): NormalizedCodes {
 			}
 			throw new PlanValidationError(r.error);
 		}
-		if (!out.some((c) => c.code === r.code)) out.push({ code: r.code, description: r.description, uris: r.uris });
+		if (!out.some((c) => c.code === r.code)) out.push({ code: r.code, description: r.description, uris: r.uris, titleLang: r.titleLang ?? 'en' });
 	}
 	return {
 		codes: out.map((c) => c.code).join(', '),
 		codeText: codeTextFor('icd11', out),
 		codeSystem: 'icd11',
-		codeUris: out.map((c) => c.uris).join(', ')
+		codeUris: out.map((c) => c.uris).join(', '),
+		titleLang: !out.length ? '' : out.every((c) => c.titleLang === lang) ? lang : 'en'
 	};
 }
 
@@ -203,16 +219,16 @@ export function addItem(
 	encounterId: number,
 	userId: number,
 	input: ItemInput,
-	opts: { index?: number; allowDuplicate?: boolean; now?: Date } = {}
+	opts: { index?: number; allowDuplicate?: boolean; now?: Date; lang?: string } = {}
 ): ImpItem | null {
 	if (!getEncounter(db, patientId, encounterId)) return null;
 	const kind = (input.kind ?? 'free') as ImpKind;
 	if (!KINDS.includes(kind)) throw new PlanValidationError('Unknown item kind.');
-	const { codes, codeText, codeSystem, codeUris } = normalizeCodes(db, input.codes, kind === 'issue');
+	const { codes, codeText, codeSystem, codeUris, titleLang } = normalizeCodes(db, input.codes, kind === 'issue', currentCodeSet(db), opts.lang);
 	let title = line(input.title, 'Title', TITLE_MAX);
 	if (!title && codes) {
 		const first = codes.split(', ')[0];
-		const fromSet = codeSystem === 'icd11' ? getIcd11(db, first.split('&')[0])?.title : getIcd10(db, first)?.description;
+		const fromSet = codeSystem === 'icd11' ? getIcd11(db, first.split('&')[0], titleLang)?.title : getIcd10(db, first)?.description;
 		title = (fromSet || codes).slice(0, TITLE_MAX);
 	}
 	if (!title) throw new PlanValidationError('Give the diagnosis a title.');
@@ -230,10 +246,10 @@ export function addItem(
 	try {
 		const r = db
 			.prepare(
-				`INSERT INTO imp_items (encounter_id, seq, kind, title, codes, code_text, code_system, code_uris, plan, link, created_at, created_by, updated_at, updated_by)
-				 VALUES (?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+				`INSERT INTO imp_items (encounter_id, seq, kind, title, codes, code_text, code_system, code_uris, title_lang, plan, link, created_at, created_by, updated_at, updated_by)
+				 VALUES (?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			)
-			.run(encounterId, kind, title, codes, codeText, codeSystem, codeUris, plan, link, at, userId, at, userId);
+			.run(encounterId, kind, title, codes, codeText, codeSystem, codeUris, titleLang, plan, link, at, userId, at, userId);
 		const id = Number(r.lastInsertRowid);
 		const order = rows.map((x) => x.id);
 		order.splice(index, 0, id);
@@ -270,7 +286,7 @@ export function updateItem(
 	userId: number,
 	id: number,
 	patch: ItemPatch,
-	opts: { allowDuplicate?: boolean; now?: Date } = {}
+	opts: { allowDuplicate?: boolean; now?: Date; lang?: string } = {}
 ): ImpItem | null {
 	if (!getEncounter(db, patientId, encounterId)) return null;
 	const row = db.prepare(`SELECT ${ITEM_COLS} FROM imp_items WHERE id = ? AND encounter_id = ?`).get(id, encounterId) as ItemRow | undefined;
@@ -281,25 +297,30 @@ export function updateItem(
 		if (!next.title) throw new PlanValidationError('The title cannot be empty.');
 	}
 	if (patch.plan !== undefined) next.plan = text(patch.plan, 'Plan', PLAN_MAX);
-	if (patch.codes !== undefined) {
-		const c = normalizeCodes(db, patch.codes, false, codeSetForPatch(db, row, patch.codes));
+	// Codes sent back unchanged while their set is not downloaded (D49) stay as saved: editing the title or
+	// plan never needs the code set.
+	const unchanged = typeof patch.codes === 'string' && patch.codes.trim() === row.codes && !setLoaded(db, systemOf(row));
+	if (patch.codes !== undefined && !unchanged) {
+		const c = normalizeCodes(db, patch.codes, false, codeSetForPatch(db, row, patch.codes), opts.lang);
 		next.codes = c.codes;
 		next.code_text = c.codeText;
 		next.code_system = c.codeSystem;
 		next.code_uris = c.codeUris;
+		next.title_lang = c.titleLang;
 	}
 	if (!opts.allowDuplicate && (next.title !== row.title || next.plan.slice(0, 20) !== row.plan.slice(0, 20))) {
 		const dup = findDuplicate(db, encounterId, next.title, next.plan, id);
 		if (dup) throw dupError(dup, next.title);
 	}
 	db.prepare(
-		'UPDATE imp_items SET title = ?, codes = ?, code_text = ?, code_system = ?, code_uris = ?, plan = ?, updated_at = ?, updated_by = ? WHERE id = ? AND encounter_id = ?'
+		'UPDATE imp_items SET title = ?, codes = ?, code_text = ?, code_system = ?, code_uris = ?, title_lang = ?, plan = ?, updated_at = ?, updated_by = ? WHERE id = ? AND encounter_id = ?'
 	).run(
 		next.title,
 		next.codes,
 		next.code_text,
 		next.code_system,
 		next.code_uris,
+		next.title_lang,
 		next.plan,
 		(opts.now ?? new Date()).toISOString(),
 		userId,
@@ -313,6 +334,8 @@ export function updateItem(
  * Which set to check an edited codes list with: the item's own set when every code in it is already on
  * the item (removing a code from an old ICD-10-CM item after the practice switched), else the current set.
  */
+const setLoaded = (db: DB, set: CodeSetId) => (set === 'icd11' ? icd11Loaded(db) : icd10Loaded(db));
+
 function codeSetForPatch(db: DB, row: ItemRow, raw: unknown): CodeSetId {
 	const own = systemOf(row);
 	const current = currentCodeSet(db);
@@ -372,7 +395,7 @@ export function addNewDx(
 	encounterId: number,
 	userId: number,
 	textIn: unknown,
-	opts: { index?: number; allowDuplicate?: boolean; now?: Date } = {}
+	opts: { index?: number; allowDuplicate?: boolean; now?: Date; lang?: string } = {}
 ): { item: ImpItem | null } | null {
 	if (!getEncounter(db, patientId, encounterId)) return null;
 	if (typeof textIn !== 'string' || textIn.length > TITLE_MAX + PLAN_MAX + 100) throw new PlanValidationError('The new diagnosis text is too long.');
@@ -543,23 +566,48 @@ export function getPlanData(db: DB, patientId: number, encounterId: number, user
  * Builder rows (§10.2): the engine over `findings` (the panel's current values, so unsaved typing counts)
  * plus the patient's issues. Null for a wrong patient/visit.
  */
-export function getCandidates(db: DB, patientId: number, encounterId: number, findings: Record<string, string>): CandidateSet | null {
+export function getCandidates(db: DB, patientId: number, encounterId: number, findings: Record<string, string>, lang = 'en'): CandidateSet | null {
 	const enc = getEncounter(db, patientId, encounterId);
 	if (!enc) return null;
 	const issues = listIssues(db, patientId, enc.date);
 	if (currentCodeSet(db) === 'icd11') {
-		// ICD-11 (D44): WHO titles only; the ICD-10-CM table is not consulted at all.
+		// ICD-11 (D44): WHO titles only; the ICD-10-CM table is not consulted at all. The engine searches
+		// WHO's English titles (findings are recorded in English); the titles shown are in the user's
+		// language when WHO's file for it is loaded (D50).
 		const icd11 = icd11Lookup(db);
-		return {
+		const set: CandidateSet = {
 			findings: findingCandidates({ findings, issues, visitDate: enc.date, codeSet: 'icd11', icd11 }),
 			...issueCandidates(undefined, issues, { codeSet: 'icd11', icd11 })
 		};
+		if (lang === 'en' || !icd11TitlesLoaded(db, lang)) return set;
+		const relabel = (c: Candidate): Candidate => localizedCandidate(db, c, lang);
+		return { findings: set.findings.map(relabel), poh: set.poh.map(relabel), pmh: set.pmh.map(relabel) };
 	}
 	const lookup = icd10Lookup(db);
 	return {
 		findings: findingCandidates({ findings, issues, visitDate: enc.date, lookup }),
 		...issueCandidates(lookup, issues)
 	};
+}
+
+/**
+ * An ICD-11 Builder row with WHO's titles in `lang` (D50): code text, the description lines and the plan's
+ * leading description lines. Unchanged unless every code has WHO titles in that language.
+ */
+function localizedCandidate(db: DB, c: Candidate, lang: string): Candidate {
+	if (!c.codes) return c;
+	const resolved = c.codes
+		.split(', ')
+		.filter(Boolean)
+		.map((code) => resolveIcd11Code(db, code, lang));
+	const parts: { code: string; description: string }[] = [];
+	for (const r of resolved) {
+		if ('error' in r || r.titleLang !== lang) return c;
+		parts.push(r);
+	}
+	const description = parts.map((p) => p.description).join('\n');
+	const plan = c.description && c.plan.startsWith(c.description) ? description + c.plan.slice(c.description.length) : c.plan;
+	return { ...c, codeText: codeTextFor('icd11', parts), description, plan };
 }
 
 /** The plan as printed; null when nothing is recorded. */
@@ -570,6 +618,7 @@ export function getPlanForReport(db: DB, encounterId: number): PlanReport | null
 		codeText: r.code_text,
 		codeSystem: systemOf(r),
 		codeUris: r.code_uris,
+		titleLang: r.title_lang,
 		plan: r.plan
 	}));
 	const orders = visitOrders(db, encounterId).map((o) => o.label);

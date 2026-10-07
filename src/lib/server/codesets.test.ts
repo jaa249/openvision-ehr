@@ -11,7 +11,7 @@ import { listIssues, quickPickTitles, saveIssue } from './history.ts';
 import { examContentHash } from './signing.ts';
 import { setupFirstAdmin } from './users.ts';
 import { ICD10_FIXTURE } from '#lib/plan/icd10.fixture.ts';
-import { ICD11_FIXTURE } from '#lib/codesets/icd11.fixture.ts';
+import { HAVE_ICD11_FILE, ICD11_FIXTURE, needsCodes } from '#lib/codesets/icd11.fixture.ts';
 
 const TODAY = '2026-10-06';
 let db: DB;
@@ -19,7 +19,7 @@ beforeEach(() => {
 	db = openDatabase(':memory:');
 	seedDemo(db, TODAY);
 	loadIcd10(db, ICD10_FIXTURE, 'fixture-test');
-	loadIcd11(db, ICD11_FIXTURE, 'fixture-test');
+	if (HAVE_ICD11_FILE) loadIcd11(db, ICD11_FIXTURE, 'fixture-test');
 });
 const toIcd11 = () => updateCodeSettings(db, { codeSet: 'icd11' }, 3);
 const planError = (fn: () => unknown) => {
@@ -62,7 +62,7 @@ describe('settings', () => {
 	});
 });
 
-describe('impression items with ICD-11', () => {
+describe.skipIf(!HAVE_ICD11_FILE)(needsCodes('impression items with ICD-11', HAVE_ICD11_FILE), () => {
 	it('stores code, WHO title and URI; the title defaults to the WHO title', () => {
 		toIcd11();
 		const it = addItem(db, 1, 1, 1, { codes: '9c61.0z&xk9j' })!;
@@ -113,7 +113,7 @@ describe('impression items with ICD-11', () => {
 	});
 });
 
-describe('history issues', () => {
+describe.skipIf(!HAVE_ICD11_FILE)(needsCodes('history issues', HAVE_ICD11_FILE), () => {
 	it('ICD-11 codes are stored with set, WHO titles and URIs; unchanged codes keep their set', () => {
 		toIcd11();
 		const r = saveIssue(db, 1, 1, { type: 'POH', title: 'POAG', codes: '9c61.0z & xk9j' })!;
@@ -147,7 +147,7 @@ describe('signing hash', () => {
 		migrate(probe);
 		const latest = (probe.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number }).v;
 		const raw = new DatabaseSync(':memory:');
-		migrate(raw, latest - 2); // the translations migration (D48) follows billing-aid
+		migrate(raw, latest - 3); // the translations (D48) and ICD-11 titles (D50) migrations follow billing-aid
 		seedDemo(raw, TODAY);
 		const at = `${TODAY}T10:00:00.000Z`;
 		raw

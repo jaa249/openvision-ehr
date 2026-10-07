@@ -7,8 +7,12 @@
 	// be saved, so picking one lists the codes under it instead. WHO's citation is shown under the box.
 	import { onMount } from 'svelte';
 	import { CODE_SETS, ICD11_CITATION, withLaterality, type CodeSetId, type DxCode, type DxSearchResult, type LateralitySide } from '#lib/codesets/index.ts';
+	import { icd11LanguageName } from '#lib/codesets/releases.ts';
+	import { page } from '$app/state';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
+	import { keepInView } from './ui/place.ts';
 
 	let {
 		id,
@@ -23,7 +27,7 @@
 		oncancel: () => void;
 		autofocus?: boolean;
 	} = $props();
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 
 	let query = $state('');
 	let results = $state<DxCode[]>([]);
@@ -33,7 +37,14 @@
 	let open = $state(false);
 	let searching = $state(false);
 	let failed = $state(false);
+	// The practice's code set is not downloaded yet (D49): say so instead of searching.
+	let notLoaded = $state(false);
+	// WHO's ICD-11 titles in the user's language are loaded and searched too (D50), e.g. "es"; null = English only.
+	let titleLang = $state<string | null>(null);
+	const titleLanguage = $derived(titleLang ? icd11LanguageName(titleLang, locale) : '');
+	const isAdmin = $derived(page.data.user?.role === 'admin');
 	let input: HTMLInputElement | null = $state(null);
+	let finder: HTMLDivElement | null = $state(null);
 	const listId = $derived(`${id}-list`);
 	const optId = (i: number) => `${id}-opt-${i}`;
 	const icd11 = $derived(system === 'icd11');
@@ -55,6 +66,8 @@
 			.then((r) => (r.ok ? (r.json() as Promise<DxSearchResult>) : null))
 			.then((d) => {
 				if (d && !system) system = d.system;
+				if (d) notLoaded = !!d.notLoaded;
+				if (d) titleLang = d.lang ?? null;
 			})
 			.catch(() => {});
 		return () => clearTimeout(timer);
@@ -77,6 +90,8 @@
 				const data = (await res.json()) as DxSearchResult;
 				if (rid !== requestId) return;
 				system = data.system;
+				notLoaded = !!data.notLoaded;
+				titleLang = data.lang ?? null;
 				results = data.codes;
 				active = data.codes.length ? 0 : -1;
 				open = true;
@@ -135,7 +150,7 @@
 	});
 </script>
 
-<div class="finder">
+<div class="finder" bind:this={finder}>
 	<label class="visually-hidden" for={id}>{label}</label>
 	<input
 		bind:this={input}
@@ -149,7 +164,7 @@
 		aria-describedby="{id}-help"
 		autocomplete="off"
 		spellcheck="false"
-		placeholder={icd11 ? t('codes.finderPlaceholderIcd11') : t('codes.finderPlaceholderIcd10')}
+		placeholder={icd11 ? (titleLang ? t('codes.finderPlaceholderIcd11Lang', { language: titleLanguage }) : t('codes.finderPlaceholderIcd11')) : t('codes.finderPlaceholderIcd10')}
 		bind:value={query}
 		oninput={() => search(query)}
 		onkeydown={keydown}
@@ -176,12 +191,19 @@
 		{#if system === 'icd10cm'}{t('codes.finderBillableOnly', { set: CODE_SETS.icd10cm.short })}{:else if icd11}{t('codes.finderIcd11Release', { set: t('codes.setIcd11') })}
 			{eyeAdded ? t(eyeAdded) : t('codes.finderChooseEye')}{/if}
 	</p>
-	{#if icd11}<p class="cite">{t('codes.finderCitation', { citation: ICD11_CITATION })}</p>{/if}
+	{#if icd11}<p class="cite">{t('codes.finderCitation', { citation: ICD11_CITATION })}{#if titleLang}{' '}{t('codes.finderTitlesIn', { language: titleLanguage })}{/if}</p>{/if}
+	{#if notLoaded}
+		<p class="missing">
+			{#if isAdmin}<Msg key="codes.finderNotDownloadedAdmin">{#snippet link()}<a href="/settings/code-sets">{t('codes.finderCodeSetsLink')}</a>{/snippet}</Msg
+				>{:else}{t('codes.finderNotDownloaded')}{/if}
+		</p>
+	{/if}
 	<p class="visually-hidden" role="status">
-		{#if open && !searching}{failed ? t('codes.finderFailed') : t('codes.finderFound', { count: results.length })}{/if}
+		{#if open && !searching}{failed ? t('codes.finderFailed') : notLoaded ? t('codes.finderNotDownloaded') : t('codes.finderFound', { count: results.length })}{/if}
 	</p>
 	{#if open}
-		<ul id={listId} role="listbox" aria-label={t('codes.finderMatching')}>
+		<!-- Fixed-positioned under (or above) the box, as wide as the finder, always on screen. -->
+		<ul id={listId} role="listbox" use:keepInView={{ anchor: input, matchWidth: finder }} aria-label={t('codes.finderMatching')}>
 			{#each results as c, i (c.code)}
 				<!-- Keyboard choice happens in the combobox input (aria-activedescendant); a click here is the pointer path. -->
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -195,11 +217,17 @@
 					onpointerenter={() => (active = i)}
 				>
 					<span class="code">{c.code}</span>
-					<span class="desc">{c.description}{#if !c.leaf}<span class="cat"> · {t('codes.finderCategory')}</span>{/if}</span>
+					<span class="desc"><span lang={c.titleLang ?? 'en'}>{c.description}</span>{#if !c.leaf}<span class="cat"> · {t('codes.finderCategory')}</span>{/if}</span>
 				</li>
 			{:else}
 				<li class="empty" role="presentation">
-					{failed ? t('codes.finderFailedConnection') : icd11 ? t('codes.finderNoIcd11') : t('codes.finderNoBillable')}
+					{failed
+						? t('codes.finderFailedConnection')
+						: notLoaded
+							? t('codes.finderNotDownloaded')
+							: icd11
+								? t('codes.finderNoIcd11')
+								: t('codes.finderNoBillable')}
 				</li>
 			{/each}
 		</ul>
@@ -256,6 +284,12 @@
 		color: var(--text-1);
 		font-weight: var(--weight-semibold);
 	}
+	.missing {
+		grid-column: 1 / -1;
+		margin: 0;
+		font-size: var(--text-sm);
+		color: var(--warn);
+	}
 	.help,
 	.cite {
 		grid-column: 1 / -1;
@@ -263,12 +297,12 @@
 		font-size: var(--text-xs);
 		color: var(--text-3);
 	}
+	/* Placed by keepInView (position: fixed; flips above / caps its height when there is no room). */
 	ul {
-		position: absolute;
+		position: fixed;
 		z-index: 20;
-		top: calc(max(var(--target-min), 40px) + 2px);
+		top: 0;
 		left: 0;
-		right: 0;
 		max-height: 18rem;
 		overflow-y: auto;
 		margin: 0;

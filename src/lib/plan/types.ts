@@ -19,6 +19,8 @@ export interface ImpItem {
 	codeSystem: CodeSetId;
 	/** ICD-11 only: WHO URI of each code part, ", "-separated per code and "&"-joined within one ('' for ICD-10-CM). */
 	codeUris: string;
+	/** Language of the WHO titles in codeText (D50): 'en', another WHO language, or '' (saved before D50 / no codes). */
+	titleLang: string;
 	plan: string;
 	/** Back-link: the finding field ids, ","-separated (kind 'finding'), or "issue:<id>" (kind 'issue'). */
 	link: string;
@@ -96,7 +98,7 @@ export interface PlanData {
 /** What the printed report needs (§13.2 item 12). */
 export interface PlanReport {
 	/** codeUris: ICD-11 only, as on ImpItem (the FHIR export keeps code, title and URI together, D47). */
-	items: { title: string; codes: string; codeText: string; codeSystem?: CodeSetId; codeUris?: string; plan: string }[];
+	items: { title: string; codes: string; codeText: string; codeSystem?: CodeSetId; codeUris?: string; titleLang?: string; plan: string }[];
 	orders: string[];
 	/** Free-text plan / RTC printed under the orders. */
 	orderPlan: string;

@@ -59,7 +59,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	try {
 		switch (body.action) {
 			case 'saveIssue':
-				result = saveIssue(db, pid, user, body.issue, { encounterId: eid });
+				result = saveIssue(db, pid, user, body.issue, { encounterId: eid, lang: locals.locale });
 				if (!result) error(404, 'Not found');
 				break;
 			case 'deleteIssue':

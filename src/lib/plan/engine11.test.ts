@@ -5,18 +5,18 @@ import { gunzipSync } from 'node:zlib';
 import { findingCandidates, issueCandidates, type EngineIssue } from './engine.ts';
 import { CODING_TERMS, type CodingTerm } from './terms.ts';
 import { bestIcd11, memoryIcd11Lookup, parseIcd11File, type Icd11Lookup } from '#lib/codesets/icd11.ts';
-import { ICD11_FIXTURE } from '#lib/codesets/icd11.fixture.ts';
+import { HAVE_ICD11_FILE, ICD11_FILE_PATH, ICD11_FIXTURE, needsCodes } from '#lib/codesets/icd11.fixture.ts';
 import { ICD10_CODE_RE } from '#lib/codesets/index.ts';
 import { EXAM_SECTIONS } from '#lib/exam/catalog.ts';
 
 const VISIT = '2026-10-06';
-const fixture = memoryIcd11Lookup(parseIcd11File(ICD11_FIXTURE));
+const fixture = memoryIcd11Lookup(ICD11_FIXTURE ? parseIcd11File(ICD11_FIXTURE) : []);
 const run = (findings: Record<string, string>, issues: EngineIssue[] = [], icd11: Icd11Lookup = fixture, terms?: CodingTerm[]) =>
 	findingCandidates({ findings, issues, visitDate: VISIT, codeSet: 'icd11', icd11, terms });
 
 const issue = (over: Partial<EngineIssue>): EngineIssue => ({ id: 1, type: 'PMH', title: '', codes: '', begin: '', comments: '', active: true, ...over });
 
-describe('ICD-11 engine (fixture rows)', () => {
+describe.skipIf(!HAVE_ICD11_FILE)(needsCodes('ICD-11 engine (fixture rows)', HAVE_ICD11_FILE), () => {
 	it('searches WHO titles and adds the eye: both eyes = Bilateral, one eye = Right / Left', () => {
 		const ou = run({ ODLENS: 'cataract', OSLENS: 'cataract' });
 		expect(ou).toMatchObject([{ title: 'Cataract OU', codes: '9B10.Z&XK9J', codeText: 'ICD11:9B10.Z&XK9J (Cataract, unspecified; Bilateral)' }]);
@@ -73,10 +73,10 @@ describe('ICD-11 engine (fixture rows)', () => {
 
 const ROOTS = new Map(EXAM_SECTIONS.flatMap((s) => s.rows.map((r) => [r.id, r.od] as const)));
 
-describe('ICD-11 hit rate over CODING_TERMS (real file)', () => {
+describe.skipIf(!HAVE_ICD11_FILE)(needsCodes('ICD-11 hit rate over CODING_TERMS (real file)', HAVE_ICD11_FILE), () => {
 	let real: Icd11Lookup;
 	beforeAll(() => {
-		real = memoryIcd11Lookup(parseIcd11File(gunzipSync(readFileSync('codes/icd11_mms_2026-01_en.txt.gz')).toString('utf8')));
+		real = memoryIcd11Lookup(parseIcd11File(gunzipSync(readFileSync(ICD11_FILE_PATH!)).toString('utf8')));
 	});
 
 	it('codes most terms, never with a chapter X stem or an ICD-10-CM code, and records the misses', () => {

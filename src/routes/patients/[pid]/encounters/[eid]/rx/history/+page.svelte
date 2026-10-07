@@ -38,7 +38,7 @@
 	{:else}
 		<ol class="list">
 			{#each data.records as r (r.id)}
-				{@const table = rxTable(r.kind, r.values)}
+				{@const table = rxTable(r.kind, r.values, t)}
 				{@const expired = r.expiresOn < today}
 				{@const typeKey = rxTypeKey(r.rxType)}
 				<li class="card">
@@ -68,7 +68,7 @@
 							{/if}
 						</div>
 					</div>
-					<div class="scroll">
+					<div class="scroll eye-ltr">
 						<table>
 							<thead><tr>{#each table.head as h, i (i)}<th scope="col">{head(h)}</th>{/each}</tr></thead>
 							<tbody>
@@ -154,7 +154,7 @@
 		font-size: var(--text-sm);
 		font-weight: var(--weight-regular);
 		color: var(--text-2);
-		margin-left: var(--space-2);
+		margin-inline-start: var(--space-2);
 	}
 	.meta {
 		display: flex;
@@ -202,8 +202,9 @@
 	}
 	th,
 	td {
-		text-align: left;
-		padding: 2px var(--space-3) 2px 0;
+		text-align: start;
+		padding-block: 2px;
+		padding-inline: 0 var(--space-3);
 		white-space: nowrap;
 	}
 	thead th {

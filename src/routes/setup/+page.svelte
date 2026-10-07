@@ -76,7 +76,7 @@
 					<label class="check"><input type="radio" name="codeSet" value={id} checked={codeSet === id} onchange={() => (picked = id)} /> {codeSetLabel(id)}</label>
 				{/each}
 			</fieldset>
-			<p class="hint" id="codeset-hint">{t('auth.codeSetHint')}</p>
+			<p class="hint" id="codeset-hint">{t('auth.codeSetHint')} {t('auth.codeSetDownloadNote')}</p>
 			{#if errors.codeSet}<p class="err">{errors.codeSet}</p>{/if}
 			{#if codeSet === 'icd11'}<p class="hint">{t('auth.icd11Licence', { citation: ICD11_CITATION, licence: ICD11_LICENCE })}</p>{/if}
 			<div class="actions">

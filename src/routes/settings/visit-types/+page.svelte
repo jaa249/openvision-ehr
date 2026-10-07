@@ -97,6 +97,6 @@
 	.tag {
 		font-size: var(--text-xs);
 		color: var(--text-3);
-		margin-right: var(--space-2);
+		margin-inline-end: var(--space-2);
 	}
 </style>

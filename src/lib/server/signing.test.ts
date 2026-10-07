@@ -332,4 +332,19 @@ describe('routes', () => {
 		expect(after.status).toBe(423);
 		expect(await after.json()).toMatchObject({ reason: 'signed', message: expect.stringMatching(/signed/) });
 	});
+
+	it('plan POST: a duplicate is 409 with code "duplicate" (clients test the code, not the English)', async () => {
+		const lock = (await import('../../routes/api/patients/[pid]/encounters/[eid]/lock/+server.ts')) as unknown as { POST: Handler };
+		const plan = (await import('../../routes/api/patients/[pid]/encounters/[eid]/plan/+server.ts')) as unknown as { POST: Handler };
+		const p2 = { pid: '2', eid: '2' };
+		const post = (body: unknown) =>
+			new Request('http://localhost/x', { method: 'POST', headers: { 'content-type': 'application/json', 'x-lock-token': T2 }, body: JSON.stringify(body) });
+		await lock.POST({ params: p2, locals, request: post({ action: 'acquire' }) });
+		const item = { title: 'Dry eye', plan: 'Artificial tears four times a day' };
+		expect((await plan.POST({ params: p2, locals, request: post({ action: 'add', item }) })).status).toBe(200);
+		const dup = await plan.POST({ params: p2, locals, request: post({ action: 'add', item }) });
+		expect(dup.status).toBe(409);
+		expect(await dup.json()).toMatchObject({ code: 'duplicate', duplicateOf: expect.any(Number), message: expect.stringMatching(/already item 1/) });
+		expect((await plan.POST({ params: p2, locals, request: post({ action: 'add', item, allowDuplicate: true }) })).status).toBe(200);
+	});
 });

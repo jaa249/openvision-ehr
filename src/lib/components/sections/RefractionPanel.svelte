@@ -343,7 +343,7 @@
 {/snippet}
 
 {#snippet grid(source: RxSource, cols: Col[], caption: string)}
-	<div class="scroll">
+	<div class="scroll eye-ltr">
 		<table>
 			<caption class="visually-hidden">{caption}</caption>
 			<thead>
@@ -590,7 +590,7 @@
 		align-items: center;
 		flex-wrap: wrap;
 		gap: var(--space-2);
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 	.tools button[aria-pressed='true'] {
 		background: var(--accent-soft);
@@ -630,7 +630,8 @@
 	h3 {
 		font-size: var(--text-sm);
 		font-weight: var(--weight-semibold);
-		margin: 0 auto 0 0;
+		margin: 0;
+		margin-inline-end: auto;
 	}
 	h4 {
 		font-size: var(--text-xs);
@@ -661,7 +662,7 @@
 		font-variant-numeric: tabular-nums;
 	}
 	th {
-		text-align: left;
+		text-align: start;
 		font-weight: var(--weight-regular);
 		color: var(--text-2);
 		font-size: var(--text-xs);
@@ -839,7 +840,7 @@
 		height: 14px;
 		border-radius: 3px;
 		border: 1px solid var(--hairline);
-		margin-left: var(--space-3);
+		margin-inline-start: var(--space-3);
 	}
 	.swatch.copied {
 		background: var(--copied-tint);

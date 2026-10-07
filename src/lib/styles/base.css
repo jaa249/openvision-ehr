@@ -65,3 +65,52 @@ kbd {
 	border-radius: 3px;
 	padding: 1px 5px;
 }
+
+/* ---------- Right-to-left (D48, docs/TRANSLATING.md "Right-to-left") ----------
+   Page chrome uses logical properties (margin-inline-start, text-align: start, ...), which are the
+   same as left/right in a left-to-right language and mirror in Arabic or Hebrew. */
+[dir='ltr'] {
+	--dir-sign: 1;
+}
+[dir='rtl'] {
+	--dir-sign: -1;
+}
+/* A directional glyph in the chrome (▸ ◀ ▶ ↩ ...) points the other way in right-to-left. */
+[dir='rtl'] .flip-rtl {
+	display: inline-block;
+	transform: scaleX(-1);
+}
+/* Clinical layouts are never mirrored: the patient's right eye (OD) is on the viewer's left, as when
+   facing the patient, in every language. Drawings, eye columns, gaze grids and charts carry this class
+   (or dir="ltr"); translated words inside them read in the page direction within their own cells: give a
+   label or heading inside an .eye-ltr block the class .page-dir. */
+.eye-ltr {
+	direction: ltr;
+}
+[dir='rtl'] .eye-ltr :is(th[scope='row'], th[scope='rowgroup'], caption, legend, h2, h3, h4, .page-dir) {
+	direction: rtl;
+}
+/* Values in an eye block keep their written order (-2.25 +0.75 x 180); typed words still read in their own
+   direction (unicode-bidi: plaintext below), and so does text recorded in a cell. */
+[dir='rtl'] .eye-ltr :is(input:not([type='checkbox'], [type='radio']), textarea, select) {
+	direction: ltr;
+}
+[dir='rtl'] .eye-ltr td {
+	unicode-bidi: plaintext;
+}
+/* Shorthand codes under a row label are Latin: cut at their end, not their start. */
+[dir='rtl'] .eye-ltr th .code {
+	direction: ltr;
+	text-align: right;
+}
+/* What people type: a value (sphere, IOP, 20/40, codes, dates) keeps its order; free text takes the
+   direction of what is typed (Arabic right-to-left, Latin left-to-right) like dir="auto". */
+input:not([type]),
+input[type='text'],
+input[type='search'],
+textarea {
+	unicode-bidi: plaintext;
+}
+[dir='rtl'] :is(input.num, input[type='date'], input[type='time'], input[type='number'], input[type='tel'], input[inputmode='numeric'], input[inputmode='decimal']) {
+	direction: ltr;
+}

@@ -1,0 +1,15 @@
+{
+	"codesSignIn": "Connectez-vous d'abord.",
+	"codesAdminOnly": "Seul un administrateur peut télécharger, importer ou supprimer des codes diagnostiques.",
+	"codesUnknownSet": "Nomenclature inconnue.",
+	"codesBusy": "Cette nomenclature est déjà en cours de téléchargement ou d'import. Patientez un instant et réessayez.",
+	"codesDownloadFailed": "Le téléchargement n'a pas fonctionné ({error}). Vérifiez la connexion internet, ou téléchargez le fichier sur un autre ordinateur et importez-le.",
+	"codesWrongRelease": "Le fichier téléchargé n'est pas la version attendue. Mettez OpenVision à jour ou importez le fichier vous-même.",
+	"codesImportWrongRelease": "Ce fichier n'est pas la version attendue ({release}). Utilisez le fichier officiel de {url}, sans modification.",
+	"codesBadZip": "Le fichier zip n'a pas pu être lu : {error}",
+	"codesTooLarge": "Le fichier dépasse 50 Mo : ce n'est donc pas un fichier de nomenclature.",
+	"codesBodyLimit": "Ce fichier dépasse la taille acceptée par le serveur. Demandez à votre administrateur de démarrer le serveur avec BODY_SIZE_LIMIT=20M, ou importez le fichier zip au lieu du fichier texte.",
+	"codesEmptyFile": "Choisissez un fichier à importer.",
+	"codesRemoveCurrent": "Le cabinet code avec cette nomenclature. Choisissez une autre nomenclature dans Paramètres › Cabinet avant de la supprimer.",
+	"codesUnknownLanguage": "Langue de la CIM-11 inconnue."
+}

@@ -40,8 +40,9 @@ export const GET: RequestHandler = ({ params, locals }) => {
  * - delete {id} -> {items}
  * - reorder {ids} -> {items}
  * - orders {optionIds, plan} -> {orders, orderDetails, orderPlan}
- * Errors: 400 {message} bad input; 404 unknown item; 409 {message, duplicateOf} duplicate (resend with
- * allowDuplicate: true to keep both) or {message, items} when the list changed elsewhere.
+ * Errors: 400 {message} bad input; 404 unknown item; 409 {message, code: 'duplicate', duplicateOf} duplicate
+ * (resend with allowDuplicate: true to keep both) or {message, items} when the list changed elsewhere.
+ * Clients test `code`, never the English message.
  */
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const { pid, eid } = scope(params);
@@ -63,6 +64,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw e;
 	}
 	const allowDuplicate = body.allowDuplicate === true;
+	// ICD-11 titles are saved in the saving user's language when WHO's file for it is loaded (D50).
+	const lang: string = locals.locale ?? 'en';
 	const index = Number.isSafeInteger(body.index) ? (body.index as number) : undefined;
 	const items = () => listItems(db, pid, eid) ?? [];
 	try {
@@ -70,17 +73,17 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			case 'add': {
 				const input = body.item;
 				if (!input || typeof input !== 'object' || Array.isArray(input)) error(400, 'Expected { item }');
-				const item = addItem(db, pid, eid, user, input as Record<string, unknown>, { index, allowDuplicate });
+				const item = addItem(db, pid, eid, user, input as Record<string, unknown>, { index, allowDuplicate, lang });
 				return json({ item, items: items() });
 			}
 			case 'newDx': {
-				const r = addNewDx(db, pid, eid, user, body.text, { index, allowDuplicate });
+				const r = addNewDx(db, pid, eid, user, body.text, { index, allowDuplicate, lang });
 				return json({ item: r?.item ?? null, items: items() });
 			}
 			case 'update': {
 				const id = Number(body.id);
 				if (!Number.isSafeInteger(id)) error(400, 'Expected { id }');
-				const item = updateItem(db, pid, eid, user, id, { title: body.title, codes: body.codes, plan: body.plan }, { allowDuplicate });
+				const item = updateItem(db, pid, eid, user, id, { title: body.title, codes: body.codes, plan: body.plan }, { allowDuplicate, lang });
 				if (!item) error(404, 'That item no longer exists.');
 				return json({ item });
 			}
@@ -101,7 +104,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		}
 	} catch (e) {
 		if (e instanceof PlanValidationError) return json({ message: e.message }, { status: 400 });
-		if (e instanceof PlanDuplicateError) return json({ message: e.message, duplicateOf: e.existingId }, { status: 409 });
+		if (e instanceof PlanDuplicateError) return json({ message: e.message, code: 'duplicate', duplicateOf: e.existingId }, { status: 409 });
 		if (e instanceof PlanConflictError) return json({ message: e.message, items: items() }, { status: 409 });
 		throw e;
 	}

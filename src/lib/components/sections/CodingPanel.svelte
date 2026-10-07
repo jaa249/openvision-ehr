@@ -217,7 +217,7 @@
 	.save {
 		font-size: var(--text-xs);
 		color: var(--text-3);
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 	.save.error {
 		color: var(--danger);
@@ -284,7 +284,8 @@
 	.coding :global(h3) {
 		font-size: var(--text-sm);
 		font-weight: var(--weight-semibold);
-		margin: 0 auto 0 0;
+		margin: 0;
+		margin-inline-end: auto;
 	}
 	.mods,
 	.justs {
@@ -301,7 +302,7 @@
 		gap: var(--space-2);
 		width: 100%;
 		min-height: max(var(--target-min), 40px);
-		text-align: left;
+		text-align: start;
 		padding: 2px var(--space-2);
 	}
 	.toggle[aria-pressed='true'] {

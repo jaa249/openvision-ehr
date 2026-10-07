@@ -7,7 +7,7 @@
 	import { codeSetsShort } from '#lib/codesets/index.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
 	let { codes }: { codes: ChosenCodes | null | undefined } = $props();
-	const { t } = useI18n();
+	const { t, list } = useI18n();
 	const visit = $derived(codes?.cpt.find((l) => l.kind === 'visit'));
 	const tests = $derived(codes?.cpt.filter((l) => l.kind !== 'visit') ?? []);
 	const mods = (m: string[]) => (m.length ? `-${m.join('-')}` : '');
@@ -32,7 +32,7 @@
 				</dd>
 			{/if}
 			{#if codes.dx.length}
-				<dt>{t('report.codesDiagnoses', { sets: codeSetsShort(codes.dx.map((d) => d.code)) })}</dt>
+				<dt>{t('report.codesDiagnoses', { sets: codeSetsShort(codes.dx.map((d) => d.code), list) })}</dt>
 				<dd>
 					<ul>
 						{#each codes.dx as d (d.letter)}

@@ -31,7 +31,7 @@
 		<span><svg width="12" height="12"><rect class="mk os" x="2" y="2" width="8" height="8" /></svg>OS</span>
 		<span>{t('flowsheet.largerMark')}</span>
 	</div>
-	<svg viewBox="0 0 {W} {H}" role="group" aria-label={t('flowsheet.hourChartLabel')}>
+	<svg class="eye-ltr" viewBox="0 0 {W} {H}" role="group" aria-label={t('flowsheet.hourChartLabel')}>
 		{#each yTicks as tick (tick)}
 			<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={y(tick)} y2={y(tick)} />
 			<text class="tick" x={PAD.l - 6} y={y(tick) + 4} text-anchor="end">{tick}</text>

@@ -679,11 +679,11 @@
 	.item {
 		display: block;
 		width: 100%;
-		text-align: left;
+		text-align: start;
 		background: transparent;
 		border-color: transparent;
 		padding: var(--space-1) var(--space-2);
-		margin-left: calc(-1 * var(--space-2));
+		margin-inline-start: calc(-1 * var(--space-2));
 		overflow-wrap: anywhere;
 		line-height: var(--leading-tight);
 	}

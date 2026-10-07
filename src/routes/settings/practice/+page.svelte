@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { CODE_SET_IDS, ICD11_CITATION, ICD11_LICENCE, ICD11_RELEASE, type CodeSetId } from '#lib/codesets/index.ts';
 	import LanguageSelect from '#lib/components/settings/LanguageSelect.svelte';
+	import { downloadSet } from '#lib/codesets/admin_client.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 
@@ -24,6 +25,19 @@
 		{ id: 'fax', label: t('settings.fax'), max: 30, auto: 'off', hint: '' }
 	] as const);
 	const codeSetLabel = (id: CodeSetId) => (id === 'icd11' ? t('codes.setIcd11') : t('codes.setIcd10cm'));
+	// Code sets are downloaded by the practice (D49): the chosen set says so when it is not, with Download.
+	let available = $state<Partial<Record<CodeSetId, boolean>>>({});
+	const isAvailable = (id: CodeSetId) => available[id] ?? data.available[id];
+	let dlBusy = $state(false);
+	let dlError = $state('');
+	async function download(id: CodeSetId) {
+		dlBusy = true;
+		dlError = '';
+		const r = await downloadSet(id);
+		dlBusy = false;
+		if (r.ok) available[id] = r.state.rows > 0;
+		else dlError = r.message || (r.status ? t('settings.codeSetsFailed', { status: r.status }) : t('settings.codeSetsNoConnection'));
+	}
 </script>
 
 <svelte:head><title>{t('settings.practiceTitle')}</title></svelte:head>
@@ -101,6 +115,14 @@
 		</fieldset>
 		<p class="hint" id="codeset-hint">{t('settings.codeSetHint')}</p>
 		{#if codesErrors.codeSet}<p class="err">{codesErrors.codeSet}</p>{/if}
+		{#if !isAvailable(codeSet)}
+			<div class="missing" role="status">
+				<p class="hint">{codeSetLabel(codeSet)}: {t('settings.codeSetsNotDownloadedPractice')}</p>
+				<button type="button" disabled={dlBusy} onclick={() => download(codeSet)}>{dlBusy ? t('settings.codeSetsDownloading') : t('settings.codeSetsDownload')}</button>
+				<a href="/settings/code-sets">{t('settings.codeSetsManage')}</a>
+				{#if dlError}<p class="err">{dlError}</p>{/if}
+			</div>
+		{/if}
 		{#if codeSet === 'icd11'}
 			<p class="hint cite">{t('settings.icd11Citation', { citation: ICD11_CITATION, licence: ICD11_LICENCE, release: ICD11_RELEASE })}</p>
 		{/if}
@@ -152,5 +174,17 @@
 	}
 	.cite {
 		max-width: 60ch;
+	}
+	.missing {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+		margin: var(--space-2) 0;
+	}
+	.missing .hint {
+		flex-basis: 100%;
+		margin: 0;
+		color: var(--warn);
 	}
 </style>

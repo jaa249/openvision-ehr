@@ -1,7 +1,7 @@
 // Printed exam report: which sections and rows appear (docs/spec/BEHAVIOR.md §13.2).
 // Pure, so the single and mass-print pages render the same thing and tests can pin the rules.
 
-import { SECTION_DEF, type SectionId } from './catalog.ts';
+import { ROW_LABEL_KEY, SECTION_DEF, type SectionId } from './catalog.ts';
 import { workupReport } from './sections/workup.ts';
 import { refractionReport } from './sections/refraction.ts';
 import { historyReport } from './sections/history.ts';
@@ -10,6 +10,7 @@ import { dilationReport } from './sections/dilation.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 import type { MessageKey } from '#lib/i18n/catalog.ts';
 import type { Params } from '#lib/i18n/translate.ts';
+import { english, type Translate } from '#lib/coding/english.ts';
 
 /** A heading or label in the reader's language (D48); `label` / `title` keep the English. */
 export interface ReportText {
@@ -60,24 +61,30 @@ const LAYOUT: { section: SectionId; title: string; titleKey: MessageKey; core: s
 /** "Additional findings": External measurements, each only when filled (§13.2 item 9, with the MRD/fissure FIX). */
 const ADDITIONAL = ['LF', 'MRD', 'VFISSURE', 'CAROTID', 'TEMPART', 'CNV', 'CNVII'];
 
-export function buildReport(findings: Findings): ReportSection[] {
+/**
+ * The report's sections. `title` and `label` are English (drawings and tests match on them); titleText,
+ * labelText and the words in summaries and tables are in `t`'s language (D48, English by default).
+ * Recorded values always print as entered.
+ */
+export function buildReport(findings: Findings, t: Translate = english): ReportSection[] {
 	const v = (id: string) => findings[id]?.value?.trim() ?? '';
 	const row = (section: SectionId, id: string): ReportRow | null => {
 		const r = SECTION_DEF.get(section)?.rows.find((x) => x.id === id);
 		if (!r) return null;
 		const unit = r.measure ? ` ${r.measure}` : '';
 		const fmt = (s: string) => (s ? s + unit : '');
-		return { label: r.label, od: fmt(v(r.od)), os: fmt(v(r.os)) };
+		const key = ROW_LABEL_KEY[r.id];
+		return { label: r.label, ...(key ? { labelText: { key } } : {}), od: fmt(v(r.od)), os: fmt(v(r.os)) };
 	};
 	const filled = (r: ReportRow | null): r is ReportRow => !!r && !!(r.od || r.os);
 
 	// HPI first (item 1); PMSFH is patient-level, so ExamReport prints it from PrintableEncounter (item 2).
 	// Then workup (vision, IOP, pupils, fields), motility, and refraction (items 3-6).
-	const neuro = neuroReport(findings);
-	const out: ReportSection[] = [...historyReport(findings), ...workupReport(findings), ...neuro.strip, ...refractionReport(findings)];
+	const neuro = neuroReport(findings, t);
+	const out: ReportSection[] = [...historyReport(findings, t), ...workupReport(findings, t), ...neuro.strip, ...refractionReport(findings, t)];
 	for (const l of LAYOUT) {
 		// Dilation prints just before Retina (§13.2 item 10 "Dilation Time").
-		if (l.section === 'RETINA') out.push(...dilationReport(findings));
+		if (l.section === 'RETINA') out.push(...dilationReport(findings, t));
 		const sec = SECTION_DEF.get(l.section)!;
 		const core = l.core.map((id) => row(l.section, id)).filter((r): r is ReportRow => !!r);
 		const extra = l.extra.map((id) => row(l.section, id)).filter(filled);

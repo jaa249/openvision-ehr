@@ -201,7 +201,7 @@
 				<h3 id="tension-title">{t('sections.iopTension')} <span class="unit">mmHg</span></h3>
 				<button type="button" class="mini" onclick={clearIop}>{t('sections.clear')}</button>
 			</div>
-			<table>
+			<table class="eye-ltr">
 				<thead>
 					<tr>
 						<th scope="col" class="rowhead"><span class="visually-hidden">{t('sections.rxMethod')}</span></th>
@@ -318,7 +318,7 @@
 					{t('sections.normal')}
 				</label>
 			</div>
-			<table>
+			<table class="eye-ltr">
 				<thead>
 					<tr>
 						<th scope="col" class="rowhead"><span class="visually-hidden">{t('sections.measure')}</span></th>
@@ -360,12 +360,12 @@
 				aria-controls="dim-pupils"
 				onclick={() => (dimOverride = !showDim)}
 			>
-				<span aria-hidden="true">{showDim ? '▾' : '▸'}</span> {t('sections.pupilDimLight')}
+				<span class="flip-rtl" aria-hidden="true">{showDim ? '▾' : '▸'}</span> {t('sections.pupilDimLight')}
 			</button>
 			{#if showDim}
 				{@const pc = cell('PUPIL_COMMENTS')}
 				<div id="dim-pupils">
-					<table>
+					<table class="eye-ltr">
 						<tbody>
 							<tr>
 								<th scope="row" class="rowhead">{t('sections.pupilSizeDim')} <span class="unit">mm</span></th>
@@ -411,7 +411,7 @@
 				</label>
 				<button type="button" class="mini" onclick={clearFields}>{t('sections.vfNotTested')}</button>
 			</div>
-			<div class="vf">
+			<div class="vf eye-ltr">
 				{#each ['OD', 'OS'] as const as eye (eye)}
 					<div class="vf-eye" role="group" aria-label={t('sections.vfEyeGroup', { eye })}>
 						<span class="eye {eye.toLowerCase()}">{eye}</span>
@@ -484,7 +484,8 @@
 	h3 {
 		font-size: var(--text-sm);
 		font-weight: var(--weight-semibold);
-		margin: 0 auto 0 0;
+		margin: 0;
+		margin-inline-end: auto;
 	}
 	.cards {
 		display: grid;
@@ -512,7 +513,7 @@
 		color: var(--text-3);
 		font-size: var(--text-xs);
 		font-weight: var(--weight-regular);
-		margin-left: var(--space-1);
+		margin-inline-start: var(--space-1);
 	}
 	table {
 		width: 100%;
@@ -521,7 +522,7 @@
 	}
 	th,
 	td {
-		text-align: left;
+		text-align: start;
 		padding: 0 var(--space-3);
 		border-bottom: 1px solid var(--hairline);
 		vertical-align: middle;
@@ -632,7 +633,7 @@
 		color: var(--danger);
 		font-size: var(--text-xs);
 		font-weight: var(--weight-semibold);
-		margin-left: var(--space-1);
+		margin-inline-start: var(--space-1);
 		white-space: nowrap;
 	}
 	.flag.inline {
@@ -682,7 +683,7 @@
 	}
 	.disclose {
 		width: 100%;
-		text-align: left;
+		text-align: start;
 		border: 0;
 		border-top: 1px solid var(--hairline);
 		border-radius: 0;
@@ -784,10 +785,10 @@
 	}
 	.swatch.copied {
 		background: var(--copied-tint);
-		margin-left: var(--space-3);
+		margin-inline-start: var(--space-3);
 	}
 	.sep {
-		margin-left: var(--space-3);
+		margin-inline-start: var(--space-3);
 	}
 	/* ---- dilation block ---- */
 	.dil {
@@ -861,7 +862,7 @@
 		color: var(--text-1);
 		background: transparent;
 		border: 0;
-		border-left: 1px solid var(--hairline);
+		border-inline-start: 1px solid var(--hairline);
 		min-height: max(var(--target-min), 40px);
 		padding: 0 var(--space-1);
 	}

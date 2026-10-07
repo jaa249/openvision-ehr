@@ -1,0 +1,16 @@
+{
+	"mainNav": "主导航",
+	"navPatients": "患者",
+	"navVisits": "就诊",
+	"navSettings": "设置",
+	"mySettings": "我的设置",
+	"signOut": "退出登录",
+	"colorMode": "颜色模式",
+	"themeLight": "浅色",
+	"themeDark": "深色",
+	"themeDim": "暗室",
+	"sessionWarnAnnounce": "由于长时间未操作，您将在约一分钟后被退出登录。",
+	"sessionWarnCountdown": "由于长时间未操作，您将在 {seconds} 秒后被退出登录。",
+	"staySignedIn": "保持登录",
+	"signingOut": "正在退出…"
+}

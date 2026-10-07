@@ -177,7 +177,7 @@
 		margin: var(--space-2) 0;
 	}
 	.forgot ol {
-		padding-left: 1.4em;
+		padding-inline-start: 1.4em;
 	}
 	.demo {
 		margin-top: var(--space-5);

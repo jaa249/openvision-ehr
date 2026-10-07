@@ -85,7 +85,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 	.me {
 		flex-direction: column;

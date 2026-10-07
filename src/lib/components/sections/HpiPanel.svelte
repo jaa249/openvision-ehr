@@ -49,9 +49,12 @@
 	/** Arrow keys / Home / End move between tabs (WAI-ARIA tabs pattern, automatic activation). */
 	async function tabKey(e: KeyboardEvent, cur: Complaint, set: (n: Complaint) => void, prefix: string) {
 		const i = COMPLAINTS.indexOf(cur);
+		// The next tab is to the right in left-to-right, to the left in right-to-left.
+		const rtl = getComputedStyle(e.currentTarget as Element).direction === 'rtl';
+		const [next, prev] = rtl ? ['ArrowLeft', 'ArrowRight'] : ['ArrowRight', 'ArrowLeft'];
 		const to =
-			e.key === 'ArrowRight' ? COMPLAINTS[(i + 1) % 3] :
-			e.key === 'ArrowLeft' ? COMPLAINTS[(i + 2) % 3] :
+			e.key === next ? COMPLAINTS[(i + 1) % 3] :
+			e.key === prev ? COMPLAINTS[(i + 2) % 3] :
 			e.key === 'Home' ? 1 :
 			e.key === 'End' ? 3 : null;
 		if (to === null) return;
@@ -414,6 +417,6 @@
 		background: var(--copied-tint);
 	}
 	.sep {
-		margin-left: var(--space-3);
+		margin-inline-start: var(--space-3);
 	}
 </style>

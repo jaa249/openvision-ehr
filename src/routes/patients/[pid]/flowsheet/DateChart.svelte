@@ -78,7 +78,7 @@
 	<span><svg width="28" height="12"><line class="target os" x1="2" x2="26" y1="6" y2="6" /></svg>{t('flowsheet.targetOs')}</span>
 	<span><svg width="14" height="12"><rect class="bar" x="4" y="1" width="6" height="10" /></svg>{t('flowsheet.testPerformed')}</span>
 </div>
-<svg viewBox="0 0 {W} {H}" role="group" aria-label={t('flowsheet.dateChartLabel')} aria-describedby="{uid}-d">
+<svg class="eye-ltr" viewBox="0 0 {W} {H}" role="group" aria-label={t('flowsheet.dateChartLabel')} aria-describedby="{uid}-d">
 	<desc id="{uid}-d">{t('flowsheet.dateChartDesc')}</desc>
 	{#each yTicks as tick (tick)}
 		<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={y(tick)} y2={y(tick)} />

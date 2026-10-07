@@ -116,7 +116,7 @@
 				cur.codeUris = r.data.item.codeUris;
 			}
 		} else {
-			errors[id] = { message: r.message, duplicate: r.status === 409 && 'duplicateOf' in r.body };
+			errors[id] = { message: r.message, duplicate: r.status === 409 && r.body.code === 'duplicate' };
 		}
 	}
 
@@ -262,6 +262,8 @@
 	// ---------- New Dx box (§10.4) ----------
 	let newDx = $state('');
 	let newDxError = $state('');
+	/** The server said 409 {code: 'duplicate'}: offer "Add anyway". */
+	let newDxDuplicate = $state(false);
 	let committing = false;
 	async function commitNewDx(allowDuplicate = false) {
 		const text = newDx;
@@ -274,9 +276,13 @@
 			if (r.data.item) {
 				if (newDx === text) newDx = '';
 				newDxError = '';
+				newDxDuplicate = false;
 				announce = t('plan.announceAdded', { title: r.data.item.title, seq: r.data.item.seq });
 			}
-		} else newDxError = r.message;
+		} else {
+			newDxError = r.message;
+			newDxDuplicate = r.status === 409 && r.body.code === 'duplicate';
+		}
 	}
 
 	// ---------- Builder candidates (recomputed on open and as findings change) ----------
@@ -490,7 +496,7 @@
 						{#if newDxError}
 							<p class="err" role="alert">
 								{newDxError}
-								{#if newDxError.includes('already item')}<button type="button" onclick={() => commitNewDx(true)}>{t('plan.addAnyway')}</button>{/if}
+								{#if newDxError && newDxDuplicate}<button type="button" onclick={() => commitNewDx(true)}>{t('plan.addAnyway')}</button>{/if}
 							</p>
 						{/if}
 					</div>
@@ -503,7 +509,7 @@
 				<div class="acc" class:open={pane === 'builder'}>
 					<h3>
 						<button type="button" id="acc-builder" aria-expanded={pane === 'builder'} aria-controls="acc-builder-pane" onclick={() => (pane = 'builder')}>
-							<span class="chev" aria-hidden="true">{pane === 'builder' ? '▾' : '▸'}</span>
+							<span class="chev flip-rtl" aria-hidden="true">{pane === 'builder' ? '▾' : '▸'}</span>
 							{t('plan.builder')}
 							<span class="count">{cands ? cands.findings.length + cands.poh.length + cands.pmh.length : ''}</span>
 						</button>
@@ -525,7 +531,7 @@
 				<div class="acc" class:open={pane === 'orders'}>
 					<h3>
 						<button type="button" id="acc-orders" aria-expanded={pane === 'orders'} aria-controls="acc-orders-pane" onclick={() => (pane = 'orders')}>
-							<span class="chev" aria-hidden="true">{pane === 'orders' ? '▾' : '▸'}</span>
+							<span class="chev flip-rtl" aria-hidden="true">{pane === 'orders' ? '▾' : '▸'}</span>
 							{t('plan.ordersNextVisit')}
 							<span class="count">{ordersCount ? t('plan.ordersChecked', { count: ordersCount }) : ''}</span>
 						</button>
@@ -674,7 +680,8 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-2);
-		padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+		padding-block: var(--space-1);
+		padding-inline: var(--space-3) var(--space-1);
 		border-radius: var(--radius-1);
 		background: var(--accent-soft);
 		color: var(--text-1);
@@ -761,7 +768,7 @@
 		border: 0;
 		border-radius: var(--radius-2);
 		background: var(--surface-2);
-		text-align: left;
+		text-align: start;
 		font-weight: var(--weight-semibold);
 	}
 	.acc.open h3 button {
@@ -770,7 +777,7 @@
 		box-shadow: inset 3px 0 0 var(--accent);
 	}
 	.acc h3 .count {
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 	.chev {
 		width: 1em;

@@ -3,6 +3,7 @@
 // Every save carries the page's edit-lock token. A 423 answer (exam signed, or another page took
 // the lock) stops the saver for good: it never retries and never posts again (spec §15.1 FIX).
 import { lockHeaders } from './lock.svelte.ts';
+import { english, type Translate } from '#lib/coding/english.ts';
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error' | 'locked';
 
@@ -13,7 +14,7 @@ export interface LockedInfo {
 	lock?: { holderId: number; holderName: string; acquiredAt: string; heartbeatAt: string; expiresAt: string } | null;
 }
 
-/** Shown when a write comes back 401 (idle auto-logoff or an expired session). */
+/** Shown when a write comes back 401 (idle auto-logoff or an expired session). English; the screen uses exam.signedOut. */
 export const SIGNED_OUT_MESSAGE = 'Signed out. Your last changes may not be saved; sign in again.';
 
 class SignedOut extends Error {}
@@ -47,9 +48,12 @@ export class Saver {
 	#slowTimer: ReturnType<typeof setTimeout> | undefined;
 	#inFlight = false;
 	#retryDelay = 1000;
+	/** Messages made here are in the page language (D48); English when left out. */
+	#t: Translate;
 
-	constructor(url: string) {
+	constructor(url: string, t: Translate = english) {
 		this.#url = url;
+		this.#t = t;
 	}
 
 	get hasUnsaved(): boolean {
@@ -80,9 +84,9 @@ export class Saver {
 					changes: [...batch].map(([field, p]) => ({ field, value: p.value, isDefault: p.isDefault }))
 				})
 			});
-			if (res.status === 423) throw new LockedResponse(await lockedInfo(res));
-			if (res.status === 401) throw new SignedOut(SIGNED_OUT_MESSAGE);
-			if (!res.ok) throw new Error(res.status === 400 ? await res.text() : `Server answered ${res.status}`);
+			if (res.status === 423) throw new LockedResponse(await lockedInfo(res, this.#t));
+			if (res.status === 401) throw new SignedOut(this.#t('exam.signedOut'));
+			if (!res.ok) throw new Error(res.status === 400 ? await res.text() : this.#t('exam.saveServerAnswered', { status: res.status }));
 			const body = (await res.json()) as { savedAt: string };
 			this.savedAt = new Date(body.savedAt);
 			this.lastError = null;
@@ -149,10 +153,10 @@ export class Saver {
 	}
 }
 
-async function lockedInfo(res: Response): Promise<LockedInfo> {
+async function lockedInfo(res: Response, t: Translate): Promise<LockedInfo> {
 	const body = (await res.json().catch(() => null)) as Partial<LockedInfo> | null;
 	return {
-		message: body?.message || 'This exam is read-only now.',
+		message: body?.message || t('exam.readOnlyNow'),
 		reason: body?.reason === 'signed' ? 'signed' : 'locked',
 		lock: body?.lock ?? null
 	};

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { migrate, openDatabase, seedDemo, type DB } from './db.ts';
 import { addItem } from './plan.ts';
+import { loadIcd10 } from './icd10.ts';
 import { updateCodeSettings } from './settings.ts';
 import {
 	canEditCoding,
@@ -103,6 +104,8 @@ describe('panel response', () => {
 
 describe('codes for the printed report (D46)', () => {
 	const addCoded = () => {
+		// The two codes used here (CMS FY2027 lines), so the test needs no downloaded code set (D49).
+		loadIcd10(db, 'E119    Type 2 diabetes mellitus without complications\nH40003  Preglaucoma, unspecified, bilateral\n', 'fixture-coding');
 		const a = addItem(db, 1, 1, 1, { title: 'Glaucoma suspect', codes: 'H40.003' })!;
 		const b = addItem(db, 1, 1, 1, { title: 'Type 2 diabetes', codes: 'E11.9' })!;
 		return [a.id, b.id];
@@ -156,7 +159,7 @@ describe('migration (D46)', () => {
 		expect(tables(probe)).not.toContain('coding_lines');
 		expect(tables(probe)).toContain('coding_state');
 		const raw = new DatabaseSync(':memory:');
-		migrate(raw, latest - 2); // everything before billing-aid (the translations migration, D48, follows it)
+		migrate(raw, latest - 3); // everything before billing-aid (the translations, D48, and ICD-11 titles, D50, migrations follow it)
 		expect(tables(raw)).toEqual(expect.arrayContaining(['visit_status', 'coding_lines']));
 		raw.exec("INSERT INTO users (id, display_name) VALUES (1, 'Dr. One')");
 		raw.exec("INSERT INTO patients (id, mrn, legal_first, legal_last, dob) VALUES (1, '1', 'Pat', 'Test', '1950-01-01')");

@@ -278,6 +278,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
-		padding: var(--space-3) 0 var(--space-2) var(--space-5);
+		padding-block: var(--space-3) var(--space-2);
+		padding-inline: var(--space-5) 0;
 	}
 </style>

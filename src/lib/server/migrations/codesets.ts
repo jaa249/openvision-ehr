@@ -3,7 +3,7 @@
 //
 // - practice.diagnosis_code_set: 'icd10cm' (existing installs and the demo) or 'icd11'.
 // - practice.us_billing: 1 = the Coding section, coding API and superbill exist (US CPT billing).
-// - icd11 / icd11_meta: WHO ICD-11 MMS, loaded from codes/ on first use (src/lib/server/icd11.ts).
+// - icd11 / icd11_meta: WHO ICD-11 MMS, loaded on first use from the practice's downloaded file (D49) (src/lib/server/icd11.ts).
 //   `bare` is the code without its dot, for prefix search. `parent` is WHO's parent entity URI.
 // - imp_items / issues: each coded row keeps the code system it was saved with, and for ICD-11 the
 //   WHO URI of every code part (WHO licence: code, title and URI are stored together). Issues also get

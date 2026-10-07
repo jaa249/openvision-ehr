@@ -36,5 +36,6 @@
 	"creating": "Creating…",
 	"createAdmin": "Create admin and sign in",
 	"language": "Language",
-	"changeLanguage": "Change"
+	"changeLanguage": "Change",
+	"codeSetDownloadNote": "Diagnosis codes are not part of OpenVision. After setup, the next page offers to download the chosen code set (a few seconds); a computer without internet can import the official file in Settings › Code sets."
 }

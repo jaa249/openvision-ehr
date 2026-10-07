@@ -150,10 +150,13 @@ export function spellingVariants(word: string): string[] {
 	return [...out];
 }
 
-/** The set name(s) of a list of codes, for a column or section heading: "ICD-10-CM", "ICD-11" or both. */
-export function codeSetsShort(codes: string[]): string {
+/**
+ * The set name(s) of a list of codes, for a column or section heading: "ICD-10-CM", "ICD-11" or both.
+ * `list` joins two names (a screen passes the translator's list(), D48); English " and " by default.
+ */
+export function codeSetsShort(codes: string[], list: (items: string[]) => string = (items) => items.join(' and ')): string {
 	const sets = CODE_SET_IDS.filter((id) => codes.some((c) => codeSetOfCode(c) === id));
-	return sets.length ? sets.map((id) => CODE_SETS[id].short).join(' and ') : 'ICD';
+	return sets.length ? list(sets.map((id) => CODE_SETS[id].short)) : 'ICD';
 }
 
 /** One code finder result (GET /api/codes/dx). */
@@ -165,9 +168,18 @@ export interface DxCode {
 	uri?: string;
 	/** Can be saved as is (ICD-10-CM billable / ICD-11 leaf); a category needs a more specific code. */
 	leaf: boolean;
+	/** ICD-11 (D50): the language of `description` when it is WHO's title in another language; absent = English. */
+	titleLang?: string;
 }
 
 export interface DxSearchResult {
 	system: CodeSetId;
 	codes: DxCode[];
+	/** The practice's code set is not downloaded yet (D49): no codes, and the finder says so. */
+	notLoaded?: boolean;
+	/**
+	 * ICD-11 (D50): WHO's titles in the user's interface language are loaded and searched too (e.g. "es");
+	 * absent when only English is searched.
+	 */
+	lang?: string;
 }

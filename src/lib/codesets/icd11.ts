@@ -1,5 +1,5 @@
 // WHO ICD-11 MMS: reading WHO's SimpleTabulation file and picking a code by searching WHO titles.
-// Pure (no I/O): the server loads the shipped file into a table (src/lib/server/icd11.ts); tests use
+// Pure (no I/O): the server loads the downloaded file (D49) into a table (src/lib/server/icd11.ts); tests use
 // a few real rows. Nothing here pairs a clinical term with an ICD-11 code (D44): the findings engine
 // passes words, and bestIcd11 searches the titles WHO publishes.
 import { ICD11_CODE_RE, ICD11_EXT_RE, icd11Normalize, icd11Parts, spellingVariants } from './index.ts';
@@ -21,6 +21,8 @@ export interface Icd11Entity {
 	parent: string;
 	/** WHO ClassKind ("category" for every coded row). */
 	kind: string;
+	/** Language of `title` when it is WHO's title in another language (D50); absent = English. */
+	titleLang?: string;
 }
 
 /** Splits WHO's tab-separated text: UTF-8 BOM, quoted fields with "" escapes, tabs or newlines inside quotes. */
@@ -114,6 +116,8 @@ export interface Icd11Resolved {
 	description: string;
 	/** URIs in the same order as the parts, "&"-joined. */
 	uris: string;
+	/** Language of the titles in `description` (D50): 'en', or WHO's language file when every part has a title in it. */
+	titleLang?: string;
 }
 
 /**

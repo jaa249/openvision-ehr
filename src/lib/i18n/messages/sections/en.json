@@ -567,5 +567,19 @@
 	"shOccupation": "Occupation",
 	"shSleep": "Sleep",
 	"shSeatbelt": "Seatbelt use",
-	"pupilApd": "APD"
+	"pupilApd": "APD",
+	"fieldVfQuadrant": "Field {quadrant} {eye}",
+	"fieldChiefComplaintN": "Chief complaint {n}",
+	"fieldHpiN": "HPI {n}",
+	"fieldHpiElementN": "{element} {n}",
+	"fieldChronicN": "Chronic problem {n}",
+	"fieldRos": "ROS {system}",
+	"fieldMotilityNormal": "Motility normal",
+	"fieldMotility": "Motility {eye} {gaze}",
+	"fieldCoverOrtho": "Cover test ortho",
+	"fieldCoverCell": "Cover test {zone} {position}",
+	"fieldDilationDrop": "Dilation drop: {name} {strengths}",
+	"fieldDilationOther": "Dilation: other drops",
+	"fieldDilationTime": "Dilation time",
+	"fieldDilationRisks": "Dilation risks discussed"
 }

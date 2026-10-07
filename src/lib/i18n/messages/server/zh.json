@@ -1,0 +1,15 @@
+{
+	"codesSignIn": "请先登录。",
+	"codesAdminOnly": "只有管理员可以下载、导入或移除诊断编码。",
+	"codesUnknownSet": "未知的编码体系。",
+	"codesBusy": "此编码体系正在下载或导入中。请稍候再试。",
+	"codesDownloadFailed": "下载失败（{error}）。请检查网络连接，或在另一台计算机上下载该文件后再导入。",
+	"codesWrongRelease": "下载的文件不是预期的版本。请更新 OpenVision，或自行导入该文件。",
+	"codesImportWrongRelease": "此文件不是预期的版本（{release}）。请使用来自 {url} 的官方文件，且不要修改。",
+	"codesBadZip": "无法读取该 zip 文件：{error}",
+	"codesTooLarge": "该文件超过 50 MB，因此不是编码体系文件。",
+	"codesBodyLimit": "此文件超出服务器允许的大小。请让管理员使用 BODY_SIZE_LIMIT=20M 启动服务器，或改为导入 zip 文件而非文本文件。",
+	"codesEmptyFile": "请选择要导入的文件。",
+	"codesRemoveCurrent": "诊所目前正在使用此编码体系。请先在“设置 › 诊所”中选择其他编码体系，再将其移除。",
+	"codesUnknownLanguage": "未知的 ICD-11 语言。"
+}

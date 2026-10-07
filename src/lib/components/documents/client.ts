@@ -1,5 +1,7 @@
-// Browser-side calls for patient documents (spec §15.4). Errors come back as plain sentences.
+// Browser-side calls for patient documents (spec §15.4). Errors come back as plain sentences, in the
+// page language when the caller passes its translator (D48; English otherwise). Server messages stay as sent.
 import { DOC_MIMES, MAX_DOCUMENT_BYTES, formatBytes, type DocMeta } from './types.ts';
+import { english, type Translate } from '#lib/coding/english.ts';
 
 export interface UploadOptions {
 	category: string;
@@ -8,19 +10,21 @@ export interface UploadOptions {
 	notes?: string;
 	/** Exam lock headers (lockHeaders()) when the file belongs to a visit. */
 	headers?: Record<string, string>;
+	/** Translator for the messages made here. */
+	t?: Translate;
 }
 
 /** Checks we can do before sending; the server decides the type from the bytes regardless. */
-export function precheck(file: File): string | null {
-	if (file.size === 0) return `${file.name} is empty.`;
-	if (file.size > MAX_DOCUMENT_BYTES) return `${file.name} is ${formatBytes(file.size)}. The limit is 15 MB.`;
+export function precheck(file: File, t: Translate = english): string | null {
+	if (file.size === 0) return t('documents.fileEmpty', { name: file.name });
+	if (file.size > MAX_DOCUMENT_BYTES) return t('documents.fileTooLarge', { name: file.name, size: formatBytes(file.size) });
 	if (file.type && !(DOC_MIMES as readonly string[]).includes(file.type)) {
-		return `${file.name} is not a PNG, JPEG or PDF. Phone photos in HEIC format must be saved as JPEG first.`;
+		return t('documents.fileWrongType', { name: file.name });
 	}
 	return null;
 }
 
-async function message(res: Response): Promise<string> {
+async function message(res: Response, t: Translate): Promise<string> {
 	let text = '';
 	try {
 		const ct = res.headers.get('content-type') ?? '';
@@ -29,14 +33,15 @@ async function message(res: Response): Promise<string> {
 		/* keep the generic text */
 	}
 	if (res.status === 413 && !/15 MB|BODY_SIZE_LIMIT/.test(text)) {
-		return 'This file is larger than the server accepts. Files up to 15 MB are supported when the server runs with BODY_SIZE_LIMIT=20M (ask your administrator).';
+		return t('documents.serverTooLarge', { setting: 'BODY_SIZE_LIMIT=20M' });
 	}
-	if (res.status === 423) return text || 'This visit is signed or being edited elsewhere, so its documents cannot change.';
-	return text || `The server answered ${res.status}.`;
+	if (res.status === 423) return text || t('documents.visitLocked');
+	return text || t('documents.serverAnsweredSentence', { status: res.status });
 }
 
 export async function uploadDocumentFile(patientId: number, file: File, opts: UploadOptions): Promise<DocMeta> {
-	const bad = precheck(file);
+	const t = opts.t ?? english;
+	const bad = precheck(file, t);
 	if (bad) throw new Error(bad);
 	const q = new URLSearchParams({ category: opts.category, filename: file.name });
 	if (opts.encounterId) q.set('encounter', String(opts.encounterId));
@@ -47,7 +52,7 @@ export async function uploadDocumentFile(patientId: number, file: File, opts: Up
 		headers: { 'content-type': file.type || 'application/octet-stream', ...(opts.headers ?? {}) },
 		body: file
 	});
-	if (!res.ok) throw new Error(await message(res));
+	if (!res.ok) throw new Error(await message(res, t));
 	return (await res.json()) as DocMeta;
 }
 
@@ -55,18 +60,19 @@ export async function updateDocumentMeta(
 	patientId: number,
 	id: number,
 	edit: { notes?: string; takenOn?: string; category?: string },
-	headers: Record<string, string> = {}
+	headers: Record<string, string> = {},
+	t: Translate = english
 ): Promise<DocMeta> {
 	const res = await fetch(`/api/patients/${patientId}/documents/${id}`, {
 		method: 'PATCH',
 		headers: { 'content-type': 'application/json', ...headers },
 		body: JSON.stringify(edit)
 	});
-	if (!res.ok) throw new Error(await message(res));
+	if (!res.ok) throw new Error(await message(res, t));
 	return (await res.json()) as DocMeta;
 }
 
-export async function deleteDocumentFile(patientId: number, id: number, headers: Record<string, string> = {}): Promise<void> {
+export async function deleteDocumentFile(patientId: number, id: number, headers: Record<string, string> = {}, t: Translate = english): Promise<void> {
 	const res = await fetch(`/api/patients/${patientId}/documents/${id}`, { method: 'DELETE', headers });
-	if (!res.ok) throw new Error(await message(res));
+	if (!res.ok) throw new Error(await message(res, t));
 }

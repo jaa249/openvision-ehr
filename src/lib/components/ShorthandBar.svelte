@@ -3,7 +3,7 @@
 	import { useI18n } from '#lib/i18n/context.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
 	import type { ParseResult } from '#lib/shorthand/parse.ts';
-	import { ISSUE_TYPE_DEF } from '#lib/history/lists.ts';
+	import { ISSUE_TYPE_KEYS } from '#lib/history/lists.ts';
 
 	let {
 		text = $bindable(''),
@@ -23,7 +23,7 @@
 		if (op.kind === 'defaults')
 			return op.sections === 'all' ? t('exam.shNormalAll') : t('exam.shNormal', { sections: op.sections.join(', ') });
 		if (op.kind === 'clear') return op.sections === 'all' ? t('exam.shClearAll') : t('exam.shClear', { sections: op.sections.join(', ') });
-		if (op.kind === 'issue') return `${ISSUE_TYPE_DEF.get(op.type)?.short ?? op.type} + ${op.text}`;
+		if (op.kind === 'issue') return `${ISSUE_TYPE_KEYS[op.type] ? t(ISSUE_TYPE_KEYS[op.type].short) : op.type} + ${op.text}`;
 		if (op.kind === 'setEach')
 			return Object.entries(op.values)
 				.map(([f, v]) => `${fieldLabel(f, t)} = ${v}`)
@@ -46,6 +46,7 @@
 	<label for="shorthand"><Msg key="exam.shLabel">{#snippet keys()}<kbd>Alt K</kbd>{/snippet}</Msg></label>
 	<input
 		id="shorthand"
+		dir="ltr"
 		bind:this={input}
 		bind:value={text}
 		{onkeydown}

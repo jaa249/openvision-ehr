@@ -5,10 +5,11 @@
 // Rule: import only TYPES from catalog.ts / report.ts here (they import values from this file).
 //
 // Spec: docs/spec/BEHAVIOR.md §1.3 (layout), §7.1 (element counting), §7.3 (ROS), §7.4 (chronic feed), §13.2 item 1.
-import type { FieldDef } from '../catalog.ts';
+import type { FieldDef, FieldText } from '../catalog.ts';
 import type { ReportSection } from '../report.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 import type { MessageKey } from '#lib/i18n/catalog.ts';
+import { english, type Translate } from '#lib/coding/english.ts';
 
 // ---------- field layout (shared with HpiPanel) ----------
 
@@ -118,6 +119,19 @@ export const HISTORY_FIELDS: FieldDef[] = [
 	field(ROS_COMMENTS, 'ROS', 'ROS comments', TEXT)
 ];
 
+/** Screen labels of HISTORY_FIELDS (D48), same English as the labels above. */
+export const HISTORY_FIELD_TEXT: Record<string, FieldText> = Object.fromEntries([
+	...COMPLAINTS.flatMap((n): [string, FieldText][] => [
+		[`CC${n}`, (t) => t('sections.fieldChiefComplaintN', { n })],
+		[`HPI${n}`, (t) => t('sections.fieldHpiN', { n })],
+		...HPI_ELEMENTS.map((e): [string, FieldText] => [`${e.key}${n}`, (t) => t('sections.fieldHpiElementN', { element: t(HPI_ELEMENT_KEYS[e.key].label), n })])
+	]),
+	...CHRONIC_IDS.map((id, i): [string, FieldText] => [id, (t) => t('sections.fieldChronicN', { n: i + 1 })]),
+	// The English lower-cases the system name ("ROS heent"); so does every language.
+	...ROS_SYSTEMS.map((s): [string, FieldText] => [s.id, (t) => t('sections.fieldRos', { system: t(ROS_SYSTEM_LABEL_KEY[s.id]).toLowerCase() })]),
+	[ROS_COMMENTS, (t: Parameters<FieldText>[0]) => t('sections.rosComments')]
+]);
+
 /**
  * Shorthand code -> field ids. CC and HPI come from the original's vocabulary (SHORTHAND.md);
  * the rest are convenience codes for complaint 1's elements and the ROS boxes. Every column name
@@ -209,8 +223,11 @@ export function isRosNegative(value: string | undefined): boolean {
 
 // ---------- report (§13.2 item 1) ----------
 
-/** Printed report sections for this module: HPI (one per recorded complaint), chronic problems, ROS. */
-export function historyReport(findings: Findings): ReportSection[] {
+/**
+ * Printed report sections for this module: HPI (one per recorded complaint), chronic problems, ROS.
+ * Headings and table labels are in `t`'s language (D48); what was recorded prints as entered.
+ */
+export function historyReport(findings: Findings, t: Translate = english): ReportSection[] {
 	const v = (id: string) => val(findings, id);
 	const out: ReportSection[] = [];
 	const hpiIds = [...COMPLAINTS.flatMap((n) => [`CC${n}`, `HPI${n}`]), ...ELEMENT_IDS, ...CHRONIC_IDS];
@@ -222,26 +239,28 @@ export function historyReport(findings: Findings): ReportSection[] {
 			// Complaint 1 always prints (its CC and HPI labels, even if blank); 2 and 3 only with a CC.
 			if (n > 1 && !v(c.cc)) continue;
 			const body: string[][] = [];
-			if (n === 1 || v(c.hpi)) body.push(['HPI', v(c.hpi)]);
+			if (n === 1 || v(c.hpi)) body.push([t('sections.hpiHpi'), v(c.hpi)]);
 			HPI_ELEMENTS.forEach((e, i) => {
 				const text = v(c.elements[i]);
-				if (text) body.push([e.label, text]);
+				if (text) body.push([t(HPI_ELEMENT_KEYS[e.key].label), text]);
 			});
 			out.push({
 				title: n === 1 ? 'History of present illness' : `History of present illness, complaint ${n}`,
+				titleText: n === 1 ? { key: 'sections.hpiTitle' } : { key: 'report.sectionHpiComplaint', params: { n } },
 				rows: [],
 				comments: '',
-				table: { head: [n === 1 ? 'Chief complaint' : `Chief complaint ${n}`, v(c.cc)], body }
+				table: { head: [n === 1 ? t('sections.hpiChiefComplaint') : t('sections.fieldChiefComplaintN', { n }), v(c.cc)], body }
 			});
 		}
 		const chronic = CHRONIC_IDS.map(v).filter(Boolean);
 		if (chronic.length) {
 			out.push({
 				title: 'Chronic or inactive problems',
+				titleText: { key: 'sections.hpiChronicLegend' },
 				rows: [],
 				comments: '',
 				// Issue text is "title code" + a comment line; keep both on one printed line.
-				table: { head: ['#', 'Problem and status'], body: chronic.map((t, i) => [String(i + 1), t.replace(/\s*\n\s*/g, ' - ')]) }
+				table: { head: ['#', t('report.problemAndStatus')], body: chronic.map((text, i) => [String(i + 1), text.replace(/\s*\n\s*/g, ' - ')]) }
 			});
 		}
 	}
@@ -254,10 +273,11 @@ export function historyReport(findings: Findings): ReportSection[] {
 	if (recorded.length || v(ROS_COMMENTS)) {
 		out.push({
 			title: 'Review of systems',
+			titleText: { key: 'sections.rosTitle' },
 			rows: [],
 			comments: v(ROS_COMMENTS),
-			...(negative.length ? { summary: `Negative: ${negative.join(', ')}` } : {}),
-			...(ros.length ? { table: { head: ['System', 'Finding'], body: ros } } : {})
+			...(negative.length ? { summary: t('report.rosNegative', { systems: negative.join(', ') }) } : {}),
+			...(ros.length ? { table: { head: [t('report.rosSystem'), t('report.rosFinding')], body: ros } } : {})
 		});
 	}
 	return out;

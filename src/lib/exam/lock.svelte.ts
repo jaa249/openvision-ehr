@@ -7,6 +7,7 @@
 // When someone else holds the lock, or takes it over, the page is read-only and polls every 15 s.
 import type { Signature } from '#lib/plan/types.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
+import { english, type Translate } from '#lib/coding/english.ts';
 
 /** The token of the exam page open in this tab (null before the page starts its lock). */
 let currentToken: string | null = null;
@@ -86,6 +87,8 @@ export class ExamLock {
 	#heartbeat: ReturnType<typeof setInterval> | undefined;
 	#poll: ReturnType<typeof setInterval> | undefined;
 	#onFindings: (f: Findings) => void;
+	/** Messages made here are in the page language (D48); English when left out. */
+	#t: Translate;
 	#stopped = false;
 
 	constructor(
@@ -94,9 +97,11 @@ export class ExamLock {
 		initial: { signature: Signature | null; lock: LockHolder | null },
 		onFindings: (f: Findings) => void,
 		fetchImpl: typeof fetch = (...a) => fetch(...a),
-		token = newToken()
+		token = newToken(),
+		t: Translate = english
 	) {
 		this.#url = `${examApi}/lock`;
+		this.#t = t;
 		this.#fetch = fetchImpl;
 		this.#onFindings = onFindings;
 		this.token = token;
@@ -160,15 +165,15 @@ export class ExamLock {
 		const wasEditing = this.mode === 'editing' || this.mode === 'starting';
 		if (body.reason === 'signed') {
 			this.mode = 'signed';
-			this.message = body.message ?? 'This exam was signed.';
+			this.message = body.message ?? this.#t('exam.lockSigned');
 			void this.poll();
 		} else {
 			this.holder = body.lock ?? null;
 			this.mode = 'readonly';
 			if (wasEditing) {
 				this.message = body.lock
-					? `${body.lock.holderName} has taken over this exam. This page is now read-only.`
-					: (body.message ?? 'This page no longer holds the edit lock. It is now read-only.');
+					? this.#t('exam.lockTakenOver', { name: body.lock.holderName })
+					: (body.message ?? this.#t('exam.lockLost'));
 			}
 		}
 		this.#schedule();
@@ -219,7 +224,7 @@ export class ExamLock {
 				// Unexpected answer: never claim the lock; a read-only page must not post.
 				if (action !== 'heartbeat') {
 					this.mode = 'readonly';
-					this.message = (await res.text().catch(() => '')) || `The edit lock could not be checked (error ${res.status}).`;
+					this.message = (await res.text().catch(() => '')) || this.#t('exam.lockCheckFailed', { status: res.status });
 					this.#schedule();
 				}
 				return;
@@ -245,7 +250,7 @@ export class ExamLock {
 			if (explicit) this.message = null;
 		} else {
 			// Was editing and the server no longer says so: someone took over.
-			if (this.mode === 'editing' && s.lock) this.message = `${s.lock.holderName} has taken over this exam. This page is now read-only.`;
+			if (this.mode === 'editing' && s.lock) this.message = this.#t('exam.lockTakenOver', { name: s.lock.holderName });
 			this.mode = 'readonly';
 			this.holder = s.lock;
 		}

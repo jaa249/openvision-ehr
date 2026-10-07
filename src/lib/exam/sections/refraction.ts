@@ -5,10 +5,11 @@
 //
 // Spec: docs/spec/BEHAVIOR.md §1.5 (panels), §8.7 (formatting, transpose), §12 (Rx printing), §13.2 item 5 (report).
 // Pure functions only: the exam panel, the Rx print page and the server all share them.
-import type { FieldDef } from '../catalog.ts';
-import type { ReportSection } from '../report.ts';
+import type { FieldDef, FieldText } from '../catalog.ts';
+import type { ReportSection, ReportText } from '../report.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 import type { MessageKey } from '#lib/i18n/catalog.ts';
+import { english, type Translate } from '#lib/coding/english.ts';
 
 type EyeSide = 'OD' | 'OS';
 
@@ -242,6 +243,23 @@ function buildFields(): FieldDef[] {
 }
 
 export const REFRACTION_FIELDS: FieldDef[] = buildFields();
+
+/** Screen labels of REFRACTION_FIELDS (D48): "Glasses #2 sphere OD"; MR, CR, AR and CTL stay as written. */
+export const REFRACTION_FIELD_TEXT: Record<string, FieldText> = Object.fromEntries(
+	REFRACTION_FIELDS.map((f): [string, FieldText] => {
+		const source = f.row as RxSource;
+		const slot = slotOf(source);
+		const src = (t: Parameters<FieldText>[0]) => (slot ? t('sections.rxGlassesN', { n: slot }) : sourceLabel(source));
+		const c = SOURCE_COLS[kindOf(source)];
+		if (f.eye === 'OU') {
+			const col = c.ou.find((x) => ouId(source, x) === f.id)!;
+			return [f.id, (t) => t('sections.rxOuLabel', { source: src(t), column: t(COL_LABEL_KEY[col]) })];
+		}
+		const eye = f.eye as EyeSide;
+		const col = c.eye.find((x) => eyeId(source, x, eye) === f.id)!;
+		return [f.id, (t) => t('sections.rxCellLabel', { source: src(t), column: t(COL_LABEL_KEY[col]), eye })];
+	})
+);
 
 /** Shorthand code -> field ids (codes are upper-case). Every field id is already a code; these are short extras. */
 export const REFRACTION_ALIASES: Record<string, string[]> = {
@@ -515,11 +533,12 @@ export const METHOD_LABEL: Record<RxKind, string> = {
 
 // ---------- report (spec §13.2 item 5) ----------
 
-export function refractionReport(findings: Findings): ReportSection[] {
+/** Headings and table words in `t`'s language (D48); `title` stays English, values print as recorded. */
+export function refractionReport(findings: Findings, t: Translate = english): ReportSection[] {
 	const v = (id: string) => findings[id]?.value?.trim() ?? '';
 	const cell = (s: string) => s || '-';
 	const any = (ids: string[]) => ids.some((id) => v(id));
-	const HEAD = ['Eye', 'Sph', 'Cyl', 'Axis', 'Prism', 'Acuity', 'Mid', 'ADD', 'Near acuity'];
+	const HEAD = [t('rx.colEye'), t('rx.colSph'), t('rx.colCyl'), t('rx.colAxis'), t('rx.colPrism'), t('report.colAcuity'), t('report.colMid'), t('rx.colAdd'), t('report.colNearAcuity')];
 	const out: ReportSection[] = [];
 
 	function prism(source: RxSource, e: EyeSide): string {
@@ -543,31 +562,37 @@ export function refractionReport(findings: Findings): ReportSection[] {
 		);
 	}
 	/** FIX: a group prints when ANY of its values is present, not only the sphere. */
-	function spectacle(source: RxSource, title: string, notes: string[] = []) {
+	function spectacle(source: RxSource, title: string, titleText: ReportText, notes: string[] = []) {
 		// The Rx type alone is a setting, not a measurement.
 		const ids = sourceFieldIds(source).filter((id) => id !== ouId(source, 'RX_TYPE'));
 		if (!any(ids)) return;
 		const comments = [...notes, v(ouId(source, 'COMMENTS'))].filter(Boolean).join('. ');
-		out.push({ title, rows: [], comments, table: { head: HEAD, body: specRows(source) } });
+		out.push({ title, titleText, rows: [], comments, table: { head: HEAD, body: specRows(source) } });
 	}
 
 	for (const n of W_SLOTS) {
 		const source = `W${n}` as RxSource;
-		const t = v(ouId(source, 'RX_TYPE'));
-		const type = /^[1-3]$/.test(t) ? ` · ${RX_TYPES[Number(t)]}` : '';
+		const rxType = v(ouId(source, 'RX_TYPE'));
+		const typed = /^[1-3]$/.test(rxType);
+		const type = typed ? ` · ${RX_TYPES[Number(rxType)]}` : '';
 		const extras: string[] = [];
 		const mat = v(ouId(source, 'LENS_MATERIAL'));
 		const treat = splitList(v(ouId(source, 'LENS_TREATMENTS')));
-		if (mat) extras.push(`Material: ${mat}`);
-		if (treat.length) extras.push(`Treatments: ${treat.join(', ')}`);
-		const pd = [v(ouId(source, 'BPDD')) && `PD ${v(ouId(source, 'BPDD'))}`, v(ouId(source, 'BPDN')) && `near PD ${v(ouId(source, 'BPDN'))}`].filter(Boolean).join(', ');
+		if (mat) extras.push(t('report.rxMaterial', { value: mat }));
+		if (treat.length) extras.push(t('report.rxTreatments', { value: treat.join(', ') }));
+		const pd = [v(ouId(source, 'BPDD')) && t('report.rxPd', { value: v(ouId(source, 'BPDD')) }), v(ouId(source, 'BPDN')) && t('report.rxNearPd', { value: v(ouId(source, 'BPDN')) })]
+			.filter(Boolean)
+			.join(', ');
 		if (pd) extras.push(pd);
-		spectacle(source, `Current glasses #${n}${type}`, extras);
+		const titleText: ReportText = typed
+			? { key: 'report.sectionGlassesType', params: { n, type: t(RX_TYPE_LABEL_KEY[Number(rxType)]) } }
+			: { key: 'report.sectionGlasses', params: { n } };
+		spectacle(source, `Current glasses #${n}${type}`, titleText, extras);
 	}
-	spectacle('AR', 'Autorefraction');
-	spectacle('MR', 'Manifest (dry)', v('BALANCED') ? ['Balanced'] : []);
+	spectacle('AR', 'Autorefraction', { key: 'rx.methodAutorefraction' });
+	spectacle('MR', 'Manifest (dry)', { key: 'rx.methodManifest' }, v('BALANCED') ? [t('sections.rxBalanced')] : []);
 	const wet = v('WETTYPE');
-	spectacle('CR', `Cycloplegic (wet)${wet ? ` · ${wet}` : ''}`);
+	spectacle('CR', `Cycloplegic (wet)${wet ? ` · ${wet}` : ''}`, wet ? { key: 'report.sectionCycloMethod', params: { method: wet } } : { key: 'rx.methodCycloplegic' });
 
 	if (any(sourceFieldIds('CTL'))) {
 		const g = (col: EyeCol, e: EyeSide) => v(eyeId('CTL', col, e));
@@ -575,28 +600,34 @@ export function refractionReport(findings: Findings): ReportSection[] {
 		// "Brand by manufacturer via supplier" per eye follows the table (a column would wrap badly on paper).
 		const lens = (['OD', 'OS'] as const)
 			.map((e) => {
-				const t = [g('BRAND', e), g('MANUFACTURER', e) && `by ${g('MANUFACTURER', e)}`, g('SUPPLIER', e) && `via ${g('SUPPLIER', e)}`].filter(Boolean).join(' ');
-				return t && `${e}: ${t}`;
+				const text = [g('BRAND', e), g('MANUFACTURER', e) && t('rx.byManufacturer', { name: g('MANUFACTURER', e) }), g('SUPPLIER', e) && t('rx.viaSupplier', { name: g('SUPPLIER', e) })]
+					.filter(Boolean)
+					.join(' ');
+				return text && `${e}: ${text}`;
 			})
 			.filter(Boolean);
 		out.push({
 			title: 'Contact lens',
+			titleText: { key: 'rx.methodContactLens' },
 			rows: [],
 			comments: [...lens, v('CTL_COMMENTS')].filter(Boolean).join('. '),
-			table: { head: ['Eye', 'Sph', 'Cyl', 'Axis', 'BC', 'Diam', 'ADD', 'Acuity'], body }
+			table: { head: [t('rx.colEye'), t('rx.colSph'), t('rx.colCyl'), t('rx.colAxis'), t('rx.colBc'), t('rx.colDiam'), t('rx.colAdd'), t('report.colAcuity')], body }
 		});
 	}
 	return out;
 }
 
-/** A printed Rx as a small table (dispensed history, §12.6 FIX: prism shown). Empty cells are ''. */
-export function rxTable(kind: RxKind, v: RxValues): { head: string[]; body: string[][] } {
+/**
+ * A printed Rx as a small table (dispensed history, §12.6 FIX: prism shown). Empty cells are ''.
+ * `head` stays English (the page maps it to messages); "via" before the supplier is in `t`'s language (D48).
+ */
+export function rxTable(kind: RxKind, v: RxValues, t: Translate = english): { head: string[]; body: string[][] } {
 	const g = (k: string) => v[k] ?? '';
 	if (kind === 'CTL') {
 		const showAdd = !!(g('ODADD') || g('OSADD'));
 		const head = ['Lens', 'Sph', 'Cyl', 'Axis', 'BC', 'Diam', ...(showAdd ? ['ADD'] : []), 'Qty', 'Brand'];
 		const body = (['OD', 'OS'] as const).map((e) => {
-			const brand = [g(`CTLBRAND${e}`), g(`CTLMANUFACTURER${e}`) && `(${g(`CTLMANUFACTURER${e}`)})`, g(`CTLSUPPLIER${e}`) && `via ${g(`CTLSUPPLIER${e}`)}`]
+			const brand = [g(`CTLBRAND${e}`), g(`CTLMANUFACTURER${e}`) && `(${g(`CTLMANUFACTURER${e}`)})`, g(`CTLSUPPLIER${e}`) && t('rx.viaSupplier', { name: g(`CTLSUPPLIER${e}`) })]
 				.filter(Boolean)
 				.join(' ');
 			return [e, g(`${e}SPH`), g(`${e}CYL`), g(`${e}AXIS`), g(`${e}BC`), g(`${e}DIAM`), ...(showAdd ? [g(`${e}ADD`)] : []), g(`CTL${e}QUANTITY`), brand];

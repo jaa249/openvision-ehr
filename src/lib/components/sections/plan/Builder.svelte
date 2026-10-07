@@ -61,7 +61,7 @@
 
 	<div class="actions">
 		<button type="button" class="primary" onclick={() => onaddmany(toAdd)} disabled={!toAdd.length}>
-			<span aria-hidden="true">↩</span> {t('plan.addSelected', { n: toAdd.length })}
+			<span class="flip-rtl" aria-hidden="true">↩</span> {t('plan.addSelected', { n: toAdd.length })}
 		</button>
 		<button type="button" onclick={onrefresh} disabled={loading}>{loading ? t('plan.updating') : t('plan.refresh')}</button>
 	</div>
@@ -198,7 +198,8 @@
 		grid-template-columns: minmax(0, 1fr) auto auto;
 		align-items: center;
 		gap: var(--space-2);
-		padding: 0 var(--space-1) 0 var(--space-2);
+		padding-block: 0;
+		padding-inline: var(--space-2) var(--space-1);
 		border: 1px solid var(--hairline);
 		border-radius: var(--radius-1);
 		background: var(--surface-1);
@@ -218,7 +219,7 @@
 		font-family: var(--font-mono);
 		font-size: var(--text-xs);
 		color: var(--text-2);
-		text-align: right;
+		text-align: end;
 		max-width: 12em;
 		overflow-wrap: anywhere;
 	}

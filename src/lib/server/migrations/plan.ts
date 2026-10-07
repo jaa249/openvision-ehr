@@ -1,7 +1,7 @@
 // Schema for the plan feature, appended to db.ts MIGRATIONS in a fixed slot.
 // Pre-release (decision D16): edit freely until v0.1; delete data/ to rebuild.
 //
-// - icd10 / icd10_meta: the ICD-10-CM code set, loaded from codes/ on first use (src/lib/server/icd10.ts).
+// - icd10 / icd10_meta: the ICD-10-CM code set, loaded on first use from the practice's downloaded file (D49) (src/lib/server/icd10.ts).
 // - imp_items: the impression list, one row per item, saved BY ID (spec §10.5 FIX). No unique key on
 //   title+plan: duplicates are detected in code and answered with a warning (409), never dropped silently.
 // - order_options / order_options_seeded: each provider's orders list (§10.6), seeded once from

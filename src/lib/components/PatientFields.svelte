@@ -73,6 +73,7 @@
 		<label for="mrn">{t('patients.mrn')} {#if !mrnRequired}<span class="opt">{t('common.optionalTag')}</span>{/if}</label>
 		<input
 			id="mrn"
+			dir="ltr"
 			name="mrn"
 			value={values.mrn ?? ''}
 			required={mrnRequired}

@@ -60,7 +60,7 @@
 				{#each g.items as p (p.id)}
 					<li>
 						<span class="label" class:clear={p.mode === 'replace' && !p.text}>{p.label}</span>
-						<span class="eyes">
+						<span class="eyes eye-ltr">
 							<button type="button" class="od" aria-label={t('exam.qpRightEye', { pick: p.label })} onclick={() => pick(p, 'OD')}>OD</button>
 							<button type="button" class="os" aria-label={t('exam.qpLeftEye', { pick: p.label })} onclick={() => pick(p, 'OS')}>OS</button>
 							<button type="button" aria-label={t('exam.qpBothEyes', { pick: p.label })} onclick={() => pick(p, 'OU')}>OU</button>

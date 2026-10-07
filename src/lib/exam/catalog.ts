@@ -1,12 +1,12 @@
 // Exam field catalog. Field ids follow eye_mag's names (docs/spec/FIELDS.md) so
 // shorthand users can keep typing the codes they already know.
 
-import { WORKUP_DEFAULTS, WORKUP_FIELDS } from './sections/workup.ts';
-import { REFRACTION_DEFAULTS, REFRACTION_FIELDS } from './sections/refraction.ts';
-import { HISTORY_DEFAULTS, HISTORY_FIELDS } from './sections/history.ts';
-import { NEURO_DEFAULTS, NEURO_FIELDS } from './sections/neuro.ts';
-import { DILATION_DEFAULTS, DILATION_FIELDS } from './sections/dilation.ts';
-import { GLAUCOMA_DEFAULTS, GLAUCOMA_FIELDS } from './sections/glaucoma.ts';
+import { WORKUP_DEFAULTS, WORKUP_FIELDS, WORKUP_FIELD_TEXT } from './sections/workup.ts';
+import { REFRACTION_DEFAULTS, REFRACTION_FIELDS, REFRACTION_FIELD_TEXT } from './sections/refraction.ts';
+import { HISTORY_DEFAULTS, HISTORY_FIELDS, HISTORY_FIELD_TEXT } from './sections/history.ts';
+import { NEURO_DEFAULTS, NEURO_FIELDS, NEURO_FIELD_TEXT } from './sections/neuro.ts';
+import { DILATION_DEFAULTS, DILATION_FIELDS, DILATION_FIELD_TEXT } from './sections/dilation.ts';
+import { GLAUCOMA_DEFAULTS, GLAUCOMA_FIELDS, GLAUCOMA_FIELD_TEXT } from './sections/glaucoma.ts';
 import type { MessageKey } from '#lib/i18n/catalog.ts';
 import type { Params } from '#lib/i18n/translate.ts';
 
@@ -214,6 +214,9 @@ export const ROW_LABEL_KEY: Record<string, MessageKey> = {
 
 type T = (key: MessageKey, params?: Params) => string;
 
+/** A section module's field label in the page language (D48); its English equals FieldDef.label. */
+export type FieldText = (t: T) => string;
+
 /** A section's rail label in the page language. */
 export const sectionLabel = (id: SectionId, t: T): string => t(SECTION_LABEL_KEY[id]);
 
@@ -231,11 +234,13 @@ export function rowLabel(row: Pick<Row, 'id' | 'label'>, t: T): string {
 
 /**
  * A field's label for the screen ("Conjunctiva OD"). Fields of this file's row sections are
- * translated here; fields of the section modules (sections/*.ts) keep their own label for now.
+ * translated here; fields of the section modules (sections/*.ts) by their *_FIELD_TEXT maps.
  */
 export function fieldLabel(id: string, t: T): string {
 	const f = FIELD_BY_ID.get(id);
 	if (!f) return id;
+	const text = FIELD_TEXT.get(id);
+	if (text) return text(t);
 	const k = SECTION_TITLE_KEY[f.section as RowSectionId];
 	if (!k) return f.label;
 	if (f.row === 'COMMENTS') return t(k.comments);
@@ -281,6 +286,11 @@ function sectionFields(sec: SectionDef): FieldDef[] {
 export const FIELDS: FieldDef[] = [...EXAM_SECTIONS.flatMap(sectionFields), ...WORKUP_FIELDS, ...REFRACTION_FIELDS, ...HISTORY_FIELDS, ...NEURO_FIELDS, ...DILATION_FIELDS, ...GLAUCOMA_FIELDS];
 
 export const FIELD_BY_ID = new Map(FIELDS.map((f) => [f.id, f]));
+
+/** Screen labels of the section modules' fields, by id (only ids a module owns are in its map). */
+const FIELD_TEXT = new Map<string, FieldText>(
+	[WORKUP_FIELD_TEXT, REFRACTION_FIELD_TEXT, HISTORY_FIELD_TEXT, NEURO_FIELD_TEXT, DILATION_FIELD_TEXT, GLAUCOMA_FIELD_TEXT].flatMap((m) => Object.entries(m))
+);
 
 export function fieldId(eye: 'OD' | 'OS', row: Row): string {
 	return eye === 'OD' ? row.od : row.os;

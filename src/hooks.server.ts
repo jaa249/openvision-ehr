@@ -4,7 +4,7 @@ import { getDb } from '#lib/server/db.ts';
 import { SESSION_COOKIE, isBackgroundRequest, needsSetup, resolveSession, routeKind } from '#lib/server/auth.ts';
 import { securityAudit } from '#lib/server/security_audit.ts';
 import { LANG_COOKIE, resolveLocale } from '#lib/server/i18n.ts';
-import { localeDir } from '#lib/i18n/locales.ts';
+import { localeDir, localeTag } from '#lib/i18n/locales.ts';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const CHART_PAGE = /^\/patients\/(\d+)$/;
@@ -81,7 +81,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	const response = await resolve(event, {
-		transformPageChunk: ({ html }) => html.replace('<html lang="en">', `<html lang="${locale}" dir="${localeDir(locale)}">`)
+		transformPageChunk: ({ html }) => html.replace('<html lang="en">', `<html lang="${localeTag(locale)}" dir="${localeDir(locale)}">`)
 	});
 	if (user && kind === 'page' && event.request.method === 'GET' && response.status === 200) auditChartView(db, user.id, path);
 	return secure(response, !!user);

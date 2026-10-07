@@ -6,7 +6,7 @@
 	import type { PriorVisit } from '#lib/exam/types.ts';
 	import { applyOps, parseShorthand, type Findings, type Op } from '#lib/shorthand/parse.ts';
 	import { bump, publishAllergyStatus } from '#lib/history/bus.svelte.ts';
-	import { ISSUE_TYPE_DEF } from '#lib/history/lists.ts';
+	import { ISSUE_TYPE_KEYS } from '#lib/history/lists.ts';
 	import type { AllergyStatus, IssueType, ShorthandIssueResult } from '#lib/history/types.ts';
 	import { Saver } from '#lib/exam/saver.svelte.ts';
 	import { ExamLock, flushAll, lockHeaders } from '#lib/exam/lock.svelte.ts';
@@ -43,11 +43,11 @@
 
 	// svelte-ignore state_referenced_locally
 	const examApi = `/api/patients/${data.patient.id}/encounters/${data.encounter.id}`;
-	const saver = new Saver(`${examApi}/findings`);
+	const saver = new Saver(`${examApi}/findings`, t);
 
 	// ---------- edit lock and signing (spec §15.1 FIX) ----------
 	// svelte-ignore state_referenced_locally
-	const lock = new ExamLock(examApi, { signature: data.lockState.signature, lock: data.lockState.lock }, applyServerFindings);
+	const lock = new ExamLock(examApi, { signature: data.lockState.signature, lock: data.lockState.lock }, applyServerFindings, undefined, undefined, t);
 	/** Signed, or another page holds the lock: nothing on this page may change the exam or post. */
 	const readonly = $derived(lock.readonly);
 	/** Provider and technician can change before signing (D43), so the page keeps its own copy. */
@@ -433,7 +433,7 @@
 		if (added.size) {
 			bump();
 			historyNote = [...added]
-				.map(([type, titles]) => t('exam.historyAdded', { list: ISSUE_TYPE_DEF.get(type)?.short ?? type, items: titles.join(', ') }))
+				.map(([type, titles]) => t('exam.historyAdded', { list: ISSUE_TYPE_KEYS[type] ? t(ISSUE_TYPE_KEYS[type].short) : type, items: titles.join(', ') }))
 				.join(' · ');
 			clearTimeout(historyNoteTimer);
 			historyNoteTimer = setTimeout(() => (historyNote = null), 6000);
@@ -749,14 +749,14 @@
 	}
 	.lockbar summary .link {
 		color: var(--accent);
-		margin-left: var(--space-2);
+		margin-inline-start: var(--space-2);
 	}
 	.lockbar[open] summary .link {
 		display: none;
 	}
 	.addenda {
 		margin: var(--space-2) 0 0;
-		padding-left: var(--space-5);
+		padding-inline-start: var(--space-5);
 		max-width: var(--measure-prose);
 	}
 	.addenda .by {
@@ -813,7 +813,7 @@
 	}
 	.confirm ul {
 		margin: 0 0 var(--space-2);
-		padding-left: var(--space-5);
+		padding-inline-start: var(--space-5);
 	}
 	.confirm .hint {
 		color: var(--text-2);
@@ -903,7 +903,7 @@
 	@keyframes aside-in {
 		from {
 			opacity: 0;
-			transform: translateX(8px);
+			transform: translateX(calc(8px * var(--dir-sign, 1)));
 		}
 	}
 	/* Stack the helper under the exam when the work area (not the window) gets narrow. */
@@ -925,13 +925,21 @@
 		font-size: var(--text-md);
 		color: var(--text-1);
 	}
+	/* Hidden by clipping, not by moving it 9999px aside: in right-to-left the page would scroll to it. */
 	.skip {
 		position: absolute;
-		left: -9999px;
+		inset-inline-start: 0;
 		z-index: 50;
 	}
+	.skip:not(:focus) {
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
 	.skip:focus {
-		left: var(--space-2);
+		inset-inline-start: var(--space-2);
 		top: var(--space-2);
 		background: var(--surface-3);
 		padding: var(--space-2) var(--space-3);
@@ -944,7 +952,8 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-3);
-		padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+		padding-block: var(--space-2);
+		padding-inline: var(--space-4) var(--space-2);
 		background: var(--surface-3);
 		border-radius: var(--radius-2);
 		box-shadow: var(--shadow-overlay);
@@ -969,7 +978,7 @@
 	}
 	.toast.error {
 		color: var(--danger);
-		padding-right: var(--space-4);
+		padding-inline-end: var(--space-4);
 	}
 	@keyframes toast-in {
 		from {

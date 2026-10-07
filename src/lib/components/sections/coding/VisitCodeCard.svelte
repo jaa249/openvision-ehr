@@ -142,7 +142,7 @@
 		background: var(--surface-1);
 	}
 	.seg + .seg {
-		border-left: 1px solid var(--hairline);
+		border-inline-start: 1px solid var(--hairline);
 	}
 	.seg.on {
 		background: var(--accent-soft);
@@ -266,7 +266,7 @@
 	}
 	.reasons {
 		margin: 0;
-		padding-left: var(--space-4);
+		padding-inline-start: var(--space-4);
 		font-size: var(--text-xs);
 		color: var(--text-2);
 	}

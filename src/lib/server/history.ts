@@ -191,18 +191,35 @@ export function validateIssue(input: unknown): CleanIssue {
  * ICD-11 (lenient, like ICD-10 history codes): the typed text is kept; each code the ICD-11 set accepts
  * is stored normalised with its WHO title (code_text) and URIs (WHO licence: code, title and URI together).
  */
-function issueCodeData(db: DB, codes: string, set: CodeSetId): { codes: string; codeSystem: CodeSetId; codeUris: string; codeText: string } {
-	if (set !== 'icd11' || !codes || !icd11Loaded(db)) return { codes, codeSystem: set, codeUris: '', codeText: '' };
+type IssueCodeData = { codes: string; codeSystem: CodeSetId; codeUris: string; codeText: string; titleLang: string };
+
+/** issueCodeData with WHO's titles in `lang` when every code has one (D50); else English. */
+function issueCodeDataIn(db: DB, codes: string, set: CodeSetId, lang: string): IssueCodeData {
+	if (lang !== 'en') {
+		const local = issueCodeData(db, codes, set, lang);
+		if (!local.codeText || local.titleLang === lang) return local;
+	}
+	return issueCodeData(db, codes, set, 'en');
+}
+
+function issueCodeData(db: DB, codes: string, set: CodeSetId, lang: string): IssueCodeData {
+	if (set !== 'icd11' || !codes || !icd11Loaded(db)) return { codes, codeSystem: set, codeUris: '', codeText: '', titleLang: '' };
 	const parts = codes.replace(/\s*&\s*/g, '&').split(/([;,\s]+)/);
-	const found: { code: string; description: string; uris: string }[] = [];
+	const found: { code: string; description: string; uris: string; titleLang: string }[] = [];
 	const out = parts.map((part) => {
 		if (!part || /^[;,\s]+$/.test(part)) return part;
-		const r = resolveIcd11Code(db, part);
+		const r = resolveIcd11Code(db, part, lang);
 		if ('error' in r) return part;
-		if (!found.some((f) => f.code === r.code)) found.push({ code: r.code, description: r.description, uris: r.uris });
+		if (!found.some((f) => f.code === r.code)) found.push({ code: r.code, description: r.description, uris: r.uris, titleLang: r.titleLang ?? 'en' });
 		return r.code;
 	});
-	return { codes: out.join(''), codeSystem: 'icd11', codeUris: found.map((f) => f.uris).join(', '), codeText: codeTextFor('icd11', found) };
+	return {
+		codes: out.join(''),
+		codeSystem: 'icd11',
+		codeUris: found.map((f) => f.uris).join(', '),
+		codeText: codeTextFor('icd11', found),
+		titleLang: !found.length ? '' : found.every((f) => f.titleLang === lang) ? lang : 'en'
+	};
 }
 
 function findDuplicate(db: DB, patientId: number, type: IssueType, title: string, exceptId: number | null): number | null {
@@ -222,7 +239,7 @@ export function saveIssue(
 	patientId: number,
 	userId: number,
 	input: unknown,
-	opts: { encounterId?: number | null; now?: Date } = {}
+	opts: { encounterId?: number | null; now?: Date; lang?: string } = {}
 ): { id: number; created: boolean } | null {
 	if (!db.prepare('SELECT 1 FROM patients WHERE id = ?').get(patientId)) return null;
 	const c = validateIssue(input);
@@ -248,29 +265,29 @@ export function saveIssue(
 	// Unchanged codes keep the set they were saved with; new or edited codes use the practice's set (D44).
 	const old = created
 		? undefined
-		: (db.prepare('SELECT codes, code_system, code_uris, code_text FROM issues WHERE id = ?').get(id) as
-				| { codes: string; code_system: string; code_uris: string; code_text: string }
+		: (db.prepare('SELECT codes, code_system, code_uris, code_text, title_lang FROM issues WHERE id = ?').get(id) as
+				| { codes: string; code_system: string; code_uris: string; code_text: string; title_lang: string }
 				| undefined);
 	const cd =
 		old && old.codes === c.codes && isCodeSetId(old.code_system)
-			? { codes: old.codes, codeSystem: old.code_system, codeUris: old.code_uris, codeText: old.code_text }
-			: issueCodeData(db, c.codes, currentCodeSet(db));
+			? { codes: old.codes, codeSystem: old.code_system, codeUris: old.code_uris, codeText: old.code_text, titleLang: old.title_lang }
+			: issueCodeDataIn(db, c.codes, currentCodeSet(db), opts.lang ?? 'en');
 	if (created) {
 		const { lastInsertRowid } = db
 			.prepare(
-				`INSERT INTO issues (patient_id, type, title, codes, code_system, code_uris, code_text, begin_date, end_date, occurrence,
+				`INSERT INTO issues (patient_id, type, title, codes, code_system, code_uris, code_text, title_lang, begin_date, end_date, occurrence,
 				                     reaction, outcome, provider, comments, encounter_id, created_at, created_by, updated_at, updated_by)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			)
-			.run(patientId, c.type, c.title, cd.codes, cd.codeSystem, cd.codeUris, cd.codeText, c.begin, c.end, c.occurrence, c.reaction,
+			.run(patientId, c.type, c.title, cd.codes, cd.codeSystem, cd.codeUris, cd.codeText, cd.titleLang, c.begin, c.end, c.occurrence, c.reaction,
 				c.outcome, c.provider, c.comments, opts.encounterId ?? null, at, userId, at, userId);
 		id = Number(lastInsertRowid);
 	} else {
 		db.prepare(
-			`UPDATE issues SET type = ?, title = ?, codes = ?, code_system = ?, code_uris = ?, code_text = ?, begin_date = ?, end_date = ?,
+			`UPDATE issues SET type = ?, title = ?, codes = ?, code_system = ?, code_uris = ?, code_text = ?, title_lang = ?, begin_date = ?, end_date = ?,
 			                   occurrence = ?, reaction = ?, outcome = ?, provider = ?, comments = ?, updated_at = ?, updated_by = ?
 			  WHERE id = ? AND patient_id = ?`
-		).run(c.type, c.title, cd.codes, cd.codeSystem, cd.codeUris, cd.codeText, c.begin, c.end, c.occurrence, c.reaction, c.outcome,
+		).run(c.type, c.title, cd.codes, cd.codeSystem, cd.codeUris, cd.codeText, cd.titleLang, c.begin, c.end, c.occurrence, c.reaction, c.outcome,
 			c.provider, c.comments, at, userId, id, patientId);
 	}
 	if (c.type === 'ALLERGY' && (!c.end || c.end > localToday(now))) clearNoKnownAllergies(db, patientId);

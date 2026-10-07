@@ -33,6 +33,7 @@ export function useI18n(): Translator {
 		longDate: (v) => get().longDate(v),
 		dateTime: (v) => get().dateTime(v),
 		time: (v) => get().time(v),
-		number: (n, opts) => get().number(n, opts)
+		number: (n, opts) => get().number(n, opts),
+		list: (items) => get().list(items)
 	};
 }

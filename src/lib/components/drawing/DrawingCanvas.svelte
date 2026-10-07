@@ -56,7 +56,7 @@
 	/** What Revert redraws: the drawing or base loaded when the panel opened, or a chosen prior. */
 	let loaded: CanvasImageSource | null = null;
 
-	const saver = new DrawingSaver(api, () => history.current ?? Promise.reject(new Error('Nothing to save')));
+	const saver = new DrawingSaver(api, () => history.current ?? Promise.reject(new Error('Nothing to save')), t);
 
 	let priors = $state<Prior[]>([]);
 	/** 0 = this visit's canvas; n = priors[n - 1] (newest first). */
@@ -292,24 +292,6 @@
 
 	const fmt = (date: string) => i18n.date(date);
 
-	/** The saver's failure in the page language (the server's own detail text stays as sent). */
-	function problemText(): string {
-		const p = saver.problem;
-		if (!p) return saver.message ?? t('drawing.notSaved');
-		switch (p.kind) {
-			case 'readonly':
-				return p.detail ? t('drawing.notSavedBecause', { reason: p.detail }) : t('drawing.notSavedReadOnly');
-			case 'signedOut':
-				return t('drawing.signedOut');
-			case 'tooLarge':
-				return t('drawing.notSavedTooLarge');
-			case 'refused':
-				return p.detail ? t('drawing.notSavedBecause', { reason: p.detail }) : t('drawing.notSavedError', { status: p.status });
-			case 'retrying':
-				return t('drawing.notSavedRetrying');
-		}
-	}
-
 	const status = $derived.by(() => {
 		switch (saver.status) {
 			case 'pending':
@@ -319,7 +301,7 @@
 				return saver.savedAt ? t('drawing.savedAt', { time: i18n.time(saver.savedAt) }) : t('drawing.saved');
 			case 'retrying':
 			case 'failed':
-				return problemText();
+				return saver.message ?? t('drawing.notSaved');
 			default:
 				return '';
 		}
@@ -341,16 +323,16 @@
 
 	{#if priors.length > 0}
 		<div class="nav" role="group" aria-label={t('drawing.navGroup')}>
-			<button type="button" onclick={() => (view = priors.length)} disabled={view === priors.length} aria-label={t('drawing.navOldest')}>⏮</button>
-			<button type="button" onclick={() => view++} disabled={view === priors.length} aria-label={t('drawing.navOlder')}>◀</button>
+			<button type="button" onclick={() => (view = priors.length)} disabled={view === priors.length} aria-label={t('drawing.navOldest')}><span class="flip-rtl">⏮</span></button>
+			<button type="button" onclick={() => view++} disabled={view === priors.length} aria-label={t('drawing.navOlder')}><span class="flip-rtl">◀</span></button>
 			<select bind:value={view} aria-label={t('drawing.navChoose')}>
 				<option value={0}>{t('drawing.thisVisit')}</option>
 				{#each priors as p, i (p.id)}
 					<option value={i + 1}>{fmt(p.date)} · {p.visitType}</option>
 				{/each}
 			</select>
-			<button type="button" onclick={() => view--} disabled={view === 0} aria-label={t('drawing.navNewer')}>▶</button>
-			<button type="button" onclick={() => (view = 0)} disabled={view === 0} aria-label={t('drawing.navNewest')}>⏭</button>
+			<button type="button" onclick={() => view--} disabled={view === 0} aria-label={t('drawing.navNewer')}><span class="flip-rtl">▶</span></button>
+			<button type="button" onclick={() => (view = 0)} disabled={view === 0} aria-label={t('drawing.navNewest')}><span class="flip-rtl">⏭</span></button>
 		</div>
 	{/if}
 
@@ -366,7 +348,7 @@
 	{/if}
 
 	<div class="board" hidden={!!prior}>
-		<div class="frame">
+		<div class="frame eye-ltr">
 			<canvas
 				bind:this={canvas}
 				tabindex="0"
@@ -448,7 +430,7 @@
 	.status {
 		font-size: var(--text-xs);
 		color: var(--text-3);
-		text-align: right;
+		text-align: end;
 	}
 	.status.warn,
 	.error {

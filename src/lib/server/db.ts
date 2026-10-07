@@ -12,6 +12,7 @@ import { STAFF_SQL } from './migrations/staff.ts';
 import { CODESETS_SQL } from './migrations/codesets.ts';
 import { BILLING_AID_SQL } from './migrations/billing_aid.ts';
 import { I18N_SQL } from './migrations/i18n.ts';
+import { ICD11_TITLES_SQL } from './migrations/icd11_titles.ts';
 import { DEMO_USERS, demoPasswordHash } from './auth.ts';
 
 /** Earlier visits for the demo patient, so prior-visit review has something to show. */
@@ -241,7 +242,8 @@ const MIGRATIONS: string[] = [
 	STAFF_SQL,
 	CODESETS_SQL,
 	BILLING_AID_SQL,
-	I18N_SQL
+	I18N_SQL,
+	ICD11_TITLES_SQL
 ];
 
 /** Brings the schema up to `target` (default: latest). Tests pass a lower target to check data migrations. */

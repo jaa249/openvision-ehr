@@ -5,6 +5,7 @@
 	import ThemeToggle from './ThemeToggle.svelte';
 	import { historyBus } from '#lib/history/bus.svelte.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { keepInView } from './ui/place.ts';
 
 	let {
 		patient,
@@ -171,7 +172,8 @@
 				{t('exam.bannerDownload')} <span aria-hidden="true">▾</span>
 			</button>
 			{#if downloadOpen}
-				<ul id="download-menu" class="menu" aria-label={t('exam.bannerDownloadMenu')}>
+				<!-- Fixed-positioned next to the button and kept fully on screen (portrait tablets, phones, RTL). -->
+				<ul id="download-menu" class="menu" use:keepInView={{ anchor: downloadButton, placement: 'bottom-end' }} aria-label={t('exam.bannerDownloadMenu')}>
 					{#if ondownloadpdf}
 						<li>
 							<button type="button" onclick={() => pick(ondownloadpdf)} aria-describedby="download-pdf-hint">
@@ -292,7 +294,7 @@
 	.save {
 		color: var(--ok);
 		min-width: 7em;
-		text-align: right;
+		text-align: end;
 	}
 	.save[data-status='error'],
 	.save[data-status='locked'] {
@@ -307,16 +309,18 @@
 	.download {
 		position: relative;
 	}
+	/* Placed by keepInView (position: fixed, top/left, max-height + scroll when it cannot fit). */
 	.menu {
-		position: absolute;
-		right: 0;
-		top: calc(100% + 4px);
+		position: fixed;
+		top: 0;
+		left: 0;
 		z-index: 30;
 		list-style: none;
 		margin: 0;
 		padding: var(--space-1);
-		min-width: 17rem;
-		max-width: min(22rem, calc(100vw - 2 * var(--space-4)));
+		min-width: min(17rem, calc(100vw - 16px));
+		width: max-content;
+		max-width: min(22rem, calc(100vw - 16px));
 		background: var(--surface-1);
 		border: 1px solid var(--hairline);
 		border-radius: var(--radius-2);
@@ -329,7 +333,7 @@
 		gap: 2px;
 		width: 100%;
 		min-height: max(var(--target-min), 44px);
-		text-align: left;
+		text-align: start;
 		border: 0;
 		background: none;
 		padding: var(--space-2);

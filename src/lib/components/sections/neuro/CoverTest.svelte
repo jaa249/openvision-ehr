@@ -68,7 +68,10 @@
 	/** Arrow keys move between tabs (WAI-ARIA tabs pattern). */
 	function tabKey(e: KeyboardEvent, i: number) {
 		const n = COVER_ZONES.length;
-		const to = e.key === 'ArrowRight' ? (i + 1) % n : e.key === 'ArrowLeft' ? (i + n - 1) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1;
+		// The next tab is to the right in left-to-right, to the left in right-to-left.
+		const rtl = getComputedStyle(e.currentTarget as Element).direction === 'rtl';
+		const [next, prev] = rtl ? ['ArrowLeft', 'ArrowRight'] : ['ArrowRight', 'ArrowLeft'];
+		const to = e.key === next ? (i + 1) % n : e.key === prev ? (i + n - 1) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1;
 		if (to < 0) return;
 		e.preventDefault();
 		pickZone(COVER_ZONES[to].key);
@@ -149,7 +152,7 @@
 <div class="panel cover" role="group" aria-labelledby="cover-title">
 	<div class="card-head">
 		<button type="button" class="disclose" aria-expanded={open} aria-controls="cover-body" onclick={toggle}>
-			<span aria-hidden="true">{open ? '▾' : '▸'}</span>
+			<span class="flip-rtl" aria-hidden="true">{open ? '▾' : '▸'}</span>
 			<span id="cover-title">{t('sections.coverTitle')}</span>
 		</button>
 		<label class="check">
@@ -178,14 +181,14 @@
 						</button>
 					{/each}
 				</div>
-				<div id="cover-grid" role="tabpanel" aria-labelledby="cover-tab-{zone}" class:dimmed={ortho}>
-					<div class="axis" aria-hidden="true"><span>R</span><span>{t('sections.coverGaze')}</span><span>L</span></div>
+				<div id="cover-grid" class="eye-ltr" role="tabpanel" aria-labelledby="cover-tab-{zone}" class:dimmed={ortho}>
+					<div class="axis" aria-hidden="true"><span>R</span><span class="page-dir">{t('sections.coverGaze')}</span><span>L</span></div>
 					<div class="cells">
 						{#each GRID_ROWS as r (r.label)}
-							<span class="rowlabel" aria-hidden="true">{t(r.label)}</span>
+							<span class="rowlabel page-dir" aria-hidden="true">{t(r.label)}</span>
 							{#each r.cells as n (n)}{@render coverCell(n)}{/each}
 						{/each}
-						<span class="rowlabel" aria-hidden="true">{t('sections.coverRowTilt')}</span>
+						<span class="rowlabel page-dir" aria-hidden="true">{t('sections.coverRowTilt')}</span>
 						{@render coverCell(10)}
 						<span class="tilt-gap" aria-hidden="true"></span>
 						{@render coverCell(11)}
@@ -247,7 +250,7 @@
 		background: var(--surface-2);
 	}
 	.disclose {
-		margin-right: auto;
+		margin-inline-end: auto;
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-2);
@@ -418,7 +421,7 @@
 		padding-top: var(--space-1);
 	}
 	.target {
-		margin-right: auto;
+		margin-inline-end: auto;
 		color: var(--text-2);
 	}
 	.preview {

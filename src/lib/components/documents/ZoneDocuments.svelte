@@ -46,7 +46,7 @@
 		for (const file of files) {
 			status = t('documents.uploadingFile', { name: file.name });
 			try {
-				await uploadDocumentFile(patientId, file, { category: cat.category, encounterId, headers: lockHeaders() });
+				await uploadDocumentFile(patientId, file, { category: cat.category, encounterId, headers: lockHeaders(), t });
 				done.push(file.name);
 			} catch (e) {
 				problem = t('documents.fileProblem', { name: file.name, error: (e as Error).message });
@@ -141,7 +141,8 @@
 		gap: var(--space-2);
 	}
 	h3 {
-		margin: 0 auto 0 0;
+		margin: 0;
+		margin-inline-end: auto;
 		font-size: var(--text-sm);
 		font-weight: var(--weight-semibold);
 	}

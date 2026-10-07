@@ -1,36 +1,19 @@
-// ICD-10-CM code set: loaded on first use from codes/ (CMS FY2027 order file, public domain)
-// into the icd10 table in one transaction, then searched by code prefix or description words.
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+// ICD-10-CM code set: loaded on first use from the practice's downloaded copy of the CMS FY2027 codes
+// file (public domain, D49: nothing is shipped; see codepaths.ts) into the icd10 table in one
+// transaction, then searched by code prefix or description words.
+import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import type { DB } from './db.ts';
+import { findCodeFile as findFile } from './codepaths.ts';
+import { RELEASES } from '#lib/codesets/releases.ts';
 import { bareCode, displayCode, parseCodeFile, rankCodes, type CodeLookup, type CodeQuery, type IcdCode } from '#lib/plan/codes.ts';
 
-/** Change this (and drop the new file into codes/) for a new fiscal year; the table reloads itself. */
-export const ICD10_FILE = 'icd10cm_codes_2027.txt.gz';
+/** The cache file name of the current release (src/lib/codesets/releases.ts); the table reloads itself when it changes. */
+export const ICD10_FILE = RELEASES.icd10cm.file;
 
-/** Where the code file is: OPENVISION_CODES_DIR, then codes/ in the working directory, then up from this module (dev and `node build`). */
+/** Where a downloaded code file is (see codepaths.ts); defaults to the ICD-10-CM file. */
 export function findCodeFile(name = ICD10_FILE): string | null {
-	const dirs: string[] = [];
-	if (process.env.OPENVISION_CODES_DIR) dirs.push(resolve(process.env.OPENVISION_CODES_DIR));
-	dirs.push(resolve(process.cwd(), 'codes'));
-	try {
-		let d = dirname(fileURLToPath(import.meta.url));
-		for (let i = 0; i < 6; i++) {
-			dirs.push(join(d, 'codes'));
-			const up = dirname(d);
-			if (up === d) break;
-			d = up;
-		}
-	} catch {
-		// import.meta.url is not a file URL (bundled elsewhere): the other places still apply.
-	}
-	for (const dir of dirs) {
-		const p = join(dir, name);
-		if (existsSync(p)) return p;
-	}
-	return null;
+	return findFile(name);
 }
 
 /**
@@ -56,7 +39,10 @@ export function loadIcd10(db: DB, text: string, source: string, now = new Date()
 
 const ready = new WeakSet<DB>();
 
-/** Loads the shipped code file once per database (idempotent; reloads when the file name changes). */
+/**
+ * Loads the downloaded code file once per database (idempotent; reloads when the file name changes).
+ * False when there is no file: searches return nothing and typed codes are refused (D49).
+ */
 export function ensureIcd10(db: DB): boolean {
 	if (ready.has(db)) return true;
 	const meta = db.prepare('SELECT source FROM icd10_meta WHERE id = 1').get() as { source: string } | undefined;
@@ -65,9 +51,31 @@ export function ensureIcd10(db: DB): boolean {
 		return true;
 	}
 	const path = findCodeFile();
-	if (!path) return false; // no code set: searches return nothing, typed codes are not checked
+	if (!path) return false;
 	loadIcd10(db, gunzipSync(readFileSync(path)).toString('utf8'), ICD10_FILE);
 	return true;
+}
+
+/** Empties the table (Settings › Code sets › Remove). Saved diagnoses keep their own code and text. */
+export function unloadIcd10(db: DB): void {
+	db.exec('BEGIN');
+	try {
+		db.exec('DELETE FROM icd10');
+		db.exec('DELETE FROM icd10_meta');
+		db.exec('COMMIT');
+	} catch (e) {
+		db.exec('ROLLBACK');
+		throw e;
+	}
+	ready.delete(db);
+}
+
+/** What is in the table: source file, number of codes and when it was loaded; null when empty. */
+export function icd10Meta(db: DB): { source: string; rows: number; loadedAt: string } | null {
+	const m = db.prepare('SELECT source, row_count, loaded_at FROM icd10_meta WHERE id = 1').get() as
+		| { source: string; row_count: number; loaded_at: string }
+		| undefined;
+	return m ? { source: m.source, rows: m.row_count, loadedAt: m.loaded_at } : null;
 }
 
 type Row = { display: string; description: string; billable: number };

@@ -2,7 +2,7 @@
 // Spec: docs/spec/BEHAVIOR.md §8.3 (targets lookup and highlight FIXes, flow sheet).
 // Wired into catalog.ts (FIELDS, SEED_DEFAULTS) and shorthand/codes.ts (ALIASES).
 // Rule: import only TYPES from catalog.ts here (it imports values from this file).
-import type { FieldDef } from '../catalog.ts';
+import type { FieldDef, FieldText } from '../catalog.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 import type { MessageKey } from '#lib/i18n/catalog.ts';
 // workup imports nothing from here, so importing its values is not circular.
@@ -22,6 +22,10 @@ const SPECS: FieldDef[] = [
 ];
 const taken = new Set(WORKUP_FIELDS.map((f) => f.id));
 export const GLAUCOMA_FIELDS: FieldDef[] = SPECS.filter((f) => !taken.has(f.id));
+/** Screen labels of GLAUCOMA_FIELDS (D48). */
+export const GLAUCOMA_FIELD_TEXT: Record<string, FieldText> = Object.fromEntries(
+	GLAUCOMA_FIELDS.map((f): [string, FieldText] => [f.id, (t) => t('sections.iopTargetLabel', { eye: f.eye })])
+);
 
 /**
  * Shorthand codes (the field ids are codes too, e.g. ODIOPTARGET:16). SHORTHAND.md lists none for

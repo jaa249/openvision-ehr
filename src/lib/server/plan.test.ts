@@ -240,8 +240,8 @@ describe('candidates and report', () => {
 		saveOrders(db, 1, 1, 1, [oct.id], 'RTC 6 months');
 		expect(getPlanForReport(db, 1)).toEqual({
 			items: [
-				{ title: 'Cataract', codes: 'H25.13', codeText: 'ICD10:H25.13 (Age-related nuclear cataract, bilateral)', codeSystem: 'icd10cm', codeUris: '', plan: 'Discuss surgery\nRTC 3 months' },
-				{ title: 'Dry eye', codes: '', codeText: '', codeSystem: 'icd10cm', codeUris: '', plan: '' }
+				{ title: 'Cataract', codes: 'H25.13', codeText: 'ICD10:H25.13 (Age-related nuclear cataract, bilateral)', codeSystem: 'icd10cm', codeUris: '', titleLang: 'en', plan: 'Discuss surgery\nRTC 3 months' },
+				{ title: 'Dry eye', codes: '', codeText: '', codeSystem: 'icd10cm', codeUris: '', titleLang: '', plan: '' }
 			],
 			orders: [oct.label],
 			orderPlan: 'RTC 6 months'

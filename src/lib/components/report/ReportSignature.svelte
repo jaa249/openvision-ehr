@@ -75,7 +75,7 @@
 	}
 	.addenda ol {
 		margin: 0;
-		padding-left: 1.4em;
+		padding-inline-start: 1.4em;
 	}
 	.addenda li + li {
 		margin-top: 4pt;

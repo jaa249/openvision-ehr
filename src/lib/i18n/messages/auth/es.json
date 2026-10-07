@@ -36,5 +36,6 @@
 	"creating": "Creando…",
 	"createAdmin": "Crear administrador e iniciar sesión",
 	"language": "Idioma",
-	"changeLanguage": "Cambiar"
+	"changeLanguage": "Cambiar",
+	"codeSetDownloadNote": "Los códigos de diagnóstico no forman parte de OpenVision. Después de la configuración, la página siguiente ofrece descargar el sistema de códigos elegido (unos segundos); una computadora sin internet puede importar el archivo oficial en Configuración › Sistemas de códigos."
 }

@@ -147,7 +147,7 @@
 			<span class="eyes"><Msg key="sections.vahEyesByColour">{#snippet od()}<span class="eye od">OD</span>{/snippet}{#snippet os()}<span class="eye os">OS</span>{/snippet}</Msg></span>
 		</div>
 
-		<figure class="chart">
+		<figure class="chart eye-ltr">
 			<svg viewBox="0 0 {W} {H}" role="group" aria-label={t('sections.vahChartLabel')}>
 				{#each ticks as t (t)}
 					<line class="grid" class:zero={t === 0} x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} />
@@ -196,7 +196,7 @@
 
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 		<div class="table-wrap" role="region" aria-label={t('sections.vahTableRegion')} tabindex="0">
-			<table>
+			<table class="eye-ltr">
 				<caption class="visually-hidden">{t('sections.vahTableCaption')}</caption>
 				<thead>
 					<tr>
@@ -254,7 +254,8 @@
 		margin-bottom: var(--space-2);
 	}
 	h2 {
-		margin: 0 auto 0 0;
+		margin: 0;
+		margin-inline-end: auto;
 		font-size: var(--text-lg);
 		font-weight: var(--weight-semibold);
 	}
@@ -307,7 +308,7 @@
 	.eyes {
 		color: var(--text-3);
 		font-size: var(--text-xs);
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 	.eye {
 		padding: 1px 6px;
@@ -409,7 +410,7 @@
 	td {
 		padding: var(--space-1) var(--space-2);
 		border-bottom: 1px solid var(--hairline);
-		text-align: left;
+		text-align: start;
 		white-space: nowrap;
 		height: var(--row-height);
 	}
@@ -431,7 +432,7 @@
 		background: var(--accent-soft);
 	}
 	.badge {
-		margin-left: var(--space-1);
+		margin-inline-start: var(--space-1);
 		font-size: var(--text-xs);
 		color: var(--accent);
 		font-weight: var(--weight-semibold);

@@ -107,5 +107,7 @@
 	"historyPd": "DP {dist}.",
 	"historyPdNear": "DP {dist} / {near}.",
 	"historyMaterial": "Material: {material}.",
-	"historyTreatments": "Tratamientos: {treatments}."
+	"historyTreatments": "Tratamientos: {treatments}.",
+	"byManufacturer": "de {name}",
+	"viaSupplier": "vía {name}"
 }

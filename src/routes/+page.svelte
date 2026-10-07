@@ -85,7 +85,7 @@
 		align-items: baseline;
 	}
 	.enc {
-		margin-left: auto;
+		margin-inline-start: auto;
 	}
 	.note {
 		color: var(--text-3);

@@ -14,7 +14,7 @@ afterEach(() => {
 describe('drawing autosave', () => {
 	it('saves only when dirty, once, after the debounce', async () => {
 		const f = vi.fn(async () => ok());
-		const s = new DrawingSaver('/x', png, f as unknown as typeof fetch);
+		const s = new DrawingSaver('/x', png, undefined, f as unknown as typeof fetch);
 		await s.flush();
 		expect(f).not.toHaveBeenCalled(); // nothing drawn, nothing sent
 		s.changed(1500);
@@ -34,7 +34,7 @@ describe('drawing autosave', () => {
 			if (calls < 3) throw new TypeError('offline');
 			return ok();
 		});
-		const s = new DrawingSaver('/x', png, f as unknown as typeof fetch);
+		const s = new DrawingSaver('/x', png, undefined, f as unknown as typeof fetch);
 		s.changed(0);
 		await vi.advanceTimersByTimeAsync(10);
 		expect(s.status).toBe('retrying');
@@ -49,7 +49,7 @@ describe('drawing autosave', () => {
 
 	it('does not retry an image the server refused', async () => {
 		const f = vi.fn(async () => new Response('Drawing must be a PNG image', { status: 400 }));
-		const s = new DrawingSaver('/x', png, f as unknown as typeof fetch);
+		const s = new DrawingSaver('/x', png, undefined, f as unknown as typeof fetch);
 		s.changed(0);
 		await vi.advanceTimersByTimeAsync(60_000);
 		expect(f).toHaveBeenCalledTimes(1);
@@ -60,7 +60,7 @@ describe('drawing autosave', () => {
 	it('saves again when the canvas changed during a save', async () => {
 		const releases: (() => void)[] = [];
 		const f = vi.fn(() => new Promise<Response>((r) => releases.push(() => r(ok()))));
-		const s = new DrawingSaver('/x', png, f as unknown as typeof fetch);
+		const s = new DrawingSaver('/x', png, undefined, f as unknown as typeof fetch);
 		s.changed(0);
 		await vi.advanceTimersByTimeAsync(1);
 		s.changed(0);
@@ -80,7 +80,7 @@ describe('drawing autosave', () => {
 		const lock = new ExamLock('/e', { signature: null, lock: null }, () => {}, (async () => new Response('{}')) as unknown as typeof fetch, 'tok-0123456789abcdef');
 		await lock.start();
 		const f = vi.fn(async () => new Response(JSON.stringify({ message: 'This exam is signed.', reason: 'signed' }), { status: 423 }));
-		const s = new DrawingSaver('/x', png, f as unknown as typeof fetch);
+		const s = new DrawingSaver('/x', png, undefined, f as unknown as typeof fetch);
 		s.changed(0);
 		await vi.advanceTimersByTimeAsync(10);
 		expect(((f.mock.calls[0] as unknown[])[1] as RequestInit).headers).toMatchObject({ 'x-lock-token': 'tok-0123456789abcdef' });
@@ -91,5 +91,18 @@ describe('drawing autosave', () => {
 		expect(f).toHaveBeenCalledTimes(1);
 		expect(s.message).toBe('Not saved: This exam is signed.');
 		lock.stop();
+	});
+it('words its messages with the translator it was given (D48)', async () => {
+		const t = ((key: string, params?: Record<string, unknown>) => `${key}${params ? JSON.stringify(params) : ''}`) as never;
+		const f = vi.fn(async () => new Response('', { status: 413 }));
+		const s = new DrawingSaver('/x', png, t, f as unknown as typeof fetch);
+		s.changed(0);
+		await vi.advanceTimersByTimeAsync(10);
+		expect(s.message).toBe('drawing.notSavedTooLarge');
+		const g = vi.fn(async () => new Response('', { status: 401 }));
+		const s2 = new DrawingSaver('/x', png, t, g as unknown as typeof fetch);
+		s2.changed(0);
+		await vi.advanceTimersByTimeAsync(10);
+		expect(s2.message).toBe('drawing.signedOut');
 	});
 });

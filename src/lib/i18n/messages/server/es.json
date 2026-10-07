@@ -1,1 +1,15 @@
-{}
+{
+	"codesSignIn": "Inicie sesión primero.",
+	"codesAdminOnly": "Solo un administrador puede descargar, importar o quitar códigos de diagnóstico.",
+	"codesUnknownSet": "Sistema de códigos desconocido.",
+	"codesBusy": "Este sistema de códigos ya se está descargando o importando. Espere un momento y vuelva a intentarlo.",
+	"codesDownloadFailed": "La descarga no funcionó ({error}). Compruebe la conexión a internet, o descargue el archivo en otra computadora e impórtelo.",
+	"codesWrongRelease": "El archivo descargado no es la versión esperada. Actualice OpenVision o importe el archivo usted mismo.",
+	"codesImportWrongRelease": "Este archivo no es la versión esperada ({release}). Use el archivo oficial de {url}, sin cambios.",
+	"codesBadZip": "No se pudo leer el archivo zip: {error}",
+	"codesTooLarge": "El archivo pesa más de 50 MB, así que no es un archivo de códigos.",
+	"codesBodyLimit": "Este archivo es más grande de lo que acepta el servidor. Pida a su administrador que inicie el servidor con BODY_SIZE_LIMIT=20M, o importe el archivo zip en lugar del archivo de texto.",
+	"codesEmptyFile": "Elija un archivo para importar.",
+	"codesRemoveCurrent": "El consultorio usa este sistema de códigos. Elija otro sistema en Configuración › Consultorio antes de quitarlo.",
+	"codesUnknownLanguage": "Idioma de la CIE-11 desconocido."
+}

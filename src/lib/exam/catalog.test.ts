@@ -40,6 +40,17 @@ describe('catalog screen labels', () => {
 		for (const f of FIELDS.filter((f) => ids.has(f.section))) expect(fieldLabel(f.id, t), f.id).toBe(f.label);
 	});
 
+	it('every field of the section modules is translated, and its English equals the label', () => {
+		const ids = new Set(EXAM_SECTIONS.map((s) => s.id));
+		const seen: string[] = [];
+		const spy = ((key: Parameters<typeof t>[0], params?: Parameters<typeof t>[1]) => (seen.push(key), t(key, params))) as typeof t;
+		for (const f of FIELDS.filter((f) => !ids.has(f.section))) {
+			seen.length = 0;
+			expect(fieldLabel(f.id, spy), f.id).toBe(f.label);
+			expect(seen.length, `${f.id} has a message`).toBeGreaterThan(0);
+		}
+	});
+
 	it('every drawing zone has a label key; English matches', () => {
 		for (const [zone, label] of Object.entries(ZONE_LABEL)) {
 			const key = ZONE_LABEL_KEY[zone as keyof typeof ZONE_LABEL_KEY];

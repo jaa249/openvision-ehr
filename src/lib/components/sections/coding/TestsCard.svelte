@@ -199,7 +199,7 @@
 		gap: var(--space-2);
 		min-height: max(var(--target-min), 40px);
 		padding: 2px var(--space-2);
-		text-align: left;
+		text-align: start;
 		max-width: 100%;
 	}
 	.jt[aria-pressed='true'] {

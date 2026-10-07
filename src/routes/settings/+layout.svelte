@@ -14,6 +14,7 @@
 			{ href: '/settings/normals', label: t('settings.normalsHeading'), show: role === 'provider' || role === 'admin' },
 			{ href: '/settings/quick-picks', label: t('settings.quickPicksHeading'), show: role === 'provider' || role === 'admin' },
 			{ href: '/settings/practice', label: t('settings.practiceHeading'), show: role === 'admin' },
+			{ href: '/settings/code-sets', label: t('settings.codeSetsHeading'), show: role === 'admin' },
 			{ href: '/settings/users', label: t('settings.usersHeading'), show: role === 'admin' },
 			{ href: '/settings/visit-types', label: t('settings.visitTypesHeading'), show: role === 'admin' },
 			{ href: '/settings/audit', label: t('settings.auditHeading'), show: role === 'admin' }

@@ -92,8 +92,8 @@
 	}
 </script>
 
-<div class="targets" class:compact role="group" aria-labelledby="{uid}-h" aria-describedby="{uid}-help">
-	<span class="title" id="{uid}-h">{t('sections.tgtTitle')} <span class="unit">mmHg</span></span>
+<div class="targets eye-ltr" class:compact role="group" aria-labelledby="{uid}-h" aria-describedby="{uid}-help">
+	<span class="title page-dir" id="{uid}-h">{t('sections.tgtTitle')} <span class="unit">mmHg</span></span>
 	{#each ['OD', 'OS'] as const as eye (eye)}
 		{@const id = `${eye}IOPTARGET`}
 		{@const c = cellState(id, findings, preview, copied)}
@@ -113,7 +113,7 @@
 				aria-describedby={noteId}
 				oninput={(e) => onedit(id, e.currentTarget.value.trim())}
 			/>
-			<span class="note" id={noteId}>{note(eye)}</span>
+			<span class="note page-dir" id={noteId}>{note(eye)}</span>
 		</label>
 	{/each}
 	<p class="help" id="{uid}-help">

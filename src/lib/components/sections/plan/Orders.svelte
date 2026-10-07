@@ -228,7 +228,7 @@
 		accent-color: var(--accent);
 	}
 	.cptcode {
-		margin-left: auto;
+		margin-inline-start: auto;
 		font: var(--text-xs) var(--font-mono);
 		color: var(--text-3);
 	}

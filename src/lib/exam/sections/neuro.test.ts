@@ -207,7 +207,7 @@ describe('neuro report (§13.2)', () => {
 
 	it('Motility Normal prints "D&V full OU"; with Ortho the heading says orthophoric', () => {
 		const r = neuroReport(f({ ...NEURO_DEFAULTS, ACT: 'on' }));
-		expect(r.strip).toEqual([{ title: 'Motility', rows: [], comments: '', summary: 'D&V full OU' }]);
+		expect(r.strip).toMatchObject([{ title: 'Motility', rows: [], comments: '', summary: 'D&V full OU' }]);
 		expect(r.orthophoric).toBe(true);
 		expect(r.after).toEqual([]);
 		expect(buildReport(f({ ...NEURO_DEFAULTS, ACT: 'on' })).some((s) => s.title === 'Additional findings (orthophoric)')).toBe(true);
@@ -229,22 +229,22 @@ describe('neuro report (§13.2)', () => {
 	it('neuro block rows in order; NPC prints (FIX)', () => {
 		const r = neuroReport(f({ ODCOLOR: '11/11', OSCOLOR: '8/11', OSREDDESAT: '60', ODNPA: '7 cm', NPC: '5 cm', STEREOPSIS: '40 sec' }));
 		expect(r.additional.map((x) => x.label)).toEqual(['Color vision', 'Red desaturation', 'NPA', 'NPC: 5 cm', 'Stereopsis: 40 sec']);
-		expect(r.additional[1]).toEqual({ label: 'Red desaturation', od: '', os: '60' });
+		expect(r.additional[1]).toMatchObject({ label: 'Red desaturation', od: '', os: '60' });
 	});
 
 	it('amplitude-only data prints its rows (FIX)', () => {
 		const r = neuroReport(f({ CACCNEAR: '20/30', VERTFUSAMPS: '3' }));
-		expect(r.additional).toEqual([
+		expect(r.additional).toMatchObject([
 			{ label: 'Convergence amplitudes: near 20/30', od: '', os: '' },
 			{ label: 'Vertical fusional amplitudes: 3', od: '', os: '' }
 		]);
 		const add = buildReport(f({ DIVERGENCEAMPS: '8/4' })).find((s) => s.title === 'Additional findings');
-		expect(add?.rows).toEqual([{ label: 'Divergence amplitudes: 8/4', od: '', os: '' }]);
+		expect(add?.rows).toMatchObject([{ label: 'Divergence amplitudes: 8/4', od: '', os: '' }]);
 	});
 
 	it('neuro comments print even when Ortho (FIX)', () => {
 		const r = neuroReport(f({ ACT: 'on', ACT5CCDIST: '6 XT', NEURO_COMMENTS: 'diplopia at end of day' }));
-		expect(r.after).toEqual([{ title: 'Neuro', rows: [], comments: 'diplopia at end of day' }]);
+		expect(r.after).toMatchObject([{ title: 'Neuro', rows: [], comments: 'diplopia at end of day' }]);
 	});
 
 	it('cover-test grids print only when not Ortho and only when the primary cell is filled', () => {

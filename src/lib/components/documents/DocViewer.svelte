@@ -66,7 +66,8 @@
 		margin-bottom: var(--space-3);
 	}
 	h2 {
-		margin: 0 auto 0 0;
+		margin: 0;
+		margin-inline-end: auto;
 		font-size: var(--text-lg);
 		font-weight: var(--weight-semibold);
 	}

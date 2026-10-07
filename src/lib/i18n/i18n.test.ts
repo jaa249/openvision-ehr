@@ -57,6 +57,16 @@ describe('createTranslator', () => {
 		expect(en.parts('auth.hello' as never, { name: 'Ana' })).toEqual([{ text: 'Hello, Ana.' }]);
 	});
 
+	it('list(): joins with the language own "and"', () => {
+		expect(en.list(['ICD-10-CM', 'ICD-11'])).toBe('ICD-10-CM and ICD-11');
+		expect(en.list(['A', 'B', 'C'])).toBe('A, B, and C');
+		expect(en.list(['A'])).toBe('A');
+		expect(en.list([])).toBe('');
+		expect(es.list(['ICD-10-CM', 'CIE-11'])).toBe('ICD-10-CM y CIE-11');
+		// Spanish grammar: "y" becomes "e" before an i sound.
+		expect(es.list(['ICD-10-CM', 'ICD-11'])).toBe('ICD-10-CM e ICD-11');
+	});
+
 	it('dates use the translator locale; a date-only string never shifts a day', () => {
 		expect(en.date('2026-10-07')).toBe('Oct 7, 2026');
 		expect(es.date('2026-10-07')).toMatch(/7.*oct.*2026/i);
@@ -78,7 +88,8 @@ describe('locales', () => {
 
 	it('matches Accept-Language by tag, primary subtag and q-value', () => {
 		expect(matchAcceptLanguage('es-MX,es;q=0.9,en;q=0.8')).toBe('es');
-		expect(matchAcceptLanguage('fr-CA, fr;q=0.9, en;q=0.5')).toBe('en');
+		expect(matchAcceptLanguage('fr-CA, fr;q=0.9, en;q=0.5')).toBe('fr');
+		expect(matchAcceptLanguage('de-CH, de;q=0.9, en;q=0.5')).toBe('en');
 		expect(matchAcceptLanguage('en;q=0.2, es;q=0.9')).toBe('es');
 		expect(matchAcceptLanguage('de, ja')).toBeNull();
 		expect(matchAcceptLanguage('')).toBeNull();
@@ -144,8 +155,9 @@ describe('message files', () => {
 					const base = k.replace(PLURAL, '');
 					const enKey = k in en ? k : `${base}_other`;
 					expect(en, `${ns}.${k} (${l.code}) is not an English key`).toHaveProperty(enKey);
-					const want = placeholders(en[enKey] as string).filter((p) => p !== 'count' || PLURAL.test(k));
-					expect(placeholders(v as string).filter((p) => p !== 'count' || PLURAL.test(k)), `${ns}.${k} (${l.code})`).toEqual(want);
+					// A plural form may leave out {count} ("one file", Arabic "ملفان" = two files); any other placeholder must match.
+					const want = placeholders(en[enKey] as string).filter((p) => p !== 'count' || !PLURAL.test(k));
+					expect(placeholders(v as string).filter((p) => p !== 'count' || !PLURAL.test(k)), `${ns}.${k} (${l.code})`).toEqual(want);
 				}
 			}
 		}
@@ -182,5 +194,26 @@ describe('source', () => {
 			for (const k of used) if (!(k in EN) && !(`${k}_other` in EN)) missing.push(`${relative(SRC, file)}: ${k}`);
 		}
 		expect(missing).toEqual([]);
+	});
+});
+
+describe('the four drafted languages (fr, zh, hi, ar)', () => {
+	it('html tag, direction and Intl locale', async () => {
+		const { localeTag, localeDir, intlLocale } = await import('./locales.ts');
+		expect(localeTag('zh' as never)).toBe('zh-Hans');
+		expect(localeDir('ar' as never)).toBe('rtl');
+		expect(localeDir('hi' as never)).toBe('ltr');
+		expect(intlLocale('ar' as never)).toBe('ar-u-nu-latn');
+		expect(matchAcceptLanguage('zh-CN,zh;q=0.9')).toBe('zh');
+		expect(matchAcceptLanguage('ar-EG')).toBe('ar');
+	});
+
+	it('Arabic numbers and dates use Western digits; plurals follow Arabic rules', () => {
+		const ar = createTranslator('ar' as never, { 'visits.count_one': 'زيارة واحدة', 'visits.count_two': 'زيارتان', 'visits.count_few': '{count} زيارات', 'visits.count_other': '{count} زيارة' }, EN_TEST);
+		expect(ar.number(1234)).toMatch(/^1.?234$/);
+		expect(ar.date('2026-10-07')).toMatch(/2026/);
+		expect(ar.t('visits.count' as never, { count: 2 })).toBe('زيارتان');
+		expect(ar.t('visits.count' as never, { count: 5 })).toBe('5 زيارات');
+		expect(ar.dir).toBe('rtl');
 	});
 });

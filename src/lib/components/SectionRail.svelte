@@ -41,8 +41,11 @@
 		gap: 2px;
 		padding: var(--space-2);
 		background: var(--surface-1);
-		border-right: 1px solid var(--hairline);
+		border-inline-end: 1px solid var(--hairline);
 		overflow: auto;
+		/* Holds the visually hidden state labels, so off-screen ones do not widen the page (in
+		   right-to-left that widening scrolled the whole exam sideways on a tablet). */
+		position: relative;
 	}
 	button {
 		display: flex;
@@ -51,7 +54,7 @@
 		border: 0;
 		background: transparent;
 		color: var(--text-2);
-		text-align: left;
+		text-align: start;
 		padding: 0 var(--space-2);
 	}
 	button:hover {
@@ -86,7 +89,7 @@
 	@media (max-width: 900px) {
 		.rail {
 			flex-direction: row;
-			border-right: 0;
+			border-inline-end: 0;
 			border-bottom: 1px solid var(--hairline);
 		}
 		button {

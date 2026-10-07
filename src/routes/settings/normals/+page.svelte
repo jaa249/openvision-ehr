@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import Msg from '#lib/i18n/Msg.svelte';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { fieldLabel } from '#lib/exam/catalog.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -41,7 +42,7 @@
 				<div class="grid">
 					{#each s.fields as f (f.id)}
 						<div class="field">
-							<label for="n-{f.id}">{f.label}</label>
+							<label for="n-{f.id}">{fieldLabel(f.id, t)}</label>
 							<input
 								id="n-{f.id}"
 								name="f:{f.id}"

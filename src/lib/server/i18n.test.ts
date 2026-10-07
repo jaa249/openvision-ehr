@@ -149,7 +149,7 @@ describe('migration (D48)', () => {
 		migrate(probe);
 		const latest = (probe.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number }).v;
 		const raw = new DatabaseSync(':memory:');
-		migrate(raw, latest - 1);
+		migrate(raw, latest - 2); // before translations (D48); the ICD-11 titles migration (D50) follows it
 		const cols = (d: DatabaseSync) => (d.prepare('PRAGMA table_info(practice)').all() as { name: string }[]).map((c) => c.name);
 		expect(cols(raw)).not.toContain('default_locale');
 		raw.prepare("UPDATE practice SET name = 'Old Practice' WHERE id = 1").run();

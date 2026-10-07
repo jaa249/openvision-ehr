@@ -226,7 +226,7 @@
 	}
 	th,
 	td {
-		text-align: left;
+		text-align: start;
 		padding: 0 var(--space-3);
 		height: var(--row-height);
 		border-bottom: 1px solid var(--hairline);
@@ -256,10 +256,10 @@
 	}
 	.links {
 		white-space: nowrap;
-		text-align: right;
+		text-align: end;
 	}
 	.links a + a {
-		margin-left: var(--space-3);
+		margin-inline-start: var(--space-3);
 	}
 	.empty {
 		color: var(--text-3);

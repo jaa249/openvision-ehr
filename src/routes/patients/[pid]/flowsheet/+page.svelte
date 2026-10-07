@@ -45,7 +45,7 @@
 				// Fresh values only matter while read-only (someone else is editing); never overwrite typing.
 				if (!lock?.readonly) return;
 				targetFindings = { ODIOPTARGET: f.ODIOPTARGET ?? { value: '', isDefault: false }, OSIOPTARGET: f.OSIOPTARGET ?? { value: '', isDefault: false } };
-			})
+			}, undefined, undefined, t)
 		: null;
 	let lockStarted: Promise<void> | null = null;
 	const ensureLock = () => (lockStarted ??= lock ? lock.start() : Promise.resolve());
@@ -255,7 +255,7 @@
 			<section class="card" aria-labelledby="g-h">
 				<h2 id="g-h">{t('flowsheet.gonioscopy')}</h2>
 				{#if gonio.length}
-					<table class="mini">
+					<table class="mini eye-ltr">
 						<thead><tr><th scope="col">{t('flowsheet.visit')}</th><th scope="col" class="od">OD</th><th scope="col" class="os">OS</th></tr></thead>
 						<tbody>
 							{#each gonio as v (v.id)}<tr><th scope="row" class="num">{v.date}</th><td>{v.gonio.OD}</td><td>{v.gonio.OS}</td></tr>{/each}
@@ -269,7 +269,7 @@
 			<section class="card" aria-labelledby="d-h">
 				<h2 id="d-h">{t('flowsheet.discs')}</h2>
 				{#if discs.length}
-					<table class="mini">
+					<table class="mini eye-ltr">
 						<thead><tr><th scope="col">{t('flowsheet.visit')}</th><th scope="col" class="od">{t('flowsheet.odCup')}</th><th scope="col" class="os">{t('flowsheet.osCup')}</th></tr></thead>
 						<tbody>
 							{#each discs as v (v.id)}<tr><th scope="row" class="num">{v.date}</th><td class="num">{v.cup.OD}</td><td class="num">{v.cup.OS}</td></tr>{/each}
@@ -290,7 +290,7 @@
 						<summary>{t('flowsheet.tableOfValues')}</summary>
 						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 						<div class="scroll" role="region" aria-label={t('flowsheet.iopByDateTable')} tabindex="0">
-							<table class="mini">
+							<table class="mini eye-ltr">
 								<thead>
 									<tr>
 										<th scope="col">{t('flowsheet.date')}</th>
@@ -337,7 +337,7 @@
 				{#if visits.some((v) => v.time && (v.iop.OD || v.iop.OS))}
 					<details>
 						<summary>{t('flowsheet.tableOfValues')}</summary>
-						<table class="mini">
+						<table class="mini eye-ltr">
 							<thead><tr><th scope="col">{t('flowsheet.time')}</th><th scope="col">{t('flowsheet.date')}</th><th scope="col" class="od">OD</th><th scope="col" class="os">OS</th></tr></thead>
 							<tbody>
 								{#each [...visits].filter((v) => v.time && (v.iop.OD || v.iop.OS)).sort((a, b) => a.time!.localeCompare(b.time!)) as v (v.id)}
@@ -498,7 +498,7 @@
 	}
 	.mini th,
 	.mini td {
-		text-align: left;
+		text-align: start;
 		padding: var(--space-1) var(--space-2);
 		border-bottom: 1px solid var(--hairline);
 		vertical-align: top;
@@ -538,7 +538,7 @@
 	}
 	.doc {
 		width: 100%;
-		text-align: left;
+		text-align: start;
 		min-height: max(40px, var(--target-min));
 		display: flex;
 		flex-wrap: wrap;

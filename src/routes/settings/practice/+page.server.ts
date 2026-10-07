@@ -3,6 +3,7 @@ import { getDb } from '#lib/server/db.ts';
 import { requireRole } from '#lib/server/auth.ts';
 import { getCodeSettings, getDefaultLocale, getPractice, setDefaultLocale, SettingsError, updateCodeSettings, updatePractice } from '#lib/server/settings.ts';
 import { serverT } from '#lib/server/i18n.ts';
+import { codeSetAvailable } from '#lib/server/codefiles.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 // Admin only: the header printed on reports and spectacle / contact lens Rx, and the diagnosis code
@@ -10,7 +11,14 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = ({ locals, url }) => {
 	requireRole(locals, 'admin');
 	const db = getDb();
-	return { practice: getPractice(db), codes: getCodeSettings(db), locale: getDefaultLocale(db), welcome: url.searchParams.get('welcome') === '1' };
+	return {
+		practice: getPractice(db),
+		codes: getCodeSettings(db),
+		// Which code sets are downloaded (D49): a set that is not says so next to it, with Download.
+		available: { icd10cm: codeSetAvailable(db, 'icd10cm'), icd11: codeSetAvailable(db, 'icd11') },
+		locale: getDefaultLocale(db),
+		welcome: url.searchParams.get('welcome') === '1'
+	};
 };
 
 const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : '');

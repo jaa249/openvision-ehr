@@ -155,7 +155,7 @@ describe('workup report (spec §13.2 items 3-4)', () => {
 
 	it('acuity rows print only when either eye has a value, in report order', () => {
 		const s = sec(f({ PHOSVA: '20/25', SCODVA: '20/40', MRNEARODVA: 'J1' }), 'Visual acuities')!;
-		expect(s.rows).toEqual([
+		expect(s.rows).toMatchObject([
 			{ label: 'sc', od: '20/40', os: '' },
 			{ label: 'PH', od: '', os: '20/25' },
 			{ label: 'MR near', od: 'J1', os: '' }
@@ -171,7 +171,7 @@ describe('workup report (spec §13.2 items 3-4)', () => {
 	it('IOP prints each method only when present, with the time', () => {
 		const s = sec(f({ ODIOPAP: '15', OSIOPAP: '17', IOPTIME: '9:05 AM', OSIOPFTN: 'soft' }), 'Intraocular')!;
 		expect(s.title).toBe('Intraocular pressures @ 9:05 AM');
-		expect(s.rows).toEqual([
+		expect(s.rows).toMatchObject([
 			{ label: 'App', od: '15 mmHg', os: '17 mmHg' },
 			{ label: 'FTN', od: '', os: 'soft' }
 		]);
@@ -210,7 +210,7 @@ describe('workup report (spec §13.2 items 3-4)', () => {
 	it('pupils: "Round and reactive" when Normal and sizes blank; otherwise the measures', () => {
 		expect(sec(f({ PUPIL_NORMAL: '1' }), 'Pupils')?.summary).toBe('Round and reactive');
 		const s = sec(f({ PUPIL_NORMAL: '1', ODPUPILSIZE1: '3', ODPUPILSIZE2: '2', OSPUPILREACTIVITY: '+2', ODAPD: '0' }), 'Pupils')!;
-		expect(s.rows).toEqual([
+		expect(s.rows).toMatchObject([
 			{ label: 'Size', od: '3 → 2', os: '' },
 			{ label: 'Reactivity', od: '', os: '+2' },
 			{ label: 'APD', od: '0', os: '' }
@@ -220,7 +220,7 @@ describe('workup report (spec §13.2 items 3-4)', () => {
 	it('dim pupils and Amsler print only when present', () => {
 		expect(sec(f({ SCODVA: '20/20' }), 'Dim pupils')).toBeUndefined();
 		const s = sec(f({ AMSLEROD: '0', AMSLEROS: '3', DIMODPUPILSIZE1: '6' }), 'Dim pupils')!;
-		expect(s.rows).toEqual([
+		expect(s.rows).toMatchObject([
 			{ label: 'Dim size', od: '6', os: '' },
 			{ label: 'Amsler', od: '0/5', os: '3/5' }
 		]);

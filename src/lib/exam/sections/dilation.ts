@@ -8,10 +8,11 @@
 // Deviations from FIELDS.md, both because the original screen has them but the table lists no column:
 // - DIL_TIME: the dilation time (the original stamps a time when a drop is checked).
 // - NEO10: phenylephrine 10% (the original's drop list has "Neo 10%" beside "Neo 2.5%").
-import type { FieldDef } from '../catalog.ts';
+import type { FieldDef, FieldText } from '../catalog.ts';
 import type { ReportSection } from '../report.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 import type { MessageKey } from '#lib/i18n/catalog.ts';
+import { english, type Translate } from '#lib/coding/english.ts';
 
 export interface DilationDrop {
 	/** Field id; the stored value is the strength given ('' = not given). */
@@ -68,6 +69,14 @@ export const DILATION_FIELDS: FieldDef[] = specs.map(([id, label, maxLength]) =>
 	expand: false
 }));
 
+/** Screen labels of DILATION_FIELDS (D48), same English as the labels above; strengths stay as written. */
+export const DILATION_FIELD_TEXT: Record<string, FieldText> = Object.fromEntries([
+	...DILATION_DROPS.map((d): [string, FieldText] => [d.id, (t) => t('sections.fieldDilationDrop', { name: t(DROP_NAME_KEY[d.id]), strengths: d.strengths.join(' / ') })]),
+	[DIL_MEDS, (t) => t('sections.fieldDilationOther')],
+	[DIL_TIME, (t) => t('sections.fieldDilationTime')],
+	[DIL_RISKS, (t) => t('sections.fieldDilationRisks')]
+] as [string, FieldText][]);
+
 /**
  * Shorthand codes. SHORTHAND.md lists no dilation codes, so these are ours; the field ids work too
  * (TROPICAMIDE:1%). Each writes the strength typed, e.g. TROP:1% or NEO:2.5%.
@@ -105,25 +114,29 @@ export function isDilated(findings: Findings): boolean {
 	return DROP_IDS.some((id) => dropGiven(findings, id)) || val(findings, DIL_MEDS) !== '';
 }
 
-/** "tropicamide 1%, phenylephrine 2.5%, other text" — the drops in toggle order, lower-case names. */
-export function dilationDrops(findings: Findings): string[] {
+/**
+ * "tropicamide 1%, phenylephrine 2.5%, other text" — the drops in toggle order, lower-case names
+ * (in `t`'s language, D48; the "other drops" text prints as typed).
+ */
+export function dilationDrops(findings: Findings, t: Translate = english): string[] {
 	const out: string[] = [];
 	for (const d of DILATION_DROPS) {
 		const v = val(findings, d.id);
 		if (!given(v)) continue;
 		// A plain "on"/"yes"/"1" from an import means "given" with no strength recorded.
 		const strength = /^(on|yes|1|x)$/i.test(v) ? '' : ` ${v}`;
-		out.push(`${d.name.toLowerCase()}${strength}`);
+		out.push(`${t(DROP_NAME_KEY[d.id]).toLowerCase()}${strength}`);
 	}
 	if (val(findings, DIL_MEDS)) out.push(val(findings, DIL_MEDS));
 	return out;
 }
 
 /** "Dilated: tropicamide 1%, phenylephrine 2.5% at 2:10 PM" (§13.2 item 10 "Dilation Time"). */
-export function dilationReport(findings: Findings): ReportSection[] {
+export function dilationReport(findings: Findings, t: Translate = english): ReportSection[] {
 	if (!isDilated(findings)) return [];
 	const time = val(findings, DIL_TIME);
-	const risks = risksDiscussed(findings) ? ' Risks discussed.' : '';
-	const summary = `Dilated: ${dilationDrops(findings).join(', ')}${time ? ` at ${time}` : ''}.${risks}`;
-	return [{ title: 'Dilation', rows: [], comments: '', summary }];
+	const drops = dilationDrops(findings, t).join(', ');
+	const risks = risksDiscussed(findings) ? ` ${t('report.risksDiscussed')}` : '';
+	const summary = (time ? t('report.dilatedAt', { drops, time }) : t('report.dilated', { drops })) + risks;
+	return [{ title: 'Dilation', titleText: { key: 'sections.dilTitle' }, rows: [], comments: '', summary }];
 }

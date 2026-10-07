@@ -9,9 +9,9 @@ const MAX_VALUE = 4000;
 /**
  * Builder rows (§10.2) for this visit: POST { findings: { fieldId: text } } with the panel's current
  * exam values (so text not yet autosaved counts). Read-only: nothing is stored, so no edit lock.
- * Response: CandidateSet { findings, poh, pmh }.
+ * Response: CandidateSet { findings, poh, pmh }. ICD-11 titles in the user's language when loaded (D50).
  */
-export const POST: RequestHandler = async ({ params, request }) => {
+export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const pid = Number(params.pid);
 	const eid = Number(params.eid);
 	if (!Number.isSafeInteger(pid) || !Number.isSafeInteger(eid)) error(404, 'Not found');
@@ -27,7 +27,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
 		if (typeof v === 'string' && v && isKnownField(k)) findings[k] = v.slice(0, MAX_VALUE);
 	}
-	const set = getCandidates(getDb(), pid, eid, findings);
+	const set = getCandidates(getDb(), pid, eid, findings, locals?.locale ?? 'en');
 	if (!set) error(404, 'Not found');
 	return json(set);
 };

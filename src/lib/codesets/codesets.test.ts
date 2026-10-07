@@ -13,7 +13,7 @@ import {
 	withLaterality
 } from './index.ts';
 import { memoryIcd11Lookup, parseIcd11File, parseTsv, resolveIcd11 } from './icd11.ts';
-import { ICD11_FIXTURE } from './icd11.fixture.ts';
+import { HAVE_ICD11_FILE, ICD11_FIXTURE, needsCodes } from './icd11.fixture.ts';
 import { parseNewDx } from '#lib/plan/newdx.ts';
 
 describe('code sets', () => {
@@ -39,6 +39,7 @@ describe('code sets', () => {
 		expect(codeSetOfCode('word')).toBeNull();
 		expect(isDxCode('1A00')).toBe(true);
 		expect(codeSetsShort(['H40.11', '9B10.Z'])).toBe('ICD-10-CM and ICD-11');
+		expect(codeSetsShort(['H40.11', '9B10.Z'], (xs) => new Intl.ListFormat('es', { type: 'conjunction' }).format(xs))).toBe('ICD-10-CM e ICD-11');
 	});
 
 	it('laterality goes in an extension and replaces an earlier eye', () => {
@@ -70,8 +71,8 @@ describe('code sets', () => {
 	});
 });
 
-describe('ICD-11 file and validation (fixture of real rows)', () => {
-	const lookup = memoryIcd11Lookup(parseIcd11File(ICD11_FIXTURE));
+describe.skipIf(!HAVE_ICD11_FILE)(needsCodes('ICD-11 file and validation (fixture of real rows)', HAVE_ICD11_FILE), () => {
+	const lookup = memoryIcd11Lookup(ICD11_FIXTURE ? parseIcd11File(ICD11_FIXTURE) : []);
 
 	it('reads quoted fields with "" escapes, tabs and newlines inside quotes, and a BOM', () => {
 		expect(parseTsv('﻿a\t"b ""x""\tc\nd"\te\n1\t2')).toEqual([

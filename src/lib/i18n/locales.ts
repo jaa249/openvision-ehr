@@ -6,11 +6,20 @@ export type LocaleStatus = 'source' | 'draft' | 'reviewed';
 
 const LIST = [
 	{ code: 'en', name: 'English', dir: 'ltr', status: 'source' },
-	{ code: 'es', name: 'Español', dir: 'ltr', status: 'draft' }
-] as const satisfies readonly { code: string; name: string; dir: 'ltr' | 'rtl'; status: LocaleStatus }[];
+	{ code: 'es', name: 'Español', dir: 'ltr', status: 'draft' },
+	{ code: 'fr', name: 'Français', dir: 'ltr', status: 'draft' },
+	{ code: 'zh', name: '简体中文', dir: 'ltr', status: 'draft', tag: 'zh-Hans' },
+	{ code: 'hi', name: 'हिन्दी', dir: 'ltr', status: 'draft' },
+	// Western digits (0-9): acuity, pressures and dates are written that way in eye care.
+	{ code: 'ar', name: 'العربية', dir: 'rtl', status: 'draft', intl: 'ar-u-nu-latn' }
+] as const satisfies readonly { code: string; name: string; dir: 'ltr' | 'rtl'; status: LocaleStatus; tag?: string; intl?: string }[];
 
-/** Each language by its own name. `dir` and `status` keep their full types so 'rtl' and 'reviewed' type-check. */
-export type LocaleInfo = { code: (typeof LIST)[number]['code']; name: string; dir: 'ltr' | 'rtl'; status: LocaleStatus };
+/**
+ * Each language by its own name. `dir` and `status` keep their full types so 'rtl' and 'reviewed' type-check.
+ * `tag`: the html lang attribute when it differs from the code ("zh" is shown as Simplified Chinese).
+ * `intl`: the locale for dates, numbers and plurals when it differs from the tag.
+ */
+export type LocaleInfo = { code: (typeof LIST)[number]['code']; name: string; dir: 'ltr' | 'rtl'; status: LocaleStatus; tag?: string; intl?: string };
 export const LOCALES: readonly LocaleInfo[] = LIST;
 export type LocaleCode = (typeof LIST)[number]['code'];
 export const LOCALE_CODES: readonly LocaleCode[] = LOCALES.map((l) => l.code);
@@ -24,8 +33,12 @@ export function localeInfo(code: LocaleCode): LocaleInfo {
 	return LOCALES.find((l) => l.code === code) ?? LOCALES[0];
 }
 
-/** Text direction for the html `dir` attribute (no right-to-left language ships yet; the wiring is in place). */
+/** Text direction for the html `dir` attribute. */
 export const localeDir = (code: LocaleCode): 'ltr' | 'rtl' => localeInfo(code).dir;
+/** The html lang attribute. */
+export const localeTag = (code: LocaleCode): string => localeInfo(code).tag ?? code;
+/** The locale given to Intl (dates, numbers, plural rules). */
+export const intlLocale = (code: LocaleCode): string => localeInfo(code).intl ?? localeTag(code);
 
 /**
  * Best match for an Accept-Language header: exact tag, then primary subtag ("es-MX" -> "es"),

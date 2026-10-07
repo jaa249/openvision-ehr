@@ -56,6 +56,11 @@ const CONDITION_VERIFICATION = 'http://terminology.hl7.org/CodeSystem/condition-
 const CONDITION_CATEGORY = 'http://terminology.hl7.org/CodeSystem/condition-category';
 /** Our extension carrying the WHO linearization URI next to an ICD-11 code and title (WHO licence; D47). */
 export const ICD11_URI_EXTENSION = 'urn:openvision:fhir:icd11-uri';
+/**
+ * Our extension carrying the language of the stored ICD-11 title (D50): FHIR's Coding has no language
+ * element, and a title may be WHO's Spanish, Chinese, ... title rather than English. valueCode, e.g. "es".
+ */
+export const TITLE_LANG_EXTENSION = 'urn:openvision:fhir:title-lang';
 /** SNOMED CT body structures for laterality. */
 const EYE_SITE = {
 	OD: { code: '18944008', display: 'Right eye structure' },
@@ -78,7 +83,8 @@ type PlanItem = PlanReport['items'][number];
 /**
  * Condition.code.coding for one impression item, in the item's own code set (D44): ICD-10-CM codes as
  * displayed with their description; ICD-11 codes with "&" extensions, WHO title(s) as stored and, in
- * our extension, the WHO URI of each code part (code, title and URI travel together; D47).
+ * our extension, the WHO URI of each code part (code, title and URI travel together; D47), and the title's
+ * language in a second extension (D50).
  */
 function conditionCodings(item: PlanItem): Record<string, unknown>[] {
 	const codes = item.codes ? item.codes.split(', ').filter(Boolean) : [];
@@ -88,8 +94,12 @@ function conditionCodings(item: PlanItem): Record<string, unknown>[] {
 		const set: CodeSetId = item.codeSystem ?? codeSetOfCode(code) ?? 'icd10cm';
 		const display = titles.get(code);
 		const partUris = set === 'icd11' ? (uris[i] ?? '').split('&').filter(Boolean) : [];
+		const extension = [
+			...partUris.map((u) => ({ url: ICD11_URI_EXTENSION, valueUri: u })),
+			...(set === 'icd11' && display && item.titleLang ? [{ url: TITLE_LANG_EXTENSION, valueCode: item.titleLang }] : [])
+		];
 		return {
-			...(partUris.length ? { extension: partUris.map((u) => ({ url: ICD11_URI_EXTENSION, valueUri: u })) } : {}),
+			...(extension.length ? { extension } : {}),
 			system: CODE_SETS[set].system,
 			code,
 			...(display ? { display } : {})

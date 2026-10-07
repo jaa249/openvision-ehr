@@ -9,7 +9,7 @@
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let { summary }: { summary: CodingSummary } = $props();
-	const { t } = useI18n();
+	const { t, list } = useI18n();
 
 	const LEVEL: Record<CodingSummary['checks'][number]['level'], MessageKey> = {
 		error: 'codes.levelFix',
@@ -28,7 +28,7 @@
 			<h4>{t('codes.summaryDiagnoses')} <span class="count">{t('codes.summaryDxCount', { n: summary.dx.length, max: MAX_DX })}</span></h4>
 			{#if summary.dx.length}
 				<table>
-					<thead><tr><th scope="col" class="ptr">{t('codes.summaryPtr')}</th><th scope="col" class="code">{codeSetsShort(summary.dx.map((d) => d.code))}</th><th scope="col">{t('codes.summaryImpression')}</th></tr></thead>
+					<thead><tr><th scope="col" class="ptr">{t('codes.summaryPtr')}</th><th scope="col" class="code">{codeSetsShort(summary.dx.map((d) => d.code), list)}</th><th scope="col">{t('codes.summaryImpression')}</th></tr></thead>
 					<tbody>
 						{#each summary.dx as d (d.letter)}
 							<tr><td class="ptr">{d.letter}</td><td class="code">{d.code}</td><td>{d.title}</td></tr>
@@ -98,7 +98,7 @@
 	}
 	th,
 	td {
-		text-align: left;
+		text-align: start;
 		padding: 4px var(--space-1);
 		border-bottom: 1px solid var(--hairline);
 		vertical-align: top;

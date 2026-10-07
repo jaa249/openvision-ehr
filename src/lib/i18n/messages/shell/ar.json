@@ -1,0 +1,16 @@
+{
+	"mainNav": "التنقل الرئيسي",
+	"navPatients": "المرضى",
+	"navVisits": "الزيارات",
+	"navSettings": "الإعدادات",
+	"mySettings": "إعداداتي",
+	"signOut": "تسجيل الخروج",
+	"colorMode": "وضع الألوان",
+	"themeLight": "فاتح",
+	"themeDark": "داكن",
+	"themeDim": "غرفة معتمة",
+	"sessionWarnAnnounce": "سيتم تسجيل خروجك بعد دقيقة تقريبًا بسبب عدم النشاط.",
+	"sessionWarnCountdown": "سيتم تسجيل خروجك بعد {seconds} ث بسبب عدم النشاط.",
+	"staySignedIn": "البقاء متصلًا",
+	"signingOut": "جارٍ تسجيل الخروج…"
+}

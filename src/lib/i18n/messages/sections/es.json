@@ -29,6 +29,7 @@
 	"hpiDetailed": "EA detallada",
 	"hpiLimited": "EA limitada",
 	"hpiLevelCounts_one": "{count} elemento · crónicos: {chronic}",
+	"hpiLevelCounts_many": "{count} elementos · crónicos: {chronic}",
 	"hpiLevelCounts_other": "{count} elementos · crónicos: {chronic}",
 	"hpiLevelHelp": "Detallada requiere 4 o más casillas de elementos llenas (cuenta cualquier motivo) o el estado de 3 problemas crónicos. Solo es una guía: usted elige el código de la visita.",
 	"hpiElements": "Elementos de la EA",
@@ -567,5 +568,19 @@
 	"shOccupation": "Ocupación",
 	"shSleep": "Sueño",
 	"shSeatbelt": "Uso del cinturón de seguridad",
-	"pupilApd": "DPA"
+	"pupilApd": "DPA",
+	"fieldVfQuadrant": "Campo {quadrant} {eye}",
+	"fieldChiefComplaintN": "Motivo de consulta {n}",
+	"fieldHpiN": "EA {n}",
+	"fieldHpiElementN": "{element} {n}",
+	"fieldChronicN": "Problema crónico {n}",
+	"fieldRos": "RxS {system}",
+	"fieldMotilityNormal": "Motilidad normal",
+	"fieldMotility": "Motilidad {eye} {gaze}",
+	"fieldCoverOrtho": "Prueba de oclusión orto",
+	"fieldCoverCell": "Prueba de oclusión {zone} {position}",
+	"fieldDilationDrop": "Gota de dilatación: {name} {strengths}",
+	"fieldDilationOther": "Dilatación: otras gotas",
+	"fieldDilationTime": "Hora de dilatación",
+	"fieldDilationRisks": "Riesgos de la dilatación explicados"
 }

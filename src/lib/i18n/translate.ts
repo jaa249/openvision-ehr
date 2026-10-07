@@ -1,6 +1,6 @@
 // The translator (D48): message lookup with English fallback, {placeholders}, i18next-style plurals
 // (`<key>_one` / `_other` ...) and locale-aware date and number helpers. Pure: no Svelte, no I/O.
-import { localeDir, type LocaleCode } from './locales.ts';
+import { intlLocale, localeDir, type LocaleCode } from './locales.ts';
 import type { MessageKey } from './catalog.ts';
 
 export type Params = Record<string, string | number>;
@@ -19,6 +19,8 @@ export interface Translator {
 	dateTime(isoOrDate: string | Date): string;
 	time(isoOrDate: string | Date): string;
 	number(n: number, opts?: Intl.NumberFormatOptions): string;
+	/** "A and B", "A, B, and C" in the page language (Intl.ListFormat conjunction). */
+	list(items: string[]): string;
 }
 
 const PLACEHOLDER = /\{([A-Za-z0-9]+)\}/g;
@@ -33,10 +35,12 @@ function toDate(v: string | Date): Date {
 }
 
 export function createTranslator(locale: LocaleCode, catalog: Record<string, string>, fallback: Record<string, string>): Translator {
-	const plurals = new Intl.PluralRules(locale);
-	const numbers = new Intl.NumberFormat(locale);
+	const intl = intlLocale(locale);
+	const plurals = new Intl.PluralRules(intl);
+	const numbers = new Intl.NumberFormat(intl);
+	const lists = new Intl.ListFormat(intl, { type: 'conjunction' });
 	const fmt = (opts: Intl.DateTimeFormatOptions) => {
-		const f = new Intl.DateTimeFormat(locale, opts);
+		const f = new Intl.DateTimeFormat(intl, opts);
 		return (v: string | Date) => f.format(toDate(v));
 	};
 
@@ -90,6 +94,7 @@ export function createTranslator(locale: LocaleCode, catalog: Record<string, str
 		longDate: fmt({ dateStyle: 'long' }),
 		dateTime: fmt({ dateStyle: 'medium', timeStyle: 'short' }),
 		time: fmt({ hour: 'numeric', minute: '2-digit' }),
-		number: (n, opts) => (opts ? new Intl.NumberFormat(locale, opts) : numbers).format(n)
+		number: (n, opts) => (opts ? new Intl.NumberFormat(intl, opts) : numbers).format(n),
+		list: (items) => lists.format(items)
 	};
 }

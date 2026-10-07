@@ -160,7 +160,7 @@
 		font-weight: var(--weight-semibold);
 		font-variant-numeric: tabular-nums;
 		min-width: 1.6em;
-		text-align: right;
+		text-align: end;
 	}
 	input,
 	textarea {
@@ -214,7 +214,7 @@
 		align-items: center;
 		gap: var(--space-1);
 		max-width: 100%;
-		padding-left: var(--space-2);
+		padding-inline-start: var(--space-2);
 		border: 1px solid var(--hairline);
 		border-radius: var(--radius-pill);
 		background: var(--surface-2);

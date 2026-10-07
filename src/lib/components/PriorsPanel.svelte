@@ -38,15 +38,15 @@
 		<p class="empty">{t('exam.priorsNone')}</p>
 	{:else}
 		<div class="nav">
-			<button type="button" onclick={() => (index = priors.length - 1)} disabled={index === priors.length - 1} aria-label={t('exam.priorsOldest')}>⏮</button>
-			<button type="button" onclick={() => index++} disabled={index === priors.length - 1} aria-label={t('exam.priorsOlder')}>◀</button>
+			<button type="button" onclick={() => (index = priors.length - 1)} disabled={index === priors.length - 1} aria-label={t('exam.priorsOldest')}><span class="flip-rtl">⏮</span></button>
+			<button type="button" onclick={() => index++} disabled={index === priors.length - 1} aria-label={t('exam.priorsOlder')}><span class="flip-rtl">◀</span></button>
 			<select bind:value={index} aria-label={t('exam.priorsChoose')}>
 				{#each priors as p, i (p.id)}
 					<option value={i}>{fmt(p.date)}</option>
 				{/each}
 			</select>
-			<button type="button" onclick={() => index--} disabled={index === 0} aria-label={t('exam.priorsNewer')}>▶</button>
-			<button type="button" onclick={() => (index = 0)} disabled={index === 0} aria-label={t('exam.priorsNewest')}>⏭</button>
+			<button type="button" onclick={() => index--} disabled={index === 0} aria-label={t('exam.priorsNewer')}><span class="flip-rtl">▶</span></button>
+			<button type="button" onclick={() => (index = 0)} disabled={index === 0} aria-label={t('exam.priorsNewest')}><span class="flip-rtl">⏭</span></button>
 		</div>
 		<p class="meta">{prior.visitType} · {prior.provider} · {t('exam.priorsPosition', { index: index + 1, count: priors.length })}</p>
 
@@ -58,7 +58,7 @@
 		</div>
 
 		{#if rows.length || comments || hertel?.some(Boolean)}
-			<table>
+			<table class="eye-ltr">
 				<thead>
 					<tr><th scope="col"><span class="visually-hidden">{t('exam.finding')}</span></th><th scope="col" class="od">OD</th><th scope="col" class="os">OS</th></tr>
 				</thead>
@@ -139,7 +139,7 @@
 	}
 	th,
 	td {
-		text-align: left;
+		text-align: start;
 		padding: 6px var(--space-2);
 		border-bottom: 1px solid var(--hairline);
 		vertical-align: top;

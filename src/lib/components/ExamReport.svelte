@@ -12,11 +12,14 @@
 	let { item, practice, generatedOn }: { item: PrintableEncounter; practice: Practice; generatedOn: string } = $props();
 
 	// Headings and labels in the reader's language (D48); recorded findings print exactly as entered.
-	const { t } = useI18n();
+	const i18n = useI18n();
+	const { t } = i18n;
+	/** A phone or fax number keeps its order inside right-to-left text (Unicode left-to-right isolate); unchanged in left-to-right. */
+	const ltrIsolate = (v: string) => (i18n.dir === 'rtl' ? String.fromCharCode(0x2066) + v + String.fromCharCode(0x2069) : v);
 	const sectionTitle = (s: ReportSection) => (s.titleText ? t(s.titleText.key, s.titleText.params) : s.title);
 	const rowLabel = (r: ReportRow) => (r.labelText ? t(r.labelText.key, r.labelText.params) : r.label);
 
-	const sections = $derived(buildReport(item.findings));
+	const sections = $derived(buildReport(item.findings, t));
 	const p = $derived(item.patient);
 	const e = $derived(item.encounter);
 
@@ -65,7 +68,7 @@
 			{ title: t('report.historyPmh'), lines: lines('PMH'), empty: none },
 			{ title: t('report.historyMedication'), lines: meds, empty: none },
 			{ title: t('report.historySurgery'), lines: lines('SURG'), empty: none },
-			{ title: t('report.historyAllergy'), lines: lines('ALLERGY'), empty: allergyStatusText(h.allergyStatus) },
+			{ title: t('report.historyAllergy'), lines: lines('ALLERGY'), empty: allergyStatusText(h.allergyStatus, t) },
 			{ title: t('report.historySocial'), lines: social, empty: t('report.historyNotDocumented') },
 			{
 				title: t('report.historyFh'),
@@ -113,10 +116,10 @@
 <article class="report" aria-label={t('report.ariaLabel', { name: p.legalName, date: e.date })}>
 	<header>
 		<div class="practice">
-			<strong>{practice.name}</strong>
-			{#if practice.address}<span>{practice.address}</span>{/if}
+			<strong dir="auto">{practice.name}</strong>
+			{#if practice.address}<span dir="auto">{practice.address}</span>{/if}
 			<span>
-				{#if practice.phone}{t('report.practicePhone', { phone: practice.phone })}{/if}{#if practice.phone && practice.fax}&ensp;·&ensp;{/if}{#if practice.fax}{t('report.practiceFax', { fax: practice.fax })}{/if}
+				{#if practice.phone}{t('report.practicePhone', { phone: ltrIsolate(practice.phone) })}{/if}{#if practice.phone && practice.fax}&ensp;·&ensp;{/if}{#if practice.fax}{t('report.practiceFax', { fax: ltrIsolate(practice.fax) })}{/if}
 			</span>
 		</div>
 		<dl class="patient">
@@ -141,7 +144,7 @@
 
 	<h1>{t('report.heading')}</h1>
 	<!-- Always printed: "Not recorded" must never be mistaken for "no allergies". -->
-	<p class="allergies" class:listed={p.allergyStatus.kind === 'listed'}><strong>{t('report.allergiesLabel')}</strong> {allergyStatusText(p.allergyStatus)}</p>
+	<p class="allergies" class:listed={p.allergyStatus.kind === 'listed'}><strong>{t('report.allergiesLabel')}</strong> {allergyStatusText(p.allergyStatus, t)}</p>
 
 	{#if hpiCount === 0}{@render pmsfh()}{/if}
 	{#each sections as s, i (s.title)}
@@ -149,7 +152,7 @@
 			<h2>{sectionTitle(s)}</h2>
 			{#if s.summary}<p class="summary">{s.summary}</p>{/if}
 			{#if s.rows.length}
-			<table>
+			<table class="eye-ltr">
 				<thead>
 					<tr><th scope="col" class="od">{t('report.odRight')}</th><th scope="col" class="label"><span class="visually-hidden">{t('report.finding')}</span></th><th scope="col">{t('report.osLeft')}</th></tr>
 				</thead>
@@ -170,7 +173,7 @@
 			</table>
 			{/if}
 			{#if s.table}
-				<table class="grid" class:two={s.table.head.length === 2}>
+				<table class="grid" class:two={s.table.head.length === 2} class:eye-ltr={s.table.head.length > 2}>
 					<thead><tr>{#each s.table.head as h, i (i)}<th scope="col">{h}</th>{/each}</tr></thead>
 					<tbody>
 						{#each s.table.body as row, r (r)}
@@ -179,7 +182,7 @@
 					</tbody>
 				</table>
 			{/if}
-			{#if s.comments}<p class="comments"><strong>{t('report.commentsLabel')}</strong> {s.comments}</p>{/if}
+			{#if s.comments}<p class="comments"><strong>{t('report.commentsLabel')}</strong> <span dir={i18n.dir === 'rtl' ? 'auto' : undefined}>{s.comments}</span></p>{/if}
 			{#if drawingIn(s.title)}{@render drawing(drawingIn(s.title)!)}{/if}
 		</section>
 		{#if i === hpiCount - 1}{@render pmsfh()}{/if}
@@ -247,7 +250,7 @@
 	}
 	.patient dt {
 		color: var(--ink-2);
-		text-align: right;
+		text-align: end;
 	}
 	.patient dd {
 		margin: 0;
@@ -307,7 +310,7 @@
 		font-size: 8.5pt;
 		font-weight: 600;
 		color: var(--ink-2);
-		text-align: left;
+		text-align: start;
 		padding: 0 0.5em 2px;
 	}
 	td,
@@ -318,7 +321,7 @@
 		overflow-wrap: anywhere;
 	}
 	.od {
-		text-align: right;
+		text-align: end;
 	}
 	.label {
 		width: 26%;
@@ -330,7 +333,7 @@
 	}
 	.grid th,
 	.grid td {
-		text-align: left;
+		text-align: start;
 		width: auto;
 	}
 	.grid tbody th {

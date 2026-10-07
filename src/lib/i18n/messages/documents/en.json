@@ -80,5 +80,11 @@
 	"deleteTitle": "Delete this document?",
 	"deleteBody": "{file} ({category}, {date}) will be removed from the chart. The record of who deleted it and when is kept.",
 	"deleteConfirm": "Delete document",
-	"keepIt": "Keep it"
+	"keepIt": "Keep it",
+	"fileEmpty": "{name} is empty.",
+	"fileTooLarge": "{name} is {size}. The limit is 15 MB.",
+	"fileWrongType": "{name} is not a PNG, JPEG or PDF. Phone photos in HEIC format must be saved as JPEG first.",
+	"serverTooLarge": "This file is larger than the server accepts. Files up to 15 MB are supported when the server runs with {setting} (ask your administrator).",
+	"visitLocked": "This visit is signed or being edited elsewhere, so its documents cannot change.",
+	"serverAnsweredSentence": "The server answered {status}."
 }

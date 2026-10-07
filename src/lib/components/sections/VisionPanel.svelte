@@ -166,7 +166,7 @@
 					{/each}
 				</div>
 			</div>
-			<table>
+			<table class="eye-ltr">
 				<thead>
 					<tr>
 						<th scope="col" class="rowhead"><span class="visually-hidden">{t('sections.visionAcuity')}</span></th>
@@ -197,7 +197,7 @@
 					{t('sections.normal')}
 				</label>
 			</div>
-			<div class="grids">
+			<div class="grids eye-ltr">
 				{#each ['OD', 'OS'] as const as eye (eye)}
 					{@const c = cell(`AMSLER${eye}`)}
 					<button
@@ -236,12 +236,14 @@
 	h2 {
 		font-size: var(--text-md);
 		font-weight: var(--weight-semibold);
-		margin: 0 auto 0 0;
+		margin: 0;
+		margin-inline-end: auto;
 	}
 	h3 {
 		font-size: var(--text-sm);
 		font-weight: var(--weight-semibold);
-		margin: 0 auto 0 0;
+		margin: 0;
+		margin-inline-end: auto;
 	}
 	.layout {
 		display: grid;
@@ -293,7 +295,7 @@
 	}
 	th,
 	td {
-		text-align: left;
+		text-align: start;
 		padding: 0 var(--space-3);
 		border-bottom: 1px solid var(--hairline);
 		vertical-align: middle;
@@ -458,9 +460,9 @@
 	}
 	.swatch.copied {
 		background: var(--copied-tint);
-		margin-left: var(--space-3);
+		margin-inline-start: var(--space-3);
 	}
 	.sep {
-		margin-left: var(--space-3);
+		margin-inline-start: var(--space-3);
 	}
 </style>

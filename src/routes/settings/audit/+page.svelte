@@ -109,7 +109,7 @@
 	}
 	th,
 	td {
-		text-align: left;
+		text-align: start;
 		vertical-align: top;
 		padding: var(--space-2) var(--space-3);
 		border-bottom: 1px solid var(--hairline);

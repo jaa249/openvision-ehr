@@ -173,7 +173,7 @@
 	}
 	.summary ul {
 		margin: var(--space-1) 0 0;
-		padding-left: var(--space-5);
+		padding-inline-start: var(--space-5);
 	}
 	.arow {
 		display: grid;

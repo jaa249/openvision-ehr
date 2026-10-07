@@ -2,6 +2,7 @@
 // allergy status, chronic texts for HPI (§7.4), shorthand splitting (§2.4) and summary lines (§1.3).
 import { FH_NEGATIVE, FH_ROWS, SOCIAL_HABITS, SOCIAL_STATUSES, SOCIAL_TEXT } from './lists.ts';
 import type { AllergyStatus, FamilyHistory, Issue, SocialHistory } from './types.ts';
+import { english, type Translate } from '#lib/coding/english.ts';
 
 /**
  * Banner/chart allergy status. Active allergies always win; otherwise a recorded
@@ -16,10 +17,13 @@ export function allergyStatus(
 	return { kind: 'unknown' };
 }
 
-/** One line for the report header, CSV and screen readers. */
-export function allergyStatusText(s: AllergyStatus): string {
-	if (s.kind === 'unknown') return 'Not recorded';
-	if (s.kind === 'none') return 'NKDA';
+/**
+ * One line for the report header, CSV and screen readers. The labels are in `t`'s language (D48;
+ * English by default, as the CSV keeps); recorded allergy titles and reactions stay as entered.
+ */
+export function allergyStatusText(s: AllergyStatus, t: Translate = english): string {
+	if (s.kind === 'unknown') return t('sections.pmNotRecorded');
+	if (s.kind === 'none') return t('sections.pmNkda');
 	return s.allergies.map((a) => a.title + (a.reaction ? ` (${a.reaction})` : '')).join(', ');
 }
 

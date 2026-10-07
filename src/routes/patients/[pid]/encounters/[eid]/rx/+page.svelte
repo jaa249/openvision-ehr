@@ -22,7 +22,10 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
-	const { t, dateTime, longDate } = useI18n();
+	const i18n = useI18n();
+	const { t, dateTime, longDate } = i18n;
+	/** A phone or fax number keeps its order inside right-to-left text (Unicode left-to-right isolate); unchanged in left-to-right. */
+	const ltrIsolate = (v: string) => (i18n.dir === 'rtl' ? String.fromCharCode(0x2066) + v + String.fromCharCode(0x2069) : v);
 
 	const p = $derived(data.patient);
 	const e = $derived(data.encounter);
@@ -179,6 +182,7 @@
 {#snippet field(k: string, label: string, cls = '')}
 	<input
 		class="f {cls}"
+		dir="ltr"
 		value={g(k)}
 		aria-label={label}
 		autocomplete="off"
@@ -204,10 +208,10 @@
 <article class="rx" aria-label={title}>
 	<header>
 		<div class="practice">
-			<strong>{data.practice.name}</strong>
-			{#if data.practice.address}<span>{data.practice.address}</span>{/if}
+			<strong dir="auto">{data.practice.name}</strong>
+			{#if data.practice.address}<span dir="auto">{data.practice.address}</span>{/if}
 			<span>
-				{#if data.practice.phone}{t('report.practicePhone', { phone: data.practice.phone })}{/if}{#if data.practice.phone && data.practice.fax}&ensp;·&ensp;{/if}{#if data.practice.fax}{t('report.practiceFax', { fax: data.practice.fax })}{/if}
+				{#if data.practice.phone}{t('report.practicePhone', { phone: ltrIsolate(data.practice.phone) })}{/if}{#if data.practice.phone && data.practice.fax}&ensp;·&ensp;{/if}{#if data.practice.fax}{t('report.practiceFax', { fax: ltrIsolate(data.practice.fax) })}{/if}
 			</span>
 		</div>
 		<dl class="patient">
@@ -230,7 +234,7 @@
 	{#if !isCtl}
 		<section>
 			<h2>{t('rx.distance')}</h2>
-			<table>
+			<table class="eye-ltr">
 				<thead>
 					<tr>
 						<th scope="col"><span class="visually-hidden">{t('rx.colEye')}</span></th>
@@ -266,7 +270,7 @@
 				{#if rxType === ''}<span class="none-type">{t('rx.notSpecified')}</span>{/if}
 			</div>
 			{#if showAdd || showMid}
-				<table class="adds">
+				<table class="adds eye-ltr">
 					<thead>
 						<tr>
 							<th scope="col"><span class="visually-hidden">{t('rx.colEye')}</span></th>
@@ -290,7 +294,7 @@
 		<section class="fitting" class:empty={!hasFitting}>
 			<details open={hasFitting || fittingOpen} ontoggle={(ev) => (fittingOpen = ev.currentTarget.open)}>
 				<summary><h2>{t('rx.fittingData')}</h2></summary>
-				<table>
+				<table class="eye-ltr">
 					<thead>
 						<tr>
 							<th scope="col"><span class="visually-hidden">{t('rx.colEye')}</span></th>
@@ -344,7 +348,7 @@
 		</section>
 	{:else}
 		<section>
-			<table class="ctl">
+			<table class="ctl eye-ltr">
 				<thead>
 					<tr>
 						<th scope="col" class="lenshead"><span class="visually-hidden">{t('rx.colLens')}</span></th>
@@ -479,7 +483,7 @@
 	}
 	.patient dt {
 		color: var(--ink-2);
-		text-align: right;
+		text-align: end;
 	}
 	.patient dd {
 		margin: 0;
@@ -505,8 +509,9 @@
 	}
 	th,
 	td {
-		text-align: left;
-		padding: 2px 0.5em 2px 0;
+		text-align: start;
+		padding-block: 2px;
+		padding-inline: 0 0.5em;
 		vertical-align: middle;
 	}
 	thead th {

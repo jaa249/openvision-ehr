@@ -3,14 +3,13 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { openDatabase, type DB } from './db.ts';
 import { ensureIcd11, getIcd11, ICD11_FILE, loadIcd11, resolveIcd11Code, searchIcd11 } from './icd11.ts';
-import { findCodeFile } from './icd10.ts';
 import { ICD11_CODE_RE, ICD11_EXT_RE, ICD11_STEM_RE } from '#lib/codesets/index.ts';
 import { parseIcd11File } from '#lib/codesets/icd11.ts';
-import { ICD11_FIXTURE } from '#lib/codesets/icd11.fixture.ts';
+import { HAVE_ICD11_FILE, ICD11_FIXTURE, ICD11_FILE_PATH, needsCodes } from '#lib/codesets/icd11.fixture.ts';
 
-describe('the shipped WHO file', () => {
-	const text = gunzipSync(readFileSync(findCodeFile(ICD11_FILE)!)).toString('utf8');
-	const rows = parseIcd11File(text);
+describe.skipIf(!HAVE_ICD11_FILE)(needsCodes('the downloaded WHO file', HAVE_ICD11_FILE), () => {
+	const text = ICD11_FILE_PATH ? gunzipSync(readFileSync(ICD11_FILE_PATH)).toString('utf8') : '';
+	const rows = text ? parseIcd11File(text) : [];
 
 	it('has every coded entity, with title and URI', () => {
 		expect(rows.length).toBe(35664);
@@ -36,7 +35,7 @@ describe('the shipped WHO file', () => {
 	});
 });
 
-describe('loader and search (real file in the table)', () => {
+describe.skipIf(!HAVE_ICD11_FILE)(needsCodes('loader and search (real file in the table)', HAVE_ICD11_FILE), () => {
 	let db: DB;
 	beforeAll(() => {
 		db = openDatabase(':memory:');

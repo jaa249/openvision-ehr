@@ -91,7 +91,7 @@
 		for (const f of upFiles) {
 			status = t('documents.uploadingFile', { name: f.name });
 			try {
-				saved.push(await uploadDocumentFile(pid, f, { category: upCategory, takenOn: upDate, notes: upNotes }));
+				saved.push(await uploadDocumentFile(pid, f, { category: upCategory, takenOn: upDate, notes: upNotes, t }));
 			} catch (err) {
 				upError = t('documents.fileProblem', { name: f.name, error: (err as Error).message });
 			}
@@ -122,7 +122,7 @@
 	}
 	async function saveEdit(d: DocMeta) {
 		try {
-			const u = await updateDocumentMeta(pid, d.id, { notes: draftNotes, takenOn: draftDate });
+			const u = await updateDocumentMeta(pid, d.id, { notes: draftNotes, takenOn: draftDate }, {}, t);
 			docs = sortDocs(docs.map((x) => (x.id === u.id ? u : x)));
 			editing = null;
 			status = t('documents.savedNotes', { name: u.filename });
@@ -145,7 +145,7 @@
 		if (!toDelete) return;
 		const d = toDelete;
 		try {
-			await deleteDocumentFile(pid, d.id);
+			await deleteDocumentFile(pid, d.id, {}, t);
 			docs = docs.filter((x) => x.id !== d.id);
 			confirmDialog.close();
 			status = t('documents.deletedFile', { name: d.filename });
@@ -517,7 +517,7 @@
 	.date {
 		color: var(--text-2);
 		font-weight: var(--weight-regular);
-		margin-left: var(--space-1);
+		margin-inline-start: var(--space-1);
 	}
 	.file {
 		overflow: hidden;

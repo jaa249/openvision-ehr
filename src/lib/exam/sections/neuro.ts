@@ -4,10 +4,11 @@
 // Rule: import only TYPES from catalog.ts / report.ts here (they import values from this file).
 //
 // Spec: docs/spec/BEHAVIOR.md §9 (neuro), §13.2 items 3 (motility), 9 (neuro block), 11 (cover test).
-import type { Eye, FieldDef } from '../catalog.ts';
+import type { Eye, FieldDef, FieldText } from '../catalog.ts';
 import type { ReportRow, ReportSection } from '../report.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 import type { MessageKey } from '#lib/i18n/catalog.ts';
+import { english, type Translate } from '#lib/coding/english.ts';
 
 // ---------- motility (§9.1) ----------
 
@@ -270,6 +271,31 @@ export const NEURO_FIELDS: FieldDef[] = specs.map(([id, row, eye, label, maxLeng
 	expand: !!expand
 }));
 
+/** Screen labels of NEURO_FIELDS (D48), same English as the labels above. */
+export const NEURO_FIELD_TEXT: Record<string, FieldText> = Object.fromEntries([
+	['MOTILITYNORMAL', (t) => t('sections.fieldMotilityNormal')],
+	...MOTILITY_CELLS.map((c): [string, FieldText] => [c.id, (t) => t('sections.fieldMotility', { eye: c.eye, gaze: t(gazeKey(c)) })]),
+	['ACT', (t) => t('sections.fieldCoverOrtho')],
+	...COVER_ZONES.flatMap((z) =>
+		COVER_POSITIONS.map((n): [string, FieldText] => [
+			coverId(n, z.key),
+			(t) => t('sections.fieldCoverCell', { zone: t(COVER_ZONE_KEY[z.key].label), position: t(COVER_POSITION_KEY[n - 1]) })
+		])
+	),
+	...NEURO_EYE_ROWS.flatMap((r) =>
+		(['OD', 'OS'] as const).map((e): [string, FieldText] => [e === 'OD' ? r.od : r.os, (t) => t('sections.neuroEyeCell', { label: t(NEURO_ROW_LABEL_KEY[r.key]), eye: e })])
+	),
+	...NEURO_PAIRS.flatMap((p): [string, FieldText][] => [
+		[p.dist, (t) => t('sections.neuroPairDistance', { label: t(NEURO_ROW_LABEL_KEY[p.key]) })],
+		[p.near, (t) => t('sections.neuroPairNear', { label: t(NEURO_ROW_LABEL_KEY[p.key]) })]
+	]),
+	['NPC', (t) => t('sections.neuroNpc')],
+	['DIVERGENCEAMPS', (t) => t('sections.neuroDivergence')],
+	['VERTFUSAMPS', (t) => t('sections.neuroVertFusional')],
+	['STEREOPSIS', (t) => t('sections.neuroStereopsis')],
+	['NEURO_COMMENTS', (t) => t('sections.neuroComments')]
+] as [string, FieldText][]);
+
 /**
  * Shorthand code -> field ids (SHORTHAND.md neuro rows, checked against FIELDS.md). Every field id
  * above is already a code (e.g. ACT5CCDIST:4 XT). Corrections and additions:
@@ -340,51 +366,55 @@ export interface NeuroReport {
 	after: ReportSection[];
 }
 
-export function neuroReport(findings: Findings): NeuroReport {
+/** Headings and labels in `t`'s language (D48); `title` / `label` stay English, values print as recorded. */
+export function neuroReport(findings: Findings, t: Translate = english): NeuroReport {
 	const v = (id: string) => findings[id]?.value?.trim() ?? '';
 	const strip: ReportSection[] = [];
 	const after: ReportSection[] = [];
 
 	// Motility: "D&V full OU" when Normal; else two 3×3 grids when any counter is above 0.
 	if (motilityIsNormal(findings)) {
-		strip.push({ title: 'Motility', rows: [], comments: '', summary: 'D&V full OU' });
+		strip.push({ title: 'Motility', titleText: { key: 'sections.motility' }, rows: [], comments: '', summary: t('report.motilityFullOu') });
 	} else if (MOTILITY_IDS.some((id) => motilityCount(v(id)) > 0)) {
 		const n = (eye: 'OD' | 'OS', gv: GazeV, h: GazeH) => {
 			const c = motilityCell(eye, gv, h);
 			return c ? String(motilityCount(v(c.id))) : '';
 		};
 		// FIX: every cell reads its own counter, so the OS bottom row is LRIO, LI, LLIO.
-		const line = (label: string, gv: GazeV) => [
-			label,
+		const line = (label: MessageKey, gv: GazeV) => [
+			t(label),
 			...(['OD', 'OS'] as const).flatMap((eye) => [n(eye, gv, 'R'), gv === 0 ? '' : n(eye, gv, null), n(eye, gv, 'L')])
 		];
 		strip.push({
 			title: 'Motility',
+			titleText: { key: 'sections.motility' },
 			rows: [],
 			comments: '',
 			table: {
-				head: ['', 'OD right gaze', 'OD up / down', 'OD left gaze', 'OS right gaze', 'OS up / down', 'OS left gaze'],
-				body: [line('Up', -1), line('Level', 0), line('Down', 1)]
+				head: ['', ...(['OD', 'OS'] as const).flatMap((eye) => [t('report.motRightGaze', { eye }), t('report.motUpDown', { eye }), t('report.motLeftGaze', { eye })])],
+				body: [line('sections.coverRowUp', -1), line('report.motLevel', 0), line('sections.coverRowDown', 1)]
 			}
 		});
 	}
 
 	// Neuro block in Additional findings, each row only when filled (FIX: NPC and amplitudes print).
-	const additional: ReportRow[] = NEURO_EYE_ROWS.map((r) => ({ label: r.label, od: v(r.od), os: v(r.os) })).filter(
+	const additional: ReportRow[] = NEURO_EYE_ROWS.map((r) => ({ label: r.label, labelText: { key: NEURO_ROW_LABEL_KEY[r.key] }, od: v(r.od), os: v(r.os) })).filter(
 		(r) => r.od || r.os
 	);
 	// Binocular measures have no per-eye value: the value goes in the label, OD/OS left blank.
-	const single = (label: string, value: string) => {
-		if (value) additional.push({ label: `${label}: ${value}`, od: '', os: '' });
+	// Only the English is in `label`; labelText carries the name in the reader's language.
+	const single = (label: string, key: MessageKey, value: string, shown = value) => {
+		if (value) additional.push({ label: `${label}: ${value}`, labelText: { key: 'report.measureValue', params: { label: t(key), value: shown } }, od: '', os: '' });
 	};
-	single('NPC', v('NPC'));
+	single('NPC', 'sections.neuroNpc', v('NPC'));
 	for (const p of NEURO_PAIRS) {
 		const parts = [v(p.dist) && `distance ${v(p.dist)}`, v(p.near) && `near ${v(p.near)}`].filter(Boolean);
-		single(p.label, parts.join(', '));
+		const shown = [v(p.dist) && t('report.pairDistance', { value: v(p.dist) }), v(p.near) && t('report.pairNear', { value: v(p.near) })].filter(Boolean);
+		single(p.label, NEURO_ROW_LABEL_KEY[p.key], parts.join(', '), shown.join(', '));
 	}
-	single('Divergence amplitudes', v('DIVERGENCEAMPS'));
-	single('Vertical fusional amplitudes', v('VERTFUSAMPS'));
-	single('Stereopsis', v('STEREOPSIS'));
+	single('Divergence amplitudes', 'sections.neuroDivergence', v('DIVERGENCEAMPS'));
+	single('Vertical fusional amplitudes', 'sections.neuroVertFusional', v('VERTFUSAMPS'));
+	single('Stereopsis', 'sections.neuroStereopsis', v('STEREOPSIS'));
 
 	// Alternate cover test: only when not Ortho; a grid per tab whose primary cell is filled.
 	if (!coverIsOrtho(findings)) {
@@ -392,21 +422,22 @@ export function neuroReport(findings: Findings): NeuroReport {
 			if (!v(coverId(PRIMARY_POSITION, z.key))) continue;
 			const c = (n: number) => v(coverId(n, z.key));
 			const body = [
-				['Up', c(1), c(2), c(3)],
-				['Primary', c(4), c(5), c(6)],
-				['Down', c(7), c(8), c(9)]
+				[t('sections.coverRowUp'), c(1), c(2), c(3)],
+				[t('sections.coverRowPrimary'), c(4), c(5), c(6)],
+				[t('sections.coverRowDown'), c(7), c(8), c(9)]
 			];
-			if (c(10) || c(11)) body.push(['Head tilt', c(10), '', c(11)]);
+			if (c(10) || c(11)) body.push([t('report.coverHeadTilt'), c(10), '', c(11)]);
 			after.push({
 				title: `Alternate cover test, ${z.label}`,
+				titleText: { key: 'report.sectionCoverTest', params: { zone: t(COVER_ZONE_KEY[z.key].label) } },
 				rows: [],
 				comments: '',
-				table: { head: ['', 'R', 'Center', 'L'], body }
+				table: { head: ['', t('report.coverRight'), t('report.coverCenter'), t('report.coverLeft')], body }
 			});
 		}
 	}
 	// FIX: neuro comments print whatever the cover-test state.
-	if (v('NEURO_COMMENTS')) after.push({ title: 'Neuro', rows: [], comments: v('NEURO_COMMENTS') });
+	if (v('NEURO_COMMENTS')) after.push({ title: 'Neuro', titleText: { key: 'report.drawingNeuro' }, rows: [], comments: v('NEURO_COMMENTS') });
 
 	return {
 		strip,

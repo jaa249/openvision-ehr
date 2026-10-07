@@ -133,5 +133,11 @@
 	"shNormalAll": "Normal: all sections",
 	"shClear": "Clear: {sections}",
 	"shClearAll": "Clear: all sections",
-	"shEmpty": "(empty)"
+	"shEmpty": "(empty)",
+	"lockSigned": "This exam was signed.",
+	"lockTakenOver": "{name} has taken over this exam. This page is now read-only.",
+	"lockLost": "This page no longer holds the edit lock. It is now read-only.",
+	"lockCheckFailed": "The edit lock could not be checked (error {status}).",
+	"saveServerAnswered": "Server answered {status}",
+	"readOnlyNow": "This exam is read-only now."
 }

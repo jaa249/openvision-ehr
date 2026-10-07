@@ -109,7 +109,7 @@
 	</div>
 
 	<div class="panel">
-		<table>
+		<table class="eye-ltr">
 			<thead>
 				<tr>
 					<th scope="col" class="rowhead"><span class="visually-hidden">{t('exam.finding')}</span></th>
@@ -197,7 +197,8 @@
 	h2 {
 		font-size: var(--text-md);
 		font-weight: var(--weight-semibold);
-		margin: 0 auto 0 0;
+		margin: 0;
+		margin-inline-end: auto;
 	}
 	.panel {
 		background: var(--surface-1);
@@ -212,7 +213,7 @@
 	}
 	th,
 	td {
-		text-align: left;
+		text-align: start;
 		padding: 0 var(--space-3);
 		border-bottom: 1px solid var(--hairline);
 		vertical-align: middle;
@@ -257,7 +258,7 @@
 		background: var(--os-soft);
 	}
 	.side-actions {
-		float: right;
+		float: inline-end;
 		display: inline-flex;
 		gap: var(--space-1);
 	}
@@ -325,7 +326,7 @@
 	.unit {
 		color: var(--text-3);
 		font-size: var(--text-xs);
-		margin-left: var(--space-1);
+		margin-inline-start: var(--space-1);
 	}
 	.divider td {
 		height: var(--space-2);
@@ -362,6 +363,6 @@
 	}
 	.swatch.copied {
 		background: var(--copied-tint);
-		margin-left: var(--space-3);
+		margin-inline-start: var(--space-3);
 	}
 </style>

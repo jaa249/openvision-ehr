@@ -23,6 +23,7 @@ export const SECURITY_ACTIONS = [
 	'user.renamed',
 	'settings.practice',
 	'settings.coding',
+	'settings.codes',
 	'settings.visit_types',
 	'view_patient',
 	'view_exam'

@@ -1,5 +1,6 @@
 // GET /api/codes/dx follows the practice's code set (D44).
 import { beforeAll, describe, expect, it } from 'vitest';
+import { HAVE_ICD10_FILE, HAVE_ICD11_FILE, needsCodes } from '#lib/codesets/icd11.fixture.ts';
 
 type Handler = (event: unknown) => Promise<Response> | Response;
 let GET: Handler;
@@ -11,7 +12,8 @@ beforeAll(async () => {
 
 const search = async (q: string) => (await GET({ url: new URL(`http://localhost/api/codes/dx?q=${encodeURIComponent(q)}`) })).json();
 
-describe('code finder API', () => {
+const HAVE = HAVE_ICD10_FILE && HAVE_ICD11_FILE;
+describe.skipIf(!HAVE)(needsCodes('code finder API (downloaded code files)', HAVE), () => {
 	it('ICD-10-CM by default, ICD-11 with WHO title, URI and leaf flag after the switch', async () => {
 		const a = await search('H25.13');
 		expect(a).toMatchObject({ system: 'icd10cm', codes: [{ code: 'H25.13', leaf: true }] });

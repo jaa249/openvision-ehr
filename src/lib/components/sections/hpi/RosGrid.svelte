@@ -105,7 +105,8 @@
 	h3 {
 		font-size: var(--text-sm);
 		font-weight: var(--weight-semibold);
-		margin: 0 auto 0 0;
+		margin: 0;
+		margin-inline-end: auto;
 	}
 	.act {
 		min-height: max(var(--target-min), 40px);

@@ -297,9 +297,9 @@ function planTables(db: DB): string[] {
 /**
  * Columns added to plan tables after exams were already signed, with their default. A row holding the
  * default hashes as if the column did not exist, so an exam signed before the column existed still
- * hashes the same; a row that uses the column (an ICD-11 item, D44) hashes it.
+ * hashes the same; a row that uses the column (an ICD-11 item, D44; a title language, D50) hashes it.
  */
-const LATER_COLUMN_DEFAULTS: Record<string, unknown> = { code_system: 'icd10cm', code_uris: '' };
+const LATER_COLUMN_DEFAULTS: Record<string, unknown> = { code_system: 'icd10cm', code_uris: '', title_lang: '' };
 const isLaterDefault = (k: string, v: unknown) => k in LATER_COLUMN_DEFAULTS && LATER_COLUMN_DEFAULTS[k] === v;
 
 function canonical(v: unknown): unknown {

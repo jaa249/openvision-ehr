@@ -172,7 +172,7 @@
 	"finderIcd11Release": "{set}, 2026-01 release.",
 	"finderEyeAddedRight": "The right eye is added to the code.",
 	"finderEyeAddedLeft": "The left eye is added to the code.",
-	"finderEyeAddedBoth": "The both eyes is added to the code.",
+	"finderEyeAddedBoth": "Bilateral (both eyes) is added to the code.",
 	"finderChooseEye": "Choose OD, OS or OU to add the eye.",
 	"finderCitation": "{citation}. Licence: CC BY-ND 3.0 IGO.",
 	"finderFailed": "Search failed.",
@@ -182,5 +182,10 @@
 	"finderCategory": "category: pick to see the codes under it",
 	"finderFailedConnection": "Search failed: check the connection.",
 	"finderNoIcd11": "No ICD-11 code matches. Try other words.",
-	"finderNoBillable": "No billable code matches. Try other words."
+	"finderNoBillable": "No billable code matches. Try other words.",
+	"finderNotDownloaded": "Diagnosis codes are not downloaded yet. An admin can download them in Settings › Code sets.",
+	"finderNotDownloadedAdmin": "Diagnosis codes are not downloaded yet. Download them in {link}.",
+	"finderCodeSetsLink": "Settings › Code sets",
+	"finderPlaceholderIcd11Lang": "Search code or words in English or {language}, e.g. 9C61",
+	"finderTitlesIn": "Titles in {language} from WHO's official {language} release."
 }
