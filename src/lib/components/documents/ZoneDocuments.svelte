@@ -5,8 +5,10 @@
 	// Files uploaded here belong to this visit, so they follow the exam lock (lockHeaders()).
 	import { lockHeaders } from '#lib/exam/lock.svelte.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 	import { uploadDocumentFile } from './client.ts';
 	import DocViewer from './DocViewer.svelte';
+	import { roving } from '../ui/roving.ts';
 	import { DOC_ACCEPT, DOC_ZONE_LABEL_KEY, type DocMeta, type DocZone, type ZoneCategorySummary } from './types.ts';
 
 	let { patientId, encounterId, zone }: { patientId: number; encounterId: number; zone: DocZone } = $props();
@@ -75,7 +77,10 @@
 	{:else if !cats}
 		<p class="muted">{t('documents.loading')}</p>
 	{:else}
-		<ul>
+		<!-- One Tab stop for the list (roving tabindex): Up/Down between categories, Left/Right between
+		     Upload, Camera and Latest; typing a category's first letters jumps to it. -->
+		<p class="visually-hidden" id="{uid}-keys">{t('documents.zoneKeysHint')}</p>
+		<ul aria-describedby="{uid}-keys" use:roving={{ items: 'button[data-row]', mode: 'grid', key: zone }}>
 			{#each cats as c (c.category)}
 				<li>
 					<span class="name">{c.name}</span>
@@ -102,14 +107,14 @@
 							aria-hidden="true"
 							onchange={(e) => upload(c, e.currentTarget.files)}
 						/>
-						<button type="button" disabled={busy !== null} onclick={() => inputs[c.category]?.click()}>
+						<button type="button" data-row={c.category} data-label={c.name} disabled={busy !== null} onclick={() => inputs[c.category]?.click()}>
 							{busy === c.category ? t('documents.uploading') : t('documents.upload')}<span class="visually-hidden"> {t('documents.uploadToHidden', { category: c.name })}</span>
 						</button>
-						<button type="button" class="camera" disabled={busy !== null} onclick={() => inputs[`${c.category}-cam`]?.click()}>
+						<button type="button" class="camera" data-row={c.category} data-label={c.name} disabled={busy !== null} onclick={() => inputs[`${c.category}-cam`]?.click()}>
 							{t('documents.camera')}<span class="visually-hidden"> {t('documents.cameraForHidden', { category: c.name })}</span>
 						</button>
 						{#if c.latest}
-							<button type="button" class="latest" onclick={() => (viewing = c.latest)} title={c.latest.notes || c.latest.filename}>
+							<button type="button" class="latest" data-row={c.category} data-label={c.name} onclick={() => (viewing = c.latest)} use:tip={c.latest.notes || c.latest.filename}>
 								{t('documents.latest')} <span class="num date">{c.latest.takenOn}</span><span class="visually-hidden"> {c.name}</span>
 							</button>
 						{:else}

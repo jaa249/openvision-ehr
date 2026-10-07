@@ -277,5 +277,16 @@
 	"auditActExportFhir": "تصدير بصيغة FHIR",
 	"auditActRxPrint": "طباعة الوصفة",
 	"auditActDocumentView": "فتح مستند",
-	"auditActDocumentDownload": "تنزيل مستند"
+	"auditActDocumentDownload": "تنزيل مستند",
+	"prefTextSize": "حجم النص",
+	"textSizeHint": "يكبّر النص وعناصر التحكم في كل الصفحات، فوق حجم النص المضبوط في Windows أو المتصفح. يظل التكبير (Ctrl و+) يعمل أيضًا.",
+	"textSizePercent": "{size}٪",
+	"textSizeStandard": "{size}٪ (قياسي)",
+	"prefUndoDuration": "إبقاء رسائل التراجع ظاهرة لمدة",
+	"undo10s": "10 ثوانٍ",
+	"undo30s": "30 ثانية",
+	"undoUntilDismissed": "حتى أغلقها",
+	"undoDurationHint": "الرسالة التي تظهر بعد «طبيعي» أو النسخ أو المسح أو اختيار سريع، مع زر التراجع. يتوقف الوقت ما دام المؤشر أو لوحة المفاتيح على الرسالة.",
+	"chooseUndoDuration": "اختر مدة بقاء رسائل التراجع.",
+	"chooseTextSize": "اختر حجم النص."
 }

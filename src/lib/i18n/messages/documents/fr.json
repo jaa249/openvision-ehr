@@ -89,5 +89,6 @@
 	"fileWrongType": "{name} n'est pas un PNG, JPEG ou PDF. Les photos de téléphone au format HEIC doivent d'abord être enregistrées en JPEG.",
 	"serverTooLarge": "Ce fichier dépasse la taille acceptée par le serveur. Les fichiers jusqu'à 15 Mo sont pris en charge quand le serveur tourne avec {setting} (demandez à votre administrateur).",
 	"visitLocked": "Cette consultation est signée ou en cours de modification ailleurs : ses documents ne peuvent pas être modifiés.",
-	"serverAnsweredSentence": "Le serveur a répondu {status}."
+	"serverAnsweredSentence": "Le serveur a répondu {status}.",
+	"zoneKeysHint": "Les flèches passent d'une catégorie à l'autre et entre leurs boutons ; tapez les premières lettres d'une catégorie pour y aller."
 }

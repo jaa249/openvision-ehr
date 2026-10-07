@@ -256,5 +256,16 @@
 	"auditActExportFhir": "Exportado como FHIR",
 	"auditActRxPrint": "Receta impresa",
 	"auditActDocumentView": "Documento abierto",
-	"auditActDocumentDownload": "Documento descargado"
+	"auditActDocumentDownload": "Documento descargado",
+	"prefTextSize": "Tamaño del texto",
+	"textSizeHint": "Agranda el texto y los controles en todas las páginas, además del tamaño de texto de Windows o del navegador. El zoom (Ctrl y +) también sigue funcionando.",
+	"textSizePercent": "{size} %",
+	"textSizeStandard": "{size} % (estándar)",
+	"prefUndoDuration": "Mantener visibles los mensajes de deshacer durante",
+	"undo10s": "10 segundos",
+	"undo30s": "30 segundos",
+	"undoUntilDismissed": "Hasta que lo cierre",
+	"undoDurationHint": "El mensaje tras Normal, copiar, borrar o una selección rápida, con su botón Deshacer. El tiempo se detiene mientras el puntero o el teclado están en el mensaje.",
+	"chooseUndoDuration": "Elija cuánto tiempo permanecen los mensajes de deshacer.",
+	"chooseTextSize": "Elija un tamaño de texto."
 }

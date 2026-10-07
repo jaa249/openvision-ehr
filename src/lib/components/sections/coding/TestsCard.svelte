@@ -150,8 +150,8 @@
 		cursor: pointer;
 	}
 	.check input {
-		width: 18px;
-		height: 18px;
+		width: 1.125rem;
+		height: 1.125rem;
 		flex: none;
 		accent-color: var(--accent);
 	}

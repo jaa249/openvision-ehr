@@ -1,6 +1,6 @@
 {
-	"legendCopied": "Copiado de una visita anterior.",
-	"legendDefault": "Sombreado: aún es el valor \"normal\" predeterminado.",
+	"legendCopied": "Barra discontinua: copiado de una visita anterior.",
+	"legendDefault": "Barra continua: aún es el valor \"normal\" predeterminado.",
 	"legendShorthand": "Abreviaturas: {codes}.",
 	"labelDefault": "{label} (predeterminado)",
 	"normal": "Normal",
@@ -585,5 +585,7 @@
 	"fieldDilationRisks": "Riesgos de la dilatación explicados",
 	"tgtSourceProviderNamed": "valor predeterminado de {name}",
 	"rxTransposeNeedSph": "{source} {eye}: introduzca la esfera (o PLANO) antes de transponer.",
-	"rxTransposeNeedAxis": "{source} {eye}: introduzca el eje antes de transponer."
+	"rxTransposeNeedAxis": "{source} {eye}: introduzca el eje antes de transponer.",
+	"labelCopied": "{label} (copiado del {date})",
+	"labelCopiedNoDate": "{label} (copiado)"
 }

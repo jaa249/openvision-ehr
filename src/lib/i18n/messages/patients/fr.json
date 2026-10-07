@@ -65,5 +65,6 @@
 	"nkdaMark": "Cocher « aucune allergie connue »",
 	"nkdaUnmark": "Décocher « aucune allergie connue »",
 	"allergyAdded": "Allergie ajoutée.",
-	"addAllergy": "Ajouter une allergie"
+	"addAllergy": "Ajouter une allergie",
+	"listTitle": "Patients · OpenVision"
 }

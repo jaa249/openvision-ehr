@@ -20,14 +20,21 @@
 	} from '#lib/exam/sections/workup.ts';
 	import { DILATION_DROPS, DIL_MEDS, DIL_RISKS, DIL_TIME, DROP_NAME_KEY, dropGiven, isDilated, risksDiscussed } from '#lib/exam/sections/dilation.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
+	import Abbr from '#lib/components/ui/Abbr.svelte';
+	import CodeHint from '#lib/components/ui/CodeHint.svelte';
+	import { tip } from '#lib/components/ui/tooltip.ts';
+	import { glossary } from '#lib/i18n/glossary.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { stateLabel, useCopiedFrom } from '#lib/exam/copied.ts';
 	import type { PanelProps } from './types.ts';
 	import { cellState, withValues } from './workup/cell.ts';
 	import { effectiveTarget, type Fallback } from './workup/IopTargets.svelte';
 
 	type Side = 'OD' | 'OS';
 	let { context, findings, preview, copied, defaults, onedit, oncommit }: PanelProps = $props();
-	const { t } = useI18n();
+	const i18n = useI18n();
+	const { t } = i18n;
+	const copiedFrom = useCopiedFrom();
 	const quadLabel = (n: 1 | 2 | 3 | 4) => t(VF_QUADRANT_LABEL_KEY[n]);
 
 	const cell = (id: string) => cellState(id, findings, preview, copied);
@@ -151,7 +158,7 @@
 			value={c.value}
 			inputmode={opts.numeric ? 'decimal' : 'text'}
 			autocomplete="off"
-			aria-label={c.isDefault ? t('sections.labelDefault', { label }) : label}
+			aria-label={stateLabel(t, label, { isDefault: c.isDefault, copied: c.copied, date: copiedFrom(id) })}
 			placeholder="–"
 			oninput={(e) => onedit(id, e.currentTarget.value)}
 			onchange={opts.react
@@ -178,7 +185,7 @@
 			placeholder="–"
 			oninput={(e) => typeIop(id, e.currentTarget.value, timeId)}
 		/>
-		{#if high}<span class="flag" title={t('sections.iopAboveTargetTitle', { target: target[eye] })}>▲ {t('sections.iopHigh')}</span>{/if}
+		{#if high}<span class="flag" use:tip={t('sections.iopAboveTargetTitle', { target: target[eye] })}>▲ {t('sections.iopHigh')}</span>{/if}
 	</td>
 {/snippet}
 
@@ -199,32 +206,32 @@
 		<!-- Tension -->
 		<div class="panel" role="group" aria-labelledby="tension-title">
 			<div class="card-head">
-				<h3 id="tension-title">{t('sections.iopTension')} <span class="unit">mmHg</span></h3>
+				<h3 id="tension-title">{t('sections.iopTension')} <span class="unit"><Abbr code="mmHg" /></span></h3>
 				<button type="button" class="mini" onclick={clearIop}>{t('sections.clear')}</button>
 			</div>
 			<table class="eye-ltr">
 				<thead>
 					<tr>
 						<th scope="col" class="rowhead"><span class="visually-hidden">{t('sections.rxMethod')}</span></th>
-						<th scope="col"><span class="eye od">{t('sections.eyeOdR')}</span></th>
-						<th scope="col"><span class="eye os">{t('sections.eyeOsL')}</span></th>
+						<th scope="col"><span class="eye od" use:tip={t('tips.eyeOd')}>{t('sections.eyeOdR')}</span></th>
+						<th scope="col"><span class="eye os" use:tip={t('tips.eyeOs')}>{t('sections.eyeOsL')}</span></th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each IOP_METHODS as m (m.key)}
 						{@const method = t(IOP_METHOD_LABEL_KEY[m.key])}
 						<tr>
-							<th scope="row">{method}<span class="code">{m.od} · {m.os}</span></th>
+							<th scope="row">{#if m.key === 'TPN'}<Abbr code="Tono-Pen" text={method} />{:else}{method}{/if}<CodeHint hint="{m.od} · {m.os}" /></th>
 							{@render iopCell(m.od, 'OD', t('sections.iopCellLabel', { method, eye: 'OD' }), m.numeric, 'IOPTIME')}
 							{@render iopCell(m.os, 'OS', t('sections.iopCellLabel', { method, eye: 'OS' }), m.numeric, 'IOPTIME')}
 						</tr>
 					{/each}
 					<tr>
-						<th scope="row">{t('sections.iopTime')}<span class="code">IOPTIME</span></th>
+						<th scope="row">{t('sections.iopTime')}<CodeHint hint="IOPTIME" /></th>
 						<td colspan="2" class="cell">{@render timeBox('IOPTIME', t('sections.iopTimeLabel'))}</td>
 					</tr>
 					<tr>
-						<th scope="row">{t('sections.iopTarget')}<span class="code">ODIOPTARGET · OSIOPTARGET</span></th>
+						<th scope="row">{t('sections.iopTarget')}<CodeHint hint="ODIOPTARGET · OSIOPTARGET" /></th>
 						{#each ['OD', 'OS'] as const as eye (eye)}
 							{@const id = `${eye}IOPTARGET`}
 							{@const c = cell(id)}
@@ -244,12 +251,12 @@
 					</tr>
 					<tr class="divider"><td colspan="3"></td></tr>
 					<tr>
-						<th scope="row">{t('sections.iopPostDilation')}<span class="code">ODIOPPOST · OSIOPPOST</span></th>
+						<th scope="row">{t('sections.iopPostDilation')}<CodeHint hint="ODIOPPOST · OSIOPPOST" /></th>
 						{@render iopCell('ODIOPPOST', 'OD', t('sections.iopPostDilationLabel', { eye: 'OD' }), true, 'IOPPOSTTIME')}
 						{@render iopCell('OSIOPPOST', 'OS', t('sections.iopPostDilationLabel', { eye: 'OS' }), true, 'IOPPOSTTIME')}
 					</tr>
 					<tr>
-						<th scope="row">{t('sections.iopPostTime')}<span class="code">IOPPOSTTIME</span></th>
+						<th scope="row">{t('sections.iopPostTime')}<CodeHint hint="IOPPOSTTIME" /></th>
 						<td colspan="2" class="cell">{@render timeBox('IOPPOSTTIME', t('sections.iopPostTimeLabel'))}</td>
 					</tr>
 				</tbody>
@@ -265,7 +272,7 @@
 						{@const on = dropGiven(findings, d.id)}
 						{@const name = t(DROP_NAME_KEY[d.id])}
 						<span class="drop" class:on class:ghost={c.ghost} class:copied={c.copied} data-field={d.id}>
-							<button type="button" class="drop-btn" aria-pressed={on} onclick={() => toggleDrop(d.id, d.strengths[0])}>
+							<button type="button" class="drop-btn" aria-pressed={on} use:tip={t('tips.dropGiven', { name })} onclick={() => toggleDrop(d.id, d.strengths[0])}>
 								<span class="tick" aria-hidden="true">{on ? '✓' : '+'}</span>
 								{name}
 								{#if d.strengths.length === 1}<span class="strength">{d.strengths[0]}</span>{/if}
@@ -290,11 +297,11 @@
 				</div>
 				<div class="dil-row">
 					<label class="dil-other" class:ghost={mc.ghost} class:copied={mc.copied} data-field={DIL_MEDS}>
-						<span>{t('sections.dilOtherDrops')} <span class="code inline">DIL</span></span>
+						<span>{t('sections.dilOtherDrops')} <CodeHint hint="DIL" inline /></span>
 						<input value={mc.value} maxlength="200" autocomplete="off" placeholder={t('sections.dilOtherPlaceholder')} oninput={(e) => onedit(DIL_MEDS, e.currentTarget.value)} />
 					</label>
 					<span class="dil-time">
-						<span id="dil-time-label">{t('sections.iopTime')} <span class="code inline">DILTIME</span></span>
+						<span id="dil-time-label">{t('sections.iopTime')} <CodeHint hint="DILTIME" inline /></span>
 						<span class="time" class:ghost={tc.ghost} class:copied={tc.copied} data-field={DIL_TIME}>
 							<input class="s num" value={tc.value} maxlength="10" autocomplete="off" aria-labelledby="dil-time-label" placeholder={t('sections.timePlaceholder')} oninput={(e) => onedit(DIL_TIME, e.currentTarget.value)} />
 							<button type="button" class="mini tall" aria-label={t('sections.dilTimeNow')} onclick={() => onedit(DIL_TIME, formatTime(new Date()))}>{t('sections.now')}</button>
@@ -323,13 +330,13 @@
 				<thead>
 					<tr>
 						<th scope="col" class="rowhead"><span class="visually-hidden">{t('sections.measure')}</span></th>
-						<th scope="col"><span class="eye od">{t('sections.eyeOdR')}</span></th>
-						<th scope="col"><span class="eye os">{t('sections.eyeOsL')}</span></th>
+						<th scope="col"><span class="eye od" use:tip={t('tips.eyeOd')}>{t('sections.eyeOdR')}</span></th>
+						<th scope="col"><span class="eye os" use:tip={t('tips.eyeOs')}>{t('sections.eyeOsL')}</span></th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
-						<th scope="row">{t('sections.pupilSizeLight')} <span class="unit">mm</span></th>
+						<th scope="row">{t('sections.pupilSizeLight')} <span class="unit"><Abbr code="mm" /></span></th>
 						{#each ['OD', 'OS'] as const as eye (eye)}
 							<td class="cell">
 								<span class="range">
@@ -347,7 +354,7 @@
 						{/each}
 					</tr>
 					<tr>
-						<th scope="row">{t('sections.pupilApd')}<span class="code">RAPD · LAPD</span></th>
+						<th scope="row"><Abbr code="APD" text={t('sections.pupilApd')} /><CodeHint hint="RAPD · LAPD" /></th>
 						{#each ['OD', 'OS'] as const as eye (eye)}
 							<td class="cell">{@render text(PUPIL_IDS[eye].apd, t('sections.pupilApdLabel', { eye }))}</td>
 						{/each}
@@ -369,7 +376,7 @@
 					<table class="eye-ltr">
 						<tbody>
 							<tr>
-								<th scope="row" class="rowhead">{t('sections.pupilSizeDim')} <span class="unit">mm</span></th>
+								<th scope="row" class="rowhead">{t('sections.pupilSizeDim')} <span class="unit"><Abbr code="mm" /></span></th>
 								{#each ['OD', 'OS'] as const as eye (eye)}
 									<td class="cell">
 										<span class="range">
@@ -389,7 +396,7 @@
 						</tbody>
 					</table>
 					<label class="comments">
-						<span>{t('sections.pupilComments')} <span class="code inline">PUPCOM</span></span>
+						<span>{t('sections.pupilComments')} <CodeHint hint="PUPCOM" inline /></span>
 						<textarea
 							rows="2"
 							class:ghost={pc.ghost}
@@ -407,8 +414,9 @@
 			<div class="card-head">
 				<h3 id="fields-title">{t('sections.vfTitle')} <span class="unit">{t('sections.vfConfrontation')}</span></h3>
 				<label class="check">
-					<input type="checkbox" aria-label={t('sections.vfUndoFull')} checked={ftcf} onchange={(e) => setFtcf(e.currentTarget.checked)} />
-					{t('sections.vfFullToCf')}
+					<!-- Named by its visible text (WCAG 2.5.3); the group heading says it is about the fields. -->
+					<input type="checkbox" checked={ftcf} onchange={(e) => setFtcf(e.currentTarget.checked)} />
+					<span use:tip={{ text: t('tips.fullToCf'), host: true }}>{t('sections.vfFullToCf')}</span>
 				</label>
 				<button type="button" class="mini" onclick={clearFields}>{t('sections.vfNotTested')}</button>
 			</div>
@@ -431,8 +439,8 @@
 									class:copied={c.copied}
 									data-field={id}
 									aria-pressed={c.value === '1'}
-									aria-label={t('sections.vfQuadDefect', { quadrant: qLabel, eye })}
-									title={t('sections.vfQuadTitle', { quadrant: qLabel, eye })}
+									aria-label="{q.short}: {t('sections.vfQuadDefect', { quadrant: qLabel, eye })}"
+									use:tip={t('tips.vfQuad', { quadrant: qLabel, eye })}
 									onclick={() => toggleQuadrant(id)}
 								>
 									<span class="q-short">{q.short}</span>
@@ -490,7 +498,7 @@
 	}
 	.cards {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 21.25rem), 1fr)); /* rem: reflows as text grows (D53) */
 		gap: var(--space-4);
 		align-items: start;
 	}
@@ -667,8 +675,8 @@
 		cursor: pointer;
 	}
 	.check input {
-		width: 18px;
-		height: 18px;
+		width: 1.125rem;
+		height: 1.125rem;
 		accent-color: var(--accent);
 	}
 	.hint,
@@ -721,7 +729,7 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 2px;
 		width: 100%;
-		max-width: 180px;
+		max-width: 11.25rem;
 	}
 	.quad {
 		display: grid;

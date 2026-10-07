@@ -6,6 +6,8 @@ import { securityAudit } from '#lib/server/security_audit.ts';
 import { SHELL_HEADER, SHELL_REFUSED, shellTokenOk } from '#lib/server/shell.ts';
 import { LANG_COOKIE, resolveLocale, serverT } from '#lib/server/i18n.ts';
 import { localeDir, localeTag } from '#lib/i18n/locales.ts';
+import { getPrefs } from '#lib/server/prefs.ts';
+import { rootFontStyle } from '#lib/prefs/textsize.ts';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const CHART_PAGE = /^\/patients\/(\d+)$/;
@@ -89,6 +91,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// ov_lang cookie, else the browser's language during first-run setup, else the practice default.
 	const locale = resolveLocale(db, user ? user.id : null, event.request.headers.get('accept-language'), event.cookies.get(LANG_COOKIE));
 	event.locals.locale = locale;
+	// The user's text size (D53), on <html> from the first byte so the page never jumps.
+	event.locals.textSize = user && routeKind(path) !== 'api' && !path.startsWith('/_app/') ? getPrefs(db, user.id).textSize : '100';
 
 	const kind = routeKind(path);
 	if (!user && kind !== 'public') {
@@ -106,7 +110,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	const response = await resolve(event, {
-		transformPageChunk: ({ html }) => html.replace('<html lang="en">', `<html lang="${localeTag(locale)}" dir="${localeDir(locale)}">`)
+		transformPageChunk: ({ html }) => {
+			const style = rootFontStyle(event.locals.textSize);
+			return html.replace('<html lang="en">', `<html lang="${localeTag(locale)}" dir="${localeDir(locale)}"${style ? ` style="${style}"` : ''}>`);
+		}
 	});
 	if (user && kind === 'page' && event.request.method === 'GET' && response.status === 200) auditChartView(db, user.id, path);
 	return secure(response, !!user);

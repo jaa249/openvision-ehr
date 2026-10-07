@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { EXAM_MODES, EXAM_MODE_LABEL_KEY, type ExamMode } from '#lib/prefs/keys.ts';
+	import { EXAM_MODES, EXAM_MODE_LABEL_KEY, UNDO_DURATIONS, type ExamMode } from '#lib/prefs/keys.ts';
+	import { TEXT_SIZES, applyTextSize } from '#lib/prefs/textsize.ts';
 	import { PASSWORD_MAX, PASSWORD_MIN } from '#lib/components/settings/rules.ts';
 	import LanguageSelect from '#lib/components/settings/LanguageSelect.svelte';
+	import TooltipSettings from '#lib/components/settings/TooltipSettings.svelte';
 	import Msg from '#lib/i18n/Msg.svelte';
 	import { useI18n } from '#lib/i18n/context.ts';
 	import type { FullAutoFill } from 'svelte/elements';
@@ -78,6 +80,40 @@
 					</select>
 					{#if pErr.examMode}<p class="err" id="examMode-err">{pErr.examMode}</p>{/if}
 				</div>
+				<div class="field">
+					<label for="textSize">{t('settings.prefTextSize')}</label>
+					<!-- Shown at once as a preview; Save keeps it (the page goes back to the saved size otherwise). -->
+					<select
+						id="textSize"
+						name="textSize"
+						onchange={(e) => applyTextSize(e.currentTarget.value)}
+						aria-invalid={pErr.textSize ? 'true' : undefined}
+						aria-describedby={describe(pErr, 'textSize', true)}
+					>
+						{#each TEXT_SIZES as s (s)}
+							<option value={s} selected={(pv?.textSize ?? data.textSize) === s}>{s === '100' ? t('settings.textSizeStandard', { size: s }) : t('settings.textSizePercent', { size: s })}</option>
+						{/each}
+					</select>
+					<p class="hint" id="textSize-hint">{t('settings.textSizeHint')}</p>
+					{#if pErr.textSize}<p class="err" id="textSize-err">{pErr.textSize}</p>{/if}
+				</div>
+				<div class="field">
+					<label for="undoDuration">{t('settings.prefUndoDuration')}</label>
+					<select
+						id="undoDuration"
+						name="undoDuration"
+						aria-invalid={pErr.undoDuration ? 'true' : undefined}
+						aria-describedby={describe(pErr, 'undoDuration', true)}
+					>
+						{#each UNDO_DURATIONS as d (d)}
+							<option value={d} selected={(pv?.undoDuration ?? data.undoDuration) === d}
+								>{d === 'never' ? t('settings.undoUntilDismissed') : d === '30' ? t('settings.undo30s') : t('settings.undo10s')}</option
+							>
+						{/each}
+					</select>
+					<p class="hint" id="undoDuration-hint">{t('settings.undoDurationHint')}</p>
+					{#if pErr.undoDuration}<p class="err" id="undoDuration-err">{pErr.undoDuration}</p>{/if}
+				</div>
 				<LanguageSelect
 					id="locale"
 					label={t('common.language')}
@@ -92,6 +128,8 @@
 				</div>
 			</fieldset>
 		</form>
+		<!-- Saved at once, outside the profile form (D52). -->
+		<TooltipSettings />
 	{/if}
 
 	<form method="POST" action="?/password" novalidate use:enhance={submit('password')}>

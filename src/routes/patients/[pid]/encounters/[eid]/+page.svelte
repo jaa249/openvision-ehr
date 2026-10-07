@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { loadPrefs } from '#lib/prefs/client.ts';
 	import { FIELDS, SECTIONS, SECTION_DEF, fieldId, sectionLabel, type SectionId } from '#lib/exam/catalog.ts';
 	import { applyPick, type QuickPick } from '#lib/exam/quickpicks.ts';
@@ -18,7 +18,15 @@
 	import ShorthandBar from '#lib/components/ShorthandBar.svelte';
 	import CustomSection from '#lib/components/sections/CustomSection.svelte';
 	import DrawingPanel from '#lib/components/DrawingPanel.svelte';
+	import UndoToast from '#lib/components/UndoToast.svelte';
+	import { currentFocus, openModal } from '#lib/components/ui/dialog.ts';
+	import { roving } from '#lib/components/ui/roving.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
+	import KeyboardHelp from '#lib/components/KeyboardHelp.svelte';
+	import ExamTour from '#lib/components/ExamTour.svelte';
+	import { MODE_KEYS, MODE_SHORTCUT, matchSectionKey, matchShortcut, openKeyboardHelp } from '#lib/exam/shortcuts.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { setCopiedFrom } from '#lib/exam/copied.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
 	import type { PageProps } from './$types';
@@ -39,6 +47,12 @@
 	let priorIndex = $state(0);
 	/** Fields filled by copy-forward; tinted until edited (spec §6.3). */
 	let copied = $state(new Set<string>());
+	/** Which visit each copied field came from (ISO date), for its accessible name: "(copied from …)". */
+	const copiedDates = new Map<string, string>();
+	setCopiedFrom((id) => {
+		const d = copiedDates.get(id);
+		return d ? i18n.date(d) : undefined;
+	});
 	let bar: ShorthandBar;
 
 	// svelte-ignore state_referenced_locally
@@ -66,7 +80,7 @@
 		staffProvider = String(encounter.providerId);
 		staffTech = encounter.technicianId == null ? '' : String(encounter.technicianId);
 		staffError = null;
-		staffDialog?.showModal();
+		openModal(staffDialog);
 	}
 
 	async function saveStaff() {
@@ -108,6 +122,7 @@
 		}
 		if (!changed.length) return;
 		findings = next;
+		for (const id of changed) copiedDates.delete(id); // from the saved copy, not from a visit
 		copied = new Set([...copied, ...changed]);
 	}
 
@@ -141,17 +156,21 @@
 
 	/** Saves everything first, then asks for confirmation (the dialog lists what signing locks). */
 	async function startSign() {
+		// The Sign button is disabled while everything saves, so focus would fall to the page: remember
+		// it now and return there when the dialog closes (Escape, Cancel); after signing, to the exam.
+		const opener = currentFocus() ?? document.querySelector<HTMLElement>('button.sign');
 		signError = null;
 		signing = true;
 		// Findings, drawings, plan items and orders: every one saved, or no signing.
 		const saved = (await saver.settle()) && (await flushAll());
 		signing = false;
+		await tick(); // the dialog's buttons are enabled again before focus moves into it
 		if (!saved) {
 			notice = t('exam.noticeNotSigned');
 			setTimeout(() => (notice = null), 8000);
 			return;
 		}
-		signDialog?.showModal();
+		openModal(signDialog, { opener, fallback: () => document.getElementById('exam') });
 	}
 
 	async function confirmSign() {
@@ -224,10 +243,10 @@
 	/** Zones with a drawing canvas (spec §5.1). */
 	const DRAW_ZONES: SectionId[] = ['HPI', 'EXT', 'ANTSEG', 'RETINA', 'NEURO', 'IMPPLAN'];
 	const ALL_MODES = [
-		{ id: 'text', label: 'exam.modeType', key: 't' },
-		{ id: 'qp', label: 'exam.modeQuickPicks', key: 'b' },
-		{ id: 'priors', label: 'exam.modePriors', key: 'p' },
-		{ id: 'draw', label: 'exam.modeDraw', key: 'd' }
+		{ id: 'text', label: 'exam.modeType', key: MODE_KEYS.text },
+		{ id: 'qp', label: 'exam.modeQuickPicks', key: MODE_KEYS.qp },
+		{ id: 'priors', label: 'exam.modePriors', key: MODE_KEYS.priors },
+		{ id: 'draw', label: 'exam.modeDraw', key: MODE_KEYS.draw }
 	] as const satisfies readonly { id: string; label: MessageKey; key: string }[];
 	const MODES = $derived(
 		ALL_MODES.filter(
@@ -304,7 +323,8 @@
 		before: Findings;
 	}
 	let undoEntry = $state<UndoEntry | null>(null);
-	let undoTimer: ReturnType<typeof setTimeout> | undefined;
+	/** The message strip; its countdown follows the user's pref and pauses while it is in use. */
+	let toast = $state<UndoToast>();
 
 	function commit(next: Findings, changed: string[], label?: string) {
 		if (changed.length === 0) return;
@@ -318,8 +338,6 @@
 			const before: Findings = {};
 			for (const id of changed) before[id] = findings[id] ?? { value: '', isDefault: false };
 			undoEntry = { label, before };
-			clearTimeout(undoTimer);
-			undoTimer = setTimeout(() => (undoEntry = null), 10000);
 		}
 		findings = next;
 		if (changed.some((id) => copied.has(id))) copied = new Set([...copied].filter((id) => !changed.includes(id)));
@@ -407,6 +425,7 @@
 				? t('exam.undoCopiedAll', { date: prior.date })
 				: t('exam.undoCopiedSection', { section: sectionLabel(current.id, t), date: prior.date })
 		);
+		for (const id of changed) copiedDates.set(id, prior.date);
 		copied = new Set([...copied, ...changed]);
 	}
 
@@ -475,36 +494,54 @@
 	}
 
 	// ---------- keyboard ----------
+	// Which key does what lives in #lib/exam/shortcuts.ts, shared with the keyboard help sheet (D56).
 	function onkeydown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
-		const typing = target.closest('input, textarea, select, [contenteditable]');
-		if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'k') {
-			e.preventDefault();
-			bar.focus();
-			return;
-		}
-		// Alt+T / Alt+B / Alt+P: Type, Quick picks, Prior visits (decision D4).
-		const m = e.altKey && !e.ctrlKey && !e.metaKey ? MODES.find((m) => m.key === e.key.toLowerCase()) : undefined;
-		if (m) {
-			e.preventDefault();
-			mode = m.id;
-			return;
-		}
-		// Ctrl+P prints the exam report, not a screenshot of the editing screen.
-		if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'p') {
-			e.preventDefault();
-			printExam();
-			return;
-		}
-		if (typing || e.altKey || e.ctrlKey || e.metaKey) {
-			if (!typing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && undoEntry) {
+		const typing = !!target.closest('input, textarea, select, [contenteditable]');
+		const id = matchShortcut(e, typing);
+		switch (id) {
+			case 'shorthand':
 				e.preventDefault();
-				undo();
+				bar.focus();
+				return;
+			// Alt+T / Alt+B / Alt+P / Alt+D: Type, Quick picks, Prior visits, Drawing (decision D4); only helpers this section has.
+			case 'modeText':
+			case 'modeQp':
+			case 'modePriors':
+			case 'modeDraw': {
+				const m = MODES.find((m) => MODE_SHORTCUT[m.id] === id);
+				if (m) {
+					e.preventDefault();
+					mode = m.id;
+				}
+				return;
 			}
-			return;
+			// Ctrl+P prints the exam report, not a screenshot of the editing screen.
+			case 'print':
+				e.preventDefault();
+				printExam();
+				return;
+			case 'undo':
+			// Alt+U: the same undo, also from inside a text box (Ctrl+Z there is the box's own undo).
+			case 'undoAnywhere':
+				if (undoEntry) {
+					e.preventDefault();
+					undo();
+				}
+				return;
+			// Alt+Shift+U: focus the undo message (Escape there dismisses it and returns).
+			case 'focusMessage':
+				if (toast?.focus()) e.preventDefault();
+				return;
+			// ? (not in a text box) and F1: the keyboard and shorthand help sheet.
+			case 'help':
+			case 'helpF1':
+				e.preventDefault();
+				openKeyboardHelp();
+				return;
 		}
-		const s = sections.find((s) => s.key === e.key);
-		if (s) section = s.id;
+		const s = matchSectionKey(e, typing, sections);
+		if (s) section = s;
 	}
 
 	onMount(() => {
@@ -548,7 +585,7 @@
 </script>
 
 <svelte:window {onkeydown} />
-<svelte:head><title>{t('exam.pageTitle', { name: data.patient.name })}</title></svelte:head>
+<svelte:head><title>{t('exam.pageTitleVisit', { name: data.patient.name, date: encounter.date, type: encounter.visitType })}</title></svelte:head>
 
 <a class="skip" href="#exam">{t('exam.skipToExam')}</a>
 <p class="print-hint">{t('exam.printHint')}</p>
@@ -610,16 +647,19 @@
 		{/if}
 	</div>
 	<div class="body">
-		<SectionRail {sections} current={section} {findings} onselect={(id) => (section = id)} />
+		<SectionRail {sections} current={section} {findings} defaults={data.defaults} onselect={(id) => (section = id)} />
 		<main id="exam" tabindex="-1">
 			{#if sec || custom}
-				<div class="modes" role="group" aria-label={t('exam.helperPanel')}>
+				<!-- One Tab stop; arrow keys move between the helpers (and Alt+T/B/P/D pick one directly). -->
+				<div class="modes" role="toolbar" aria-label={t('exam.helperPanel')} use:roving={{ items: 'button', typeahead: false }}>
 					{#each MODES as m (m.id)}
 						<button
 							type="button"
 							aria-pressed={activeMode === m.id}
 							aria-keyshortcuts="Alt+{m.key.toUpperCase()}"
-							title="Alt+{m.key.toUpperCase()}"
+							use:tip={m.id === 'priors' && data.priors.length
+								? t('tips.modePriorsTip', { label: t(m.label), keys: `Alt+${m.key.toUpperCase()}`, count: data.priors.length })
+								: t('tips.modeTip', { label: t(m.label), keys: `Alt+${m.key.toUpperCase()}` })}
 							onclick={() => (mode = m.id)}
 						>
 							{t(m.label)}{#if m.id === 'priors' && data.priors.length}<span class="count">{data.priors.length}</span>{/if}
@@ -684,9 +724,12 @@
 		</main>
 	</div>
 	<div class="bar" inert={readonly}>
-		<ShorthandBar bind:this={bar} bind:text={shorthand} result={parsed} onsubmit={submitShorthand} />
+		<ShorthandBar bind:this={bar} bind:text={shorthand} result={parsed} onsubmit={submitShorthand} picks={data.quickPicks} defaults={data.defaults} />
 	</div>
 </div>
+
+<KeyboardHelp {sections} current={section} />
+<ExamTour disabled={readonly} />
 
 <dialog class="confirm" bind:this={staffDialog} aria-labelledby="staff-title">
 	<h2 id="staff-title">{t('exam.staffTitle')}</h2>
@@ -725,21 +768,22 @@
 	<p class="hint">{t('exam.signHint')}</p>
 	{#if signError}<p class="err" role="alert">{signError}</p>{/if}
 	<div class="actions">
-		<button type="button" onclick={() => signDialog?.close()} disabled={signing}>{t('exam.cancel')}</button>
+		<button type="button" onclick={() => signDialog?.close()} disabled={signing} data-initial-focus>{t('exam.cancel')}</button>
 		<button type="button" class="primary" onclick={confirmSign} disabled={signing}>{signing ? t('exam.signing') : t('exam.signAs', { name: data.user.displayName })}</button>
 	</div>
 </dialog>
 
-{#if notice}
-	<div class="toast error" role="alert">{notice}</div>
-{:else if undoEntry}
-	<div class="toast" role="status">
-		<span>{undoEntry.label}{historyNote ? ` · ${historyNote}` : ''}</span>
-		<button type="button" onclick={undo}><Msg key="exam.undoButton">{#snippet keys()}<kbd>Ctrl Z</kbd>{/snippet}</Msg></button>
-	</div>
-{:else if historyNote}
-	<div class="toast" role="status">{historyNote}</div>
-{/if}
+<UndoToast
+	bind:this={toast}
+	undo={undoEntry}
+	note={historyNote}
+	{notice}
+	onundo={undo}
+	ondismiss={() => {
+		undoEntry = null;
+		historyNote = null;
+	}}
+/>
 
 <style>
 	.top {
@@ -852,7 +896,8 @@
 	}
 	.body {
 		display: grid;
-		grid-template-columns: 168px 1fr;
+		/* rem: the rail widens with the text size (D53). */
+		grid-template-columns: 10.5rem minmax(0, 1fr);
 		min-height: 0;
 	}
 	main {
@@ -893,11 +938,13 @@
 	}
 	.work {
 		display: grid;
+		/* Never wider than the exam area: wide content wraps or scrolls inside its own box (WCAG 1.4.10). */
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-4);
 		align-items: start;
 	}
 	.work.with-aside {
-		grid-template-columns: minmax(0, 1fr) 320px;
+		grid-template-columns: minmax(0, 1fr) 20rem;
 	}
 	.work.with-aside.wide-aside {
 		grid-template-columns: minmax(0, 1fr) 484px;
@@ -920,7 +967,7 @@
 		}
 	}
 	/* Stack the helper under the exam when the work area (not the window) gets narrow. */
-	@container (max-width: 1000px) {
+	@container (max-width: 62.5rem) {
 		.work.with-aside,
 		.work.with-aside.wide-aside {
 			grid-template-columns: minmax(0, 1fr);
@@ -957,21 +1004,6 @@
 		background: var(--surface-3);
 		padding: var(--space-2) var(--space-3);
 	}
-	.toast {
-		position: fixed;
-		left: 50%;
-		bottom: calc(var(--target-min) + var(--space-6));
-		transform: translateX(-50%);
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding-block: var(--space-2);
-		padding-inline: var(--space-4) var(--space-2);
-		background: var(--surface-3);
-		border-radius: var(--radius-2);
-		box-shadow: var(--shadow-overlay);
-		animation: toast-in var(--dur-panel-in) var(--ease-enter);
-	}
 	.print-hint {
 		display: none;
 	}
@@ -979,7 +1011,6 @@
 	@media print {
 		.frame,
 		.confirm,
-		.toast,
 		.skip {
 			display: none;
 		}
@@ -989,23 +1020,56 @@
 			margin: 1in;
 		}
 	}
-	.toast.error {
-		color: var(--danger);
-		padding-inline-end: var(--space-4);
-	}
-	@keyframes toast-in {
-		from {
-			opacity: 0;
-			transform: translate(-50%, 6px);
-		}
-	}
-	@media (max-width: 900px) {
+	@media (max-width: 56.25em) {
 		.body {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: auto 1fr;
 		}
 		main {
 			padding: var(--space-3) var(--space-4);
+		}
+	}
+	/* Short viewport in lines of text (200% zoom, a large text size, a small window; D53, WCAG 1.4.10):
+	   pinned chrome would leave a few lines for the exam. The page then scrolls as a whole: banner, rail
+	   strip and helper switcher scroll away; only the shorthand bar stays pinned at the bottom (a rail
+	   column stays beside the exam, it costs no height). <html data-short> comes from #lib/prefs/textsize.ts. */
+	:global(html[data-short]) .frame {
+		height: auto;
+		min-height: 100dvh;
+	}
+	:global(html[data-short]) .top {
+		position: static;
+	}
+	:global(html[data-short]) .top :global(.banner) {
+		position: static;
+	}
+	:global(html[data-short]) main {
+		overflow: visible;
+	}
+	:global(html[data-short]) .bar {
+		position: sticky;
+		bottom: 0;
+		z-index: 20;
+		background: var(--surface-1);
+	}
+	/* Pinned over the exam, a read-only bar is dimmed inside, not see-through. */
+	:global(html[data-short]) .bar[inert] {
+		opacity: 1;
+	}
+	:global(html[data-short]) .bar[inert] > :global(*) {
+		opacity: 0.6;
+	}
+	:global(html[data-short]) .aside {
+		position: static;
+		max-height: none;
+	}
+	@media (min-width: 56.25em) {
+		:global(html[data-short]) .body > :global(.rail-wrap) {
+			position: sticky;
+			top: 0;
+			align-self: start;
+			/* Clear of the pinned shorthand bar. */
+			max-height: calc(100dvh - 5rem);
 		}
 	}
 </style>

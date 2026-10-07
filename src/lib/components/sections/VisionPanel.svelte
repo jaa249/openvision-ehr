@@ -5,14 +5,20 @@
 	import { VA_ROWS, VA_ROW_LABEL_KEY, amslerValue, normalizeVA, type VaRow } from '#lib/exam/sections/workup.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { stateLabel, useCopiedFrom } from '#lib/exam/copied.ts';
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
 	import type { PanelProps } from './types.ts';
 	import { cellState, replaceKeepingCaret, withValues } from './workup/cell.ts';
 	import AmslerGrid from './workup/AmslerGrid.svelte';
 	import VaHistory from './workup/VaHistory.svelte';
+	import Abbr from '#lib/components/ui/Abbr.svelte';
+	import CodeHint from '#lib/components/ui/CodeHint.svelte';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 
 	let { context, findings, preview, copied, onedit, oncommit }: PanelProps = $props();
-	const { t } = useI18n();
+	const i18n = useI18n();
+	const { t } = i18n;
+	const copiedFrom = useCopiedFrom();
 	/** Acuity history dialog (§8.2). */
 	let historyOpen = $state(false);
 
@@ -37,6 +43,8 @@
 		LI: 'sections.visionLongLi'
 	};
 	const rowLabel = (r: VaRow) => t(VA_ROW_LABEL_KEY[r.key]);
+	/** The long name of a row ("sc" -> "without correction"), shown in the tip and read with the row header. */
+	const longName = (r: VaRow | undefined) => (r && LONG[r.key] ? t(LONG[r.key]) : '');
 	const vaLabel = (r: VaRow, eye: 'OD' | 'OS') => t('sections.vaCellLabel', { row: rowLabel(r), eye });
 	const SNELLEN = ['20/15', '20/20', '20/25', '20/30', '20/40', '20/50', '20/60', '20/70', '20/80', '20/100', '20/200', '20/400', 'CF', 'HM', 'LP', 'NLP'];
 	const JAEGER = ['J1+', 'J1', 'J2', 'J3', 'J5', 'J7', 'J10', 'J16'];
@@ -104,7 +112,7 @@
 			maxlength="25"
 			autocomplete="off"
 			spellcheck="false"
-			aria-label={c.isDefault ? t('sections.labelDefault', { label }) : label}
+			aria-label={stateLabel(t, label, { isDefault: c.isDefault, copied: c.copied, date: copiedFrom(id) })}
 			placeholder="–"
 			onfocus={() => (active = id)}
 			oninput={(e) => type(id, e.currentTarget)}
@@ -115,8 +123,8 @@
 {#snippet vaRow(r: VaRow)}
 	<tr class:current={activeRow?.key === r.key}>
 		<th scope="row">
-			<span class="rowname" title={LONG[r.key] ? t(LONG[r.key]) : ''}>{rowLabel(r)}</span>
-			<span class="code" title={t('sections.shorthandCodes')}>{r.od} · {r.os}</span>
+			<span class="rowname" use:tip={{ text: longName(r), describe: false }}>{rowLabel(r)}</span>{#if longName(r)}<span class="visually-hidden"> ({longName(r)})</span>{/if}
+			<CodeHint hint="{r.od} · {r.os}" />
 		</th>
 		{@render vaInput(r.od, vaLabel(r, 'OD'))}
 		{@render vaInput(r.os, vaLabel(r, 'OS'))}
@@ -126,7 +134,7 @@
 {#snippet wide(id: string, name: string, label: string, max: number, va: boolean)}
 	{@const c = cell(id)}
 	<tr>
-		<th scope="row"><span class="rowname">{name}</span><span class="code">{id}</span></th>
+		<th scope="row"><span class="rowname">{name}</span><CodeHint hint={id} /></th>
 		<td colspan="2" class="cell" class:ghost={c.ghost} class:copied={c.copied} data-field={id}>
 			<input
 				class:va
@@ -147,7 +155,7 @@
 <section aria-labelledby="vision-title" bind:this={root}>
 	<div class="head">
 		<h2 id="vision-title">{t('sections.visionTitle')}</h2>
-		<button type="button" aria-haspopup="dialog" title={t('sections.visionHistoryTitle')} onclick={() => (historyOpen = true)}>
+		<button type="button" aria-haspopup="dialog" use:tip={t('sections.visionHistoryTitle')} onclick={() => (historyOpen = true)}>
 			{t('sections.visionHistory')}
 		</button>
 		<button type="button" onclick={clearAll}>{t('sections.visionClear')}</button>
@@ -159,10 +167,17 @@
 	<div class="layout">
 		<div class="panel">
 			<div class="picker" role="group" aria-label={t('sections.visionQuickValues')}>
-				<span class="fills"><Msg key="sections.visionFills">{#snippet target()}<strong>{activeLabel}</strong>{/snippet}</Msg></span>
+				<!-- The focused box's long name shows here too, so the meaning of "sc" / "PH" is never hover-only. -->
+				<span class="fills"
+					><Msg key="sections.visionFills"
+						>{#snippet target()}<strong>{activeLabel}</strong>{#if longName(activeRow)}<span class="long"> ({longName(activeRow)})</span>{/if}{/snippet}</Msg
+					></span
+				>
 				<div class="chips">
 					{#each picks as p (p)}
-						<button type="button" class="chip num" onmousedown={(e) => e.preventDefault()} onclick={() => pick(p)}>{p}</button>
+						<button type="button" class="chip num" onmousedown={(e) => e.preventDefault()} onclick={() => pick(p)}
+							>{#if p.startsWith('20/')}{p}{:else}<Abbr code={p} />{/if}</button
+						>
 					{/each}
 				</div>
 			</div>
@@ -170,8 +185,8 @@
 				<thead>
 					<tr>
 						<th scope="col" class="rowhead"><span class="visually-hidden">{t('sections.visionAcuity')}</span></th>
-						<th scope="col"><span class="eye od">{t('sections.eyeOdR')}</span></th>
-						<th scope="col"><span class="eye os">{t('sections.eyeOsL')}</span></th>
+						<th scope="col"><span class="eye od" use:tip={t('tips.eyeOd')}>{t('sections.eyeOdR')}</span></th>
+						<th scope="col"><span class="eye os" use:tip={t('tips.eyeOs')}>{t('sections.eyeOsL')}</span></th>
 					</tr>
 				</thead>
 				{#each GROUPS as g (g.title)}
@@ -247,11 +262,11 @@
 	}
 	.layout {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+		grid-template-columns: minmax(0, 1fr) minmax(13.75rem, 17.5rem);
 		gap: var(--space-4);
 		align-items: start;
 	}
-	@media (max-width: 760px) {
+	@media (max-width: 47.5em) {
 		.layout {
 			grid-template-columns: minmax(0, 1fr);
 		}
@@ -409,8 +424,8 @@
 		cursor: pointer;
 	}
 	.check input {
-		width: 18px;
-		height: 18px;
+		width: 1.125rem;
+		height: 1.125rem;
 		accent-color: var(--accent);
 	}
 	.grids {

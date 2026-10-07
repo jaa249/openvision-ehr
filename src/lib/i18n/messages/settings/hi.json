@@ -249,5 +249,16 @@
 	"auditActExportFhir": "FHIR के रूप में एक्सपोर्ट किया",
 	"auditActRxPrint": "Rx प्रिंट किया गया",
 	"auditActDocumentView": "दस्तावेज़ खोला गया",
-	"auditActDocumentDownload": "दस्तावेज़ डाउनलोड किया गया"
+	"auditActDocumentDownload": "दस्तावेज़ डाउनलोड किया गया",
+	"prefTextSize": "टेक्स्ट का आकार",
+	"textSizeHint": "Windows या ब्राउज़र में सेट टेक्स्ट आकार के ऊपर, हर पेज पर टेक्स्ट और कंट्रोल बड़े करता है। ज़ूम (Ctrl और +) भी काम करता रहता है।",
+	"textSizePercent": "{size}%",
+	"textSizeStandard": "{size}% (मानक)",
+	"prefUndoDuration": "पूर्ववत संदेश दिखाए रखें",
+	"undo10s": "10 सेकंड",
+	"undo30s": "30 सेकंड",
+	"undoUntilDismissed": "जब तक मैं बंद न करूँ",
+	"undoDurationHint": "Normal, कॉपी, साफ़ करने या त्वरित चयन के बाद Undo बटन वाला संदेश। पॉइंटर या कीबोर्ड संदेश पर हो तो समय रुका रहता है।",
+	"chooseUndoDuration": "चुनें कि पूर्ववत संदेश कितनी देर दिखें।",
+	"chooseTextSize": "टेक्स्ट का आकार चुनें।"
 }

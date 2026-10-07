@@ -4,6 +4,8 @@
 	// Add button or a double-click adds only that row (FIX); rows can be dragged onto the list or the New Dx box.
 	import type { Candidate, CandidateSet } from '#lib/plan/types.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
+	import { glossary } from '#lib/i18n/glossary.ts';
 
 	let {
 		set,
@@ -35,6 +37,9 @@
 		{ id: 'pmh', label: 'plan.srcPmh', empty: 'plan.srcPmhEmpty' }
 	] as const;
 
+	/** What POH / POS / PMH stand for. */
+	const sourceTip = (id: 'finding' | 'poh' | 'pmh') =>
+		id === 'poh' ? `POH: ${glossary('POH', t)} · POS: ${glossary('POS', t)}` : id === 'pmh' ? `PMH: ${glossary('PMH', t)}` : null;
 	const rowsOf = (id: 'finding' | 'poh' | 'pmh') => (set ? (id === 'finding' ? set.findings : set[id]) : []);
 	const selected = (c: Candidate) => !unticked[c.key] && !inList(c);
 	const toAdd = $derived(SOURCES.filter((s) => include[s.id]).flatMap((s) => rowsOf(s.id).filter(selected)));
@@ -53,7 +58,7 @@
 		{#each SOURCES as s (s.id)}
 			<label class="check">
 				<input type="checkbox" bind:checked={include[s.id]} />
-				{t(s.label)}
+				<span use:tip={sourceTip(s.id) ? { text: sourceTip(s.id)!, host: true } : null}>{t(s.label)}</span>
 				<span class="count">({rowsOf(s.id).length})</span>
 			</label>
 		{/each}
@@ -71,7 +76,7 @@
 	{#each SOURCES as s (s.id)}
 		{#if include[s.id]}
 			<section class="group" aria-labelledby="bld-{s.id}">
-				<h4 id="bld-{s.id}">{t(s.label)}</h4>
+				<h4 id="bld-{s.id}"><span use:tip={sourceTip(s.id)}>{t(s.label)}</span></h4>
 				{#if rowsOf(s.id).length}
 					<ul>
 						{#each rowsOf(s.id) as c (c.key)}
@@ -86,7 +91,7 @@
 									/>
 									<span class="title">{c.title}</span>
 								</label>
-								<span class="code">{c.codes || t('plan.noCode')}</span>
+								<span class="code" use:tip={c.codes ? null : t('tips.noCode')}>{c.codes || t('plan.noCode')}</span>
 								{#if added}
 									<span class="badge">{t('plan.inList')}</span>
 								{:else}

@@ -5,6 +5,8 @@
 	import type { VisitSuggestion } from '#lib/coding/types.ts';
 	import { patientReason } from '#lib/coding/visit.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
+	import { glossary } from '#lib/i18n/glossary.ts';
 
 	let {
 		family,
@@ -51,7 +53,7 @@
 			{#each FAMILIES as f (f.id)}
 				<label class="seg" class:on={family === f.id}>
 					<input type="radio" name="code-family" value={f.id} checked={family === f.id} {disabled} onchange={() => onfamily(f.id)} />
-					<span>{t(FAMILY_LABEL_KEY[f.id])}</span>
+					<span use:tip={{ text: glossary(f.id === 'eye' ? '920xx' : '992xx', t) ?? '', host: true }}>{t(FAMILY_LABEL_KEY[f.id])}</span>
 				</label>
 			{/each}
 		</fieldset>

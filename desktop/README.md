@@ -25,7 +25,9 @@ person signs out of Windows and back in:
 Turn on **BitLocker** for the computer's drive. OpenVision's database is not encrypted by OpenVision;
 admins see a warning in Settings while the drive is not encrypted.
 
-**Updates** are checked at start and from Help › Check for updates (GitHub Releases only). A downloaded
+**Updates** are checked quietly 10 seconds after start, then every 4 hours while OpenVision is open (a
+clinic computer may stay on for weeks), and from Help › Check for updates (GitHub Releases only). A quiet
+check is skipped while another one is running or once an update is already waiting. A downloaded
 update is installed when you choose "Restart now" or when OpenVision closes, after a backup of the database
 is written to `C:\ProgramData\OpenVision\backups` (the newest 5 are kept). If a window still has changes
 being saved and you choose **Wait**, nothing is closed: OpenVision keeps running and the update is
@@ -35,6 +37,9 @@ installed the next time it is closed. Set `OPENVISION_UPDATES=off` to stop check
 first start that has to upgrade the database copies it first to
 `backups\pre-migrate-v<old>-to-v<new>-<UTC time>.sqlite` (the newest 5 are kept). If that copy cannot be
 written, OpenVision leaves the database as it is and shows an error instead of starting.
+
+**Keyboard shortcuts**: Help › Keyboard shortcuts (F1) opens the list of keys and shorthand codes. It
+belongs to the exam screen, so open an exam first; in the exam, `?` (outside a text box) opens it too.
 
 **Several Windows users** on one computer share `data\tmp` (exports on their way to a Save dialog); at
 start the app deletes only leftovers there that are more than 24 hours old.

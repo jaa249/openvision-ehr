@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
 	import type { PageProps } from './$types';
 
@@ -147,9 +148,9 @@
 						ondrop={onDrop}
 					>
 						<div class="line">
-							<span class="handle" draggable="true" ondragstart={(e) => onDragStart(e, p.id)} ondragend={() => (dragging = null)} aria-hidden="true" title={t('settings.qpDragTitle')}>⠿</span>
+							<span class="handle" draggable="true" ondragstart={(e) => onDragStart(e, p.id)} ondragend={() => (dragging = null)} aria-hidden="true" use:tip={{ text: t('settings.qpDragTitle'), describe: false }}>⠿</span>
 							<span class="what">
-								<strong class:clear={p.label.includes('clear field')}>{p.label}</strong>
+								<strong class:clear={p.label.includes('clear field')}>{p.label === 'clear field' && !p.text ? t('exam.qpClearField') : p.label}</strong>
 								<span class="meta">{p.text && p.text !== p.label
 										? t('settings.qpMetaText', { row: rowLabel.get(p.row) ?? p.row, mode: modeShort(p.mode), text: p.text })
 										: t('settings.qpMeta', { row: rowLabel.get(p.row) ?? p.row, mode: modeShort(p.mode) })}</span>

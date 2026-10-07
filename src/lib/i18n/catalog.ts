@@ -11,6 +11,8 @@ import documents from './messages/documents/en.json';
 import drawing from './messages/drawing/en.json';
 import exam from './messages/exam/en.json';
 import flowsheet from './messages/flowsheet/en.json';
+import glossary from './messages/glossary/en.json';
+import keys from './messages/keys/en.json';
 import patients from './messages/patients/en.json';
 import plan from './messages/plan/en.json';
 import report from './messages/report/en.json';
@@ -18,9 +20,10 @@ import rx from './messages/rx/en.json';
 import sections from './messages/sections/en.json';
 import settings from './messages/settings/en.json';
 import shell from './messages/shell/en.json';
+import tips from './messages/tips/en.json';
 import visits from './messages/visits/en.json';
 
-const NAMESPACES = { auth, catalog, codes, common, documents, drawing, exam, flowsheet, patients, plan, report, rx, sections, settings, shell, visits };
+const NAMESPACES = { auth, catalog, codes, common, documents, drawing, exam, flowsheet, glossary, keys, patients, plan, report, rx, sections, settings, shell, tips, visits };
 // The "server" namespace (form-action and API messages) sits in a folder SvelteKit never lets into
 // browser code, so only the server build reads it; its keys are still part of MessageKey.
 type Namespaces = typeof NAMESPACES & { server: typeof import('./messages/server/en.json') };

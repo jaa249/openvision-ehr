@@ -52,5 +52,6 @@
 	"notSavedTooLarge": "Non enregistré : le dessin est trop volumineux",
 	"notSavedError": "Non enregistré : erreur {status}",
 	"notSavedRetrying": "Non enregistré, nouvelle tentative",
-	"signedOut": "Déconnecté. Vos dernières modifications n'ont peut-être pas été enregistrées ; reconnectez-vous."
+	"signedOut": "Déconnecté. Vos dernières modifications n'ont peut-être pas été enregistrées ; reconnectez-vous.",
+	"pencilGreen": "Vert"
 }

@@ -20,6 +20,7 @@
 		SOCIAL_TEXT
 	} from '#lib/history/lists.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
+	import { tip } from './ui/tooltip.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
 	import { chronicTexts, issueLine, summarizeFamily, summarizeSocial, visibleIssues } from '#lib/history/summary.ts';
 	import { historyBus, publishAllergyStatus } from '#lib/history/bus.svelte.ts';
@@ -157,6 +158,8 @@
 	/** Switching type in the radio row keeps what was typed, so a mis-chosen type costs nothing. */
 	function switchType(next: Mode) {
 		if (next === mode) return;
+		// While an entry is being edited the other types are aria-disabled (their tip says why).
+		if (editing && (next === 'FH' || next === 'SOCIAL' || next !== draft.type)) return;
 		errors = {};
 		if (next === 'FH' || next === 'SOCIAL') {
 			open(next);
@@ -268,13 +271,13 @@
 						type="button"
 						role="radio"
 						aria-checked={mode === d.type}
-						title={t(ISSUE_TYPE_KEYS[d.type].label)}
+						use:tip={editing && d.type !== draft.type ? `${t(ISSUE_TYPE_KEYS[d.type].label)}. ${t('tips.typeLocked')}` : t(ISSUE_TYPE_KEYS[d.type].label)}
 						onclick={() => switchType(d.type)}
-						disabled={editing && d.type !== draft.type}
+						aria-disabled={editing && d.type !== draft.type ? 'true' : undefined}
 					>{t(ISSUE_TYPE_KEYS[d.type].short)}</button>
 				{/each}
-				<button type="button" role="radio" aria-checked={mode === 'FH'} title={t('sections.pmFamilyHistory')} onclick={() => switchType('FH')} disabled={editing}>{t('sections.pmFhShort')}</button>
-				<button type="button" role="radio" aria-checked={mode === 'SOCIAL'} title={t('sections.pmSocialHistory')} onclick={() => switchType('SOCIAL')} disabled={editing}>{t('sections.pmSocialShort')}</button>
+				<button type="button" role="radio" aria-checked={mode === 'FH'} use:tip={editing ? `${t('sections.pmFamilyHistory')}. ${t('tips.typeLocked')}` : t('sections.pmFamilyHistory')} onclick={() => switchType('FH')} aria-disabled={editing ? 'true' : undefined}>{t('sections.pmFhShort')}</button>
+				<button type="button" role="radio" aria-checked={mode === 'SOCIAL'} use:tip={editing ? `${t('sections.pmSocialHistory')}. ${t('tips.typeLocked')}` : t('sections.pmSocialHistory')} onclick={() => switchType('SOCIAL')} aria-disabled={editing ? 'true' : undefined}>{t('sections.pmSocialShort')}</button>
 			</div>
 
 			{#if mode === 'FH'}
@@ -435,7 +438,7 @@
 									bind:value={draft.provider}
 									maxlength="80"
 									autocomplete="off"
-									title={draft.type === 'POH' ? t('sections.pmCollaboratorTitle') : undefined}
+									use:tip={draft.type === 'POH' ? t('sections.pmCollaboratorTitle') : null}
 									aria-invalid={errors.provider ? 'true' : undefined}
 									aria-describedby={err('provider')}
 								/>
@@ -486,7 +489,7 @@
 				{@const items = visibleIssues(data.issues, type)}
 				<div class="block" class:allergy={type === 'ALLERGY'}>
 					<div class="bhead">
-						<h4 title={t(ISSUE_TYPE_KEYS[type].label)}>{t(ISSUE_TYPE_KEYS[type].short)}</h4>
+						<h4><span use:tip={{ text: t(ISSUE_TYPE_KEYS[type].label), describe: false }}>{t(ISSUE_TYPE_KEYS[type].short)}</span>{#if t(ISSUE_TYPE_KEYS[type].short) !== t(ISSUE_TYPE_KEYS[type].label)}<span class="visually-hidden"> ({t(ISSUE_TYPE_KEYS[type].label)})</span>{/if}</h4>
 						<button type="button" class="add" aria-label={t('sections.pmAddTo', { label: typeLower(type) })} onclick={(e) => open(type, undefined, e.currentTarget)}
 							>{t('sections.add')}</button
 						>
@@ -500,8 +503,7 @@
 										class="item"
 										class:inactive={!i.active}
 										onclick={(e) => open(type, i, e.currentTarget)}
-										aria-label={i.active ? t('sections.pmEditIssue', { title: i.title }) : t('sections.pmEditIssueInactive', { title: i.title })}
-									>{issueLine(i)}{#if !i.active}<span class="tag"> {t('sections.pmInactive')}</span>{/if}</button>
+									>{issueLine(i)}{#if !i.active}<span class="tag"> {t('sections.pmInactive')}</span>{/if}<span class="visually-hidden">, {t('tips.editSuffix')}</span></button>
 								</li>
 							{/each}
 						</ul>
@@ -532,7 +534,7 @@
 
 			<div class="block">
 				<div class="bhead">
-					<h4 title={t('sections.pmFamilyHistory')}>{t('sections.pmFhShort')}</h4>
+					<h4><span use:tip={{ text: t('sections.pmFamilyHistory'), describe: false }}>{t('sections.pmFhShort')}</span><span class="visually-hidden"> ({t('sections.pmFamilyHistory')})</span></h4>
 					<button type="button" class="add" aria-label={t('sections.pmEditFamily')} onclick={(e) => open('FH', undefined, e.currentTarget)}>{t('sections.edit')}</button>
 				</div>
 				{#if family.state === 'positive'}
@@ -546,7 +548,7 @@
 
 			<div class="block">
 				<div class="bhead">
-					<h4>{t('sections.pmSocialShort')}</h4>
+					<h4><span use:tip={{ text: t('sections.pmSocialHistory'), describe: false }}>{t('sections.pmSocialShort')}</span><span class="visually-hidden"> ({t('sections.pmSocialHistory')})</span></h4>
 					<button type="button" class="add" aria-label={t('sections.pmEditSocial')} onclick={(e) => open('SOCIAL', undefined, e.currentTarget)}>{t('sections.edit')}</button>
 				</div>
 				{#if social.length}
@@ -623,9 +625,9 @@
 		resize: vertical;
 	}
 	input[type='checkbox'] {
-		width: 20px;
-		min-height: 20px;
-		height: 20px;
+		width: 24px;
+		min-height: 24px;
+		height: 24px;
 		margin: 0;
 		accent-color: var(--accent);
 	}

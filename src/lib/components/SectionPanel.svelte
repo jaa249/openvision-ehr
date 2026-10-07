@@ -1,9 +1,15 @@
 <script lang="ts">
+	import { roving } from './ui/roving.ts';
 	import { fieldId, fieldLabel, rowLabel, sectionTitle, type Row, type SectionDef } from '#lib/exam/catalog.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { stateLabel, useCopiedFrom } from '#lib/exam/copied.ts';
 	import type { Findings } from '#lib/shorthand/parse.ts';
 	import { page } from '$app/state';
 	import ZoneDocuments from '#lib/components/documents/ZoneDocuments.svelte';
+	import Abbr from '#lib/components/ui/Abbr.svelte';
+	import CodeHint from '#lib/components/ui/CodeHint.svelte';
+	import { tip } from '#lib/components/ui/tooltip.ts';
+	import { ariaKeys } from '#lib/exam/shortcuts.ts';
 
 	type Side = 'OD' | 'OS' | 'OU';
 	let {
@@ -43,8 +49,12 @@
 	const titleId = $derived(`${sec.id.toLowerCase()}-title`);
 	const comments = $derived(cell(sec.comments.field));
 
-	const { t } = useI18n();
-	const aria = (label: string, isDefault: boolean) => (isDefault ? t('exam.fieldDefault', { field: label }) : label);
+	const i18n = useI18n();
+	const { t } = i18n;
+	const copiedFrom = useCopiedFrom();
+	/** "(default)" / "(copied from …)" in the name, as the tint and bar show it (WCAG 1.4.1). */
+	const aria = (id: string, label: string, c: { isDefault: boolean; copied: boolean }) =>
+		stateLabel(t, label, { isDefault: c.isDefault, copied: c.copied, date: copiedFrom(id) });
 
 	function cell(id: string) {
 		const ghost = preview?.[id];
@@ -60,10 +70,10 @@
 
 {#snippet eyeHead(eye: 'OD' | 'OS')}
 	<th scope="col" class="eyecol">
-		<span class="eye {eye.toLowerCase()}">{eye === 'OD' ? t('exam.eyeHeadOd') : t('exam.eyeHeadOs')}</span>
-		<span class="side-actions">
-			<button type="button" class="mini" onclick={() => ondefaults(eye)}>{t('exam.normal')}</button>
-			<button type="button" class="mini" onclick={() => onclear(eye)}>{t('exam.clear')}</button>
+		<span class="eye {eye.toLowerCase()}" use:tip={eye === 'OD' ? t('tips.eyeOd') : t('tips.eyeOs')}>{eye === 'OD' ? t('exam.eyeHeadOd') : t('exam.eyeHeadOs')}</span>
+		<span class="side-actions" role="toolbar" aria-label={eye === 'OD' ? t('exam.eyeHeadOd') : t('exam.eyeHeadOs')} use:roving={{ items: 'button', typeahead: false }}>
+			<button type="button" class="mini" use:tip={t('tips.normalEye', { eye })} onclick={() => ondefaults(eye)}>{t('exam.normal')}</button>
+			<button type="button" class="mini" use:tip={t('tips.clearEye', { eye })} onclick={() => onclear(eye)}>{t('exam.clear')}</button>
 		</span>
 	</th>
 {/snippet}
@@ -76,7 +86,7 @@
 				class="short"
 				value={c.value}
 				inputmode={numeric ? 'decimal' : 'text'}
-				aria-label={aria(label, c.isDefault)}
+				aria-label={aria(id, label, c)}
 				placeholder="–"
 				oninput={(e) => onedit(id, e.currentTarget.value)}
 			/>
@@ -85,7 +95,7 @@
 				rows="1"
 				placeholder="–"
 				value={c.value}
-				aria-label={aria(label, c.isDefault)}
+				aria-label={aria(id, label, c)}
 				oninput={(e) => onedit(id, e.currentTarget.value)}
 			></textarea>
 		{/if}
@@ -95,17 +105,21 @@
 {#snippet rowHead(row: Row)}
 	<th scope="row">
 		{rowLabel(row, t)}
-		{#if row.measure}<span class="unit">{row.measure}</span>{/if}
-		<span class="code" title={t('exam.shorthandCodes')}>{row.hint}</span>
+		{#if row.measure}<span class="unit"><Abbr code={row.measure} /></span>{/if}
+		<CodeHint hint={row.hint} />
 	</th>
 {/snippet}
 
 <section aria-labelledby={titleId}>
 	<div class="head">
 		<h2 id={titleId}>{sectionTitle(sec, t)}</h2>
-		<button type="button" onclick={() => ondefaults('OU')}>{t('exam.normalOu')}</button>
-		<button type="button" onclick={() => oncopy('OD')} aria-label={t('exam.copyOdToOs')}>OD → OS</button>
-		<button type="button" onclick={() => oncopy('OS')} aria-label={t('exam.copyOsToOd')}>OS → OD</button>
+		<!-- One Tab stop for the section's actions; arrow keys move between them (APG toolbar). -->
+		<div class="head-actions" role="toolbar" aria-label={t('exam.sectionActions', { section: sectionTitle(sec, t) })} use:roving={{ items: 'button', typeahead: false }}>
+			<button type="button" use:tip={t('tips.normalOu')} onclick={() => ondefaults('OU')}>{t('exam.normalOu')}</button>
+			<!-- The name starts with the visible text (WCAG 2.5.3): "OD → OS: Copy right eye to left eye". -->
+			<button type="button" use:tip={t('tips.copyOdToOs')} onclick={() => oncopy('OD')} aria-label="OD → OS: {t('exam.copyOdToOs')}">OD → OS</button>
+			<button type="button" use:tip={t('tips.copyOsToOd')} onclick={() => oncopy('OS')} aria-label="OS → OD: {t('exam.copyOsToOd')}">OS → OD</button>
+		</div>
 	</div>
 
 	<div class="panel">
@@ -137,14 +151,14 @@
 					{@const base = cell('HERTELBASE')}
 					<tr>
 						<th scope="row">
-							{t('catalog.rowHertel')} <span class="unit">mm</span>
-							<span class="code" title={t('exam.shorthandCodes')}>HERT:15-100-16</span>
+							{t('catalog.rowHertel')} <span class="unit"><Abbr code="mm" /></span>
+							<span class="code" use:tip={t('tips.hertelCode', { keys: ariaKeys('shorthand') })}>HERT:15-100-16</span>
 						</th>
 						{@render input('ODHERTEL', fieldLabel('ODHERTEL', t), true, true)}
 						{@render input('OSHERTEL', fieldLabel('OSHERTEL', t), true, true)}
 					</tr>
 					<tr>
-						<th scope="row">{t('catalog.hertelBase')} <span class="code">BHERT</span></th>
+						<th scope="row">{t('catalog.hertelBase')} <CodeHint hint="BHERT" /></th>
 						<td
 							class="cell"
 							colspan="2"
@@ -156,7 +170,7 @@
 								class="short"
 								value={base.value}
 								inputmode="decimal"
-								aria-label={t('catalog.hertelBase')}
+								aria-label={aria('HERTELBASE', t('catalog.hertelBase'), { isDefault: false, copied: base.copied })}
 								placeholder="–"
 								oninput={(e) => onedit('HERTELBASE', e.currentTarget.value)}
 							/>
@@ -168,7 +182,7 @@
 	</div>
 
 	<label class="comments">
-		<span>{t('exam.comments')} <span class="code">{sec.comments.hint}</span></span>
+		<span>{t('exam.comments')} <CodeHint hint={sec.comments.hint} inline /></span>
 		<textarea
 			rows="2"
 			class:ghost={comments.ghost}
@@ -187,6 +201,10 @@
 </section>
 
 <style>
+	/* The toolbar only groups the buttons for keyboard and screen readers; layout stays the head's flex row. */
+	.head-actions {
+		display: contents;
+	}
 	.head {
 		display: flex;
 		align-items: center;
@@ -235,13 +253,12 @@
 		color: var(--text-2);
 		height: var(--row-height);
 	}
+	/* The whole code line shows (it wraps at the dots); never cut short with an ellipsis. */
 	.code {
 		display: block;
 		font: var(--text-xs) var(--font-mono);
 		color: var(--text-3);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+		overflow-wrap: anywhere;
 	}
 	.eye {
 		display: inline-flex;

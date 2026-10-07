@@ -24,6 +24,10 @@
 	import { withValues, type CellState } from '../workup/cell.ts';
 	import { loadPrefs, savePrefs } from '#lib/prefs/client.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
+	import Abbr from '#lib/components/ui/Abbr.svelte';
+	import CodeHint from '#lib/components/ui/CodeHint.svelte';
+	import { tip } from '#lib/components/ui/tooltip.ts';
+	import { glossary } from '#lib/i18n/glossary.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
@@ -157,7 +161,7 @@
 		</button>
 		<label class="check">
 			<input type="checkbox" checked={ortho} onchange={(e) => setOrtho(e.currentTarget.checked)} />
-			{t('sections.coverOrtho')} <span class="code inline">ACT</span>
+			<span use:tip={{ text: glossary('Ortho', t) ?? '', host: true }}>{t('sections.coverOrtho')}</span> <CodeHint hint="ACT" inline />
 		</label>
 	</div>
 
@@ -176,6 +180,7 @@
 							tabindex={zone === z.key ? 0 : -1}
 							onclick={() => pickZone(z.key)}
 							onkeydown={(e) => tabKey(e, i)}
+							use:tip={t('tips.coverZone', { zone: t(COVER_ZONE_KEY[z.key].label) })}
 						>
 							{t(COVER_ZONE_KEY[z.key].short)}{#if count}<span class="count" aria-label={t('sections.coverFilled', { n: count })}>{count}</span>{/if}
 						</button>
@@ -206,13 +211,13 @@
 				</div>
 				<div class="opts" role="group" aria-label={t('sections.coverDeviation')}>
 					{#each DEVIATIONS as d (d)}
-						<button type="button" class="opt" aria-pressed={deviation === d} onclick={() => pickDeviation(d)}>{d}</button>
+						<button type="button" class="opt" aria-pressed={deviation === d} onclick={() => pickDeviation(d)}><Abbr code={d} /></button>
 					{/each}
 				</div>
 				<div class="opts" role="group" aria-label={t('sections.coverPrismDiopters')}>
 					{#each PRISMS as p (p)}
 						<button type="button" class="opt num" aria-pressed={prism === p} aria-label={p === 'Ortho' ? 'Ortho' : t('sections.coverPrismN', { n: p })} onclick={() => pickPrism(p)}
-							>{p === 'Ortho' ? 'Ortho' : `${p}Δ`}</button
+							>{#if p === 'Ortho'}<Abbr code="Ortho" />{:else}{p}<Abbr code="Δ" />{/if}</button
 						>
 					{/each}
 				</div>
@@ -269,13 +274,9 @@
 		cursor: pointer;
 	}
 	.check input {
-		width: 18px;
-		height: 18px;
+		width: 1.125rem;
+		height: 1.125rem;
 		accent-color: var(--accent);
-	}
-	.code.inline {
-		font: var(--text-xs) var(--font-mono);
-		color: var(--text-3);
 	}
 	.body {
 		display: flex;

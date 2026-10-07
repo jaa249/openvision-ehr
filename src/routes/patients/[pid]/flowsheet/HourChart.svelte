@@ -3,6 +3,7 @@
 	// measured, to show diurnal variation. Hours print as "08:30" (FIX). Visits without a time are left out.
 	import type { FlowVisit } from '#lib/server/flowsheet.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip as tipAction } from '#lib/components/ui/tooltip.ts';
 	import { fmtHour, hourDomain, hourTicks, iopMax } from './chart.ts';
 
 	let { visits }: { visits: FlowVisit[] } = $props();
@@ -26,11 +27,11 @@
 {#if timed.length === 0}
 	<p class="empty">{t('flowsheet.noTimedReadings')}</p>
 {:else}
-	<div class="legend" aria-hidden="true">
-		<span><svg width="12" height="12"><circle class="mk od" cx="6" cy="6" r="4" /></svg>OD</span>
-		<span><svg width="12" height="12"><rect class="mk os" x="2" y="2" width="8" height="8" /></svg>OS</span>
-		<span>{t('flowsheet.largerMark')}</span>
-	</div>
+	<ul class="legend" aria-label={t('flowsheet.legendLabel')}>
+		<li><svg width="12" height="12" aria-hidden="true"><circle class="mk od" cx="6" cy="6" r="4" /></svg><span use:tipAction={t('tips.eyeOd')}>OD</span></li>
+		<li><svg width="12" height="12" aria-hidden="true"><rect class="mk os" x="2" y="2" width="8" height="8" /></svg><span use:tipAction={t('tips.eyeOs')}>OS</span></li>
+		<li>{t('flowsheet.largerMark')}</li>
+	</ul>
 	<svg class="eye-ltr" viewBox="0 0 {W} {H}" role="group" aria-label={t('flowsheet.hourChartLabel')}>
 		{#each yTicks as tick (tick)}
 			<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={y(tick)} y2={y(tick)} />
@@ -89,9 +90,11 @@
 		gap: var(--space-1) var(--space-3);
 		font-size: var(--text-xs);
 		color: var(--text-2);
-		margin-bottom: var(--space-1);
+		margin: 0 0 var(--space-1);
+		padding: 0;
+		list-style: none;
 	}
-	.legend span {
+	.legend li {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-1);
@@ -148,5 +151,30 @@
 		fill: var(--text-1);
 		font-size: 11px;
 		font-weight: var(--weight-semibold);
+	}
+	@media (forced-colors: active) {
+		.od .mk,
+		.os .mk,
+		.mk.od,
+		.mk.os,
+		.pt.cur .mk {
+			fill: CanvasText;
+			stroke: CanvasText;
+		}
+		.grid {
+			stroke: GrayText;
+		}
+		.tick,
+		.tip text {
+			fill: CanvasText;
+		}
+		.tip rect {
+			fill: Canvas;
+			stroke: CanvasText;
+		}
+		.pt:focus-visible .hit {
+			stroke: Highlight;
+			fill: none;
+		}
 	}
 </style>

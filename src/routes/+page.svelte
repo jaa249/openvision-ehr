@@ -20,6 +20,8 @@
 	}
 </script>
 
+<svelte:head><title>{t('patients.listTitle')}</title></svelte:head>
+
 <main>
 	<h1>{t('common.appName')}</h1>
 	<p class="sub">

@@ -74,5 +74,6 @@
 	"nkdaMark": "تحديد: لا حساسية معروفة",
 	"nkdaUnmark": "إلغاء تحديد «لا حساسية معروفة»",
 	"allergyAdded": "أُضيفت الحساسية.",
-	"addAllergy": "إضافة حساسية"
+	"addAllergy": "إضافة حساسية",
+	"listTitle": "المرضى · OpenVision"
 }

@@ -83,5 +83,6 @@
 	"fileWrongType": "{name} 不是 PNG、JPEG 或 PDF 文件。HEIC 格式的手机照片须先另存为 JPEG。",
 	"serverTooLarge": "此文件超出服务器允许的大小。服务器以 {setting} 运行时，可支持最大 15 MB 的文件（请咨询您的管理员）。",
 	"visitLocked": "此次就诊已签名或正在其他地方编辑，因此其文档无法更改。",
-	"serverAnsweredSentence": "服务器返回 {status}。"
+	"serverAnsweredSentence": "服务器返回 {status}。",
+	"zoneKeysHint": "方向键在类别之间及其按钮之间移动；输入类别的开头字母可直接跳到它。"
 }

@@ -6,6 +6,8 @@
 	import { historyBus } from '#lib/history/bus.svelte.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
 	import { keepInView } from './ui/place.ts';
+	import { tip } from './ui/tooltip.ts';
+	import { menu, menuButtonKeydown, type MenuFocus } from './ui/menu.ts';
 
 	let {
 		patient,
@@ -60,9 +62,11 @@
 	const day = (iso: string) => i18n.date(iso);
 
 	// ---------- Download menu (D46: the visit goes into another chart as a PDF or FHIR) ----------
-	// A disclosure (button + list of buttons): Tab moves through the items, Escape closes and
-	// returns focus to the button, a click outside closes it.
+	// A menu button (APG, ui/menu.ts): Enter/Space/ArrowDown open it on the first item, ArrowUp on
+	// the last; arrows, Home/End and letters move; Escape closes and returns focus to the button;
+	// Tab or a click outside closes it.
 	let downloadOpen = $state(false);
+	let downloadFocus = $state<MenuFocus>('first');
 	let downloadButton = $state<HTMLButtonElement | null>(null);
 	let downloadWrap = $state<HTMLDivElement | null>(null);
 	function closeDownload(refocus = true) {
@@ -73,11 +77,9 @@
 		closeDownload();
 		fn?.();
 	}
-	function onDownloadKey(e: KeyboardEvent) {
-		if (e.key === 'Escape' && downloadOpen) {
-			e.stopPropagation();
-			closeDownload();
-		}
+	function openDownload(focus: MenuFocus) {
+		downloadFocus = focus;
+		downloadOpen = true;
 	}
 	function onWindowPointer(e: PointerEvent) {
 		if (downloadOpen && downloadWrap && !downloadWrap.contains(e.target as Node)) closeDownload(false);
@@ -96,14 +98,24 @@
 		<div class="avatar" aria-hidden="true">{initials}</div>
 	{/if}
 	<div class="who">
-		<div class="name">
-			<a class="chart" href="/patients/{patient.id}" title={t('exam.bannerOpenChart')}>{patient.name}</a>
+		<!-- The page's one <h1>: the patient, plus the visit for screen readers (the visit type and
+		     date stay where they are on screen and are hidden there, so nothing is read twice). -->
+		<h1 class="name">
+			<a class="chart" href="/patients/{patient.id}" use:tip={{ text: t('exam.bannerOpenChart'), placement: 'bottom' }}>{patient.name}</a>
 			{#if patient.name !== patient.legalName}<span class="legal">{t('exam.bannerLegalName', { name: patient.legalName })}</span>{/if}
-		</div>
+			<span class="visually-hidden">{t('exam.bannerHeadingVisit', { type: encounter.visitType, date: encounter.date })}</span>
+		</h1>
 		<div class="meta num">{t('exam.bannerAge', { age: patient.age })} · {t('exam.bannerDob', { dob: patient.dob })} · {t('exam.bannerMrn', { mrn: patient.mrn })}</div>
 	</div>
 	<!-- Three states (never "empty = no allergies"): listed (red), confirmed none, not recorded (amber). -->
-	<div class="allergy" data-kind={allergies.kind}>
+	<div
+		class="allergy"
+		data-kind={allergies.kind}
+		use:tip={{
+			text: allergies.kind === 'listed' ? t('tips.allergyListed') : allergies.kind === 'none' ? t('tips.allergyNone') : t('tips.allergyNotRecorded'),
+			placement: 'bottom'
+		}}
+	>
 		{#if allergies.kind === 'listed'}
 			<span aria-hidden="true">⚠</span> {t('exam.bannerAllergies', { list: allergies.allergies.map((a) => a.title).join(', ') })}
 		{:else if allergies.kind === 'none'}
@@ -113,19 +125,19 @@
 		{/if}
 	</div>
 	<div class="meta">
-		{encounter.visitType} ·
+		<span aria-hidden="true">{encounter.visitType} ·</span>
 		{#if onstaff}
-			<button type="button" class="staff" onclick={onstaff} title={t('exam.bannerChangeStaff')}>
+			<button type="button" class="staff" onclick={onstaff} use:tip={{ text: t('exam.bannerChangeStaff'), placement: 'bottom' }}>
 				{encounter.provider}{#if encounter.technician}<span class="tech">{` · ${t('exam.bannerTech', { name: encounter.technician })}`}</span>{/if}
 			</button>
 		{:else}
 			{encounter.provider}{#if encounter.technician}<span class="tech">{` · ${t('exam.bannerTech', { name: encounter.technician })}`}</span>{/if}
 		{/if}
-		· <span class="num">{encounter.date}</span>
+		<span aria-hidden="true">· <span class="num">{encounter.date}</span></span>
 	</div>
 	<div class="spacer"></div>
 	{#if lock?.mode === 'signed' && lock.signature}
-		<div class="state signed" title={t('exam.bannerSignedTitle')}>
+		<div class="state signed" use:tip={{ text: t('exam.bannerSignedTitle'), placement: 'bottom' }}>
 			<span aria-hidden="true">✓</span> {t('exam.bannerSignedBy', { name: lock.signature.signedBy, date: day(lock.signature.signedAt) })}
 		</div>
 	{:else if lock?.mode === 'readonly'}
@@ -153,40 +165,56 @@
 		{/if}
 	</div>
 	{#if cansign && onsign && lock && (lock.mode === 'editing' || lock.mode === 'starting')}
-		<button type="button" class="sign" onclick={onsign} disabled={signing} title={t('exam.bannerSignTitle')}>
+		<!-- While saving: aria-disabled (not disabled) so focus stays here and the tip can say why. -->
+		<button
+			type="button"
+			class="sign"
+			onclick={() => !signing && onsign()}
+			aria-disabled={signing ? 'true' : undefined}
+			use:tip={{ text: signing ? t('tips.signSaving') : t('exam.bannerSignTitle'), placement: 'bottom' }}
+		>
 			{signing ? t('common.saving') : t('exam.bannerSign')}
 		</button>
 	{/if}
-	<button type="button" class="print" onclick={onprint} title={t('exam.bannerPrintTitle')}>{t('exam.bannerPrint')}</button>
+	<button type="button" class="print" onclick={onprint} use:tip={{ text: t('exam.bannerPrintTitle'), placement: 'bottom' }}>{t('exam.bannerPrint')}</button>
 	{#if ondownloadpdf || ondownloadfhir}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="download" bind:this={downloadWrap} onkeydown={onDownloadKey} onfocusout={onWrapFocusOut}>
+		<div class="download" bind:this={downloadWrap} onfocusout={onWrapFocusOut}>
 			<button
 				type="button"
 				bind:this={downloadButton}
+				aria-haspopup="menu"
 				aria-expanded={downloadOpen}
 				aria-controls="download-menu"
-				title={t('exam.bannerDownloadTitle')}
-				onclick={() => (downloadOpen = !downloadOpen)}
+				use:tip={{ text: t('exam.bannerDownloadTitle'), placement: 'bottom' }}
+				onclick={() => (downloadOpen ? closeDownload(false) : openDownload('first'))}
+				onkeydown={(e) => menuButtonKeydown(e, openDownload)}
 			>
 				{t('exam.bannerDownload')} <span aria-hidden="true">▾</span>
 			</button>
 			{#if downloadOpen}
 				<!-- Fixed-positioned next to the button and kept fully on screen (portrait tablets, phones, RTL). -->
-				<ul id="download-menu" class="menu" use:keepInView={{ anchor: downloadButton, placement: 'bottom-end' }} aria-label={t('exam.bannerDownloadMenu')}>
+				<ul
+					id="download-menu"
+					class="menu"
+					role="menu"
+					use:keepInView={{ anchor: downloadButton, placement: 'bottom-end' }}
+					use:menu={{ onclose: closeDownload, focus: downloadFocus }}
+					aria-label={t('exam.bannerDownloadMenu')}
+				>
 					{#if ondownloadpdf}
-						<li>
-							<button type="button" onclick={() => pick(ondownloadpdf)} aria-describedby="download-pdf-hint">
+						<li role="none">
+							<button type="button" role="menuitem" data-label="PDF" onclick={() => pick(ondownloadpdf)} aria-describedby="download-pdf-hint">
 								<span class="item">PDF</span>
-								<span class="hint" id="download-pdf-hint">{t('exam.bannerDownloadPdfHint')}</span>
+								<span class="hint" id="download-pdf-hint" aria-hidden="true">{t('exam.bannerDownloadPdfHint')}</span>
 							</button>
 						</li>
 					{/if}
 					{#if ondownloadfhir}
-						<li>
-							<button type="button" onclick={() => pick(ondownloadfhir)} aria-describedby="download-fhir-hint">
+						<li role="none">
+							<button type="button" role="menuitem" data-label={t('exam.bannerDownloadFhir')} onclick={() => pick(ondownloadfhir)} aria-describedby="download-fhir-hint">
 								<span class="item">{t('exam.bannerDownloadFhir')}</span>
-								<span class="hint" id="download-fhir-hint">{t('exam.bannerDownloadFhirHint')}</span>
+								<span class="hint" id="download-fhir-hint" aria-hidden="true">{t('exam.bannerDownloadFhirHint')}</span>
 							</button>
 						</li>
 					{/if}
@@ -228,6 +256,7 @@
 		object-fit: cover;
 	}
 	.name {
+		margin: 0;
 		font-size: var(--text-md);
 		font-weight: var(--weight-semibold);
 		line-height: var(--leading-tight);

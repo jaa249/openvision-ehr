@@ -3,6 +3,7 @@
 	// Stored per visit (form_eye_ros). FIX: nothing is implied; an untouched system stays unrecorded.
 	import { ROS_COMMENTS, ROS_NEGATIVE, ROS_SYSTEMS, ROS_SYSTEM_LABEL_KEY, isRosNegative, rosAllNegative, rosClear } from '#lib/exam/sections/history.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import CodeHint from '#lib/components/ui/CodeHint.svelte';
 	import type { PanelProps } from '../types.ts';
 	import { cellState, withValues } from '../workup/cell.ts';
 
@@ -70,7 +71,7 @@
 		{/each}
 	</div>
 	<label class="comments">
-		<span>{t('sections.rosComments')} <span class="code inline">ROSCOM</span></span>
+		<span>{t('sections.rosComments')} <CodeHint hint="ROSCOM" inline /></span>
 		<textarea
 			rows="2"
 			maxlength={maxLength(ROS_COMMENTS)}
@@ -144,9 +145,6 @@
 		display: block;
 		font: var(--text-xs) var(--font-mono);
 		color: var(--text-3);
-	}
-	.code.inline {
-		display: inline;
 	}
 	.neg {
 		display: inline-flex;

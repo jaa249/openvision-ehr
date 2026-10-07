@@ -1,6 +1,6 @@
 {
-	"legendCopied": "पिछली विज़िट से कॉपी किया गया।",
-	"legendDefault": "हल्के रंग वाला: अभी भी डिफ़ॉल्ट \"सामान्य\" मान।",
+	"legendCopied": "डैश वाली पट्टी: पिछली विज़िट से कॉपी किया गया।",
+	"legendDefault": "ठोस पट्टी: अभी भी डिफ़ॉल्ट \"सामान्य\" मान।",
 	"legendShorthand": "शॉर्टहैंड: {codes}।",
 	"labelDefault": "{label} (डिफ़ॉल्ट)",
 	"normal": "सामान्य",
@@ -584,5 +584,7 @@
 	"fieldDilationRisks": "डाइलेशन के जोखिमों पर चर्चा हुई",
 	"tgtSourceProviderNamed": "{name} का डिफ़ॉल्ट",
 	"rxTransposeNeedSph": "{source} {eye}: ट्रांसपोज़ करने से पहले स्फीयर (या PLANO) दर्ज करें।",
-	"rxTransposeNeedAxis": "{source} {eye}: ट्रांसपोज़ करने से पहले एक्सिस दर्ज करें।"
+	"rxTransposeNeedAxis": "{source} {eye}: ट्रांसपोज़ करने से पहले एक्सिस दर्ज करें।",
+	"labelCopied": "{label} ({date} से कॉपी किया गया)",
+	"labelCopiedNoDate": "{label} (कॉपी किया गया)"
 }

@@ -1,6 +1,6 @@
 {
-	"legendCopied": "Copied from a prior visit.",
-	"legendDefault": "Tinted: still the default \"normal\" value.",
+	"legendCopied": "Dashed bar: copied from a prior visit.",
+	"legendDefault": "Solid bar: still the default \"normal\" value.",
 	"legendShorthand": "Shorthand: {codes}.",
 	"labelDefault": "{label} (default)",
 	"normal": "Normal",
@@ -584,5 +584,7 @@
 	"fieldDilationRisks": "Dilation risks discussed",
 	"tgtSourceProviderNamed": "{name}'s default",
 	"rxTransposeNeedSph": "{source} {eye}: enter the sphere (or PLANO) before transposing.",
-	"rxTransposeNeedAxis": "{source} {eye}: enter the axis before transposing."
+	"rxTransposeNeedAxis": "{source} {eye}: enter the axis before transposing.",
+	"labelCopied": "{label} (copied from {date})",
+	"labelCopiedNoDate": "{label} (copied)"
 }

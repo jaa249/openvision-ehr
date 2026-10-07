@@ -62,5 +62,6 @@
 	"nkdaMark": "कोई ज्ञात एलर्जी नहीं चिह्नित करें",
 	"nkdaUnmark": "\"कोई ज्ञात एलर्जी नहीं\" का निशान हटाएँ",
 	"allergyAdded": "एलर्जी जोड़ी गई।",
-	"addAllergy": "एलर्जी जोड़ें"
+	"addAllergy": "एलर्जी जोड़ें",
+	"listTitle": "मरीज़ · OpenVision"
 }

@@ -6,6 +6,7 @@
 	import { CODE_SETS, splitCodeText, type CodeSetId, type DxCode } from '#lib/codesets/index.ts';
 	import type { ImpItem } from '#lib/plan/types.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let {
@@ -76,6 +77,7 @@
 			ondragstart={ondraghandle}
 			aria-label={t('plan.itemDrag', { n })}
 			tabindex="-1"
+			use:tip={t('tips.dragHandle')}
 		>
 			<span aria-hidden="true">⋮⋮</span>
 		</button>

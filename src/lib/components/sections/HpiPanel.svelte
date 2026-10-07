@@ -215,7 +215,7 @@
 	}
 	.row {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 21.25rem), 1fr)); /* rem: reflows as text grows (D53) */
 		gap: var(--space-4);
 		align-items: start;
 	}
@@ -283,7 +283,7 @@
 		padding: var(--space-3);
 	}
 	.elements {
-		grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.375rem), 1fr));
 		align-items: start;
 	}
 	.wide {

@@ -65,5 +65,6 @@
 	"nkdaMark": "Marcar sin alergias conocidas",
 	"nkdaUnmark": "Desmarcar sin alergias conocidas",
 	"allergyAdded": "Alergia agregada.",
-	"addAllergy": "Agregar alergia"
+	"addAllergy": "Agregar alergia",
+	"listTitle": "Pacientes · OpenVision"
 }

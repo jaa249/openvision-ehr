@@ -18,6 +18,7 @@
 	} from '#lib/exam/sections/refraction.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
 	import { METHOD_KEY, RX_TYPE_KEY } from './labels.ts';
 	import type { PageProps } from './$types';
@@ -207,13 +208,14 @@
 	<span class="what">{data.rx.kind === 'W' ? t('rx.methodGlassesNumber', { method: t(METHOD_KEY.W), number: source.slice(1) }) : t(METHOD_KEY[data.rx.kind])}</span>
 	<a href="/patients/{p.id}/encounters/{e.id}/rx/history">{t('rx.dispensedHistory')}</a>
 	<span class="spacer"></span>
-	{#if !isCtl}<button type="button" onclick={doTranspose} title={t('rx.transposeTitle')}>{t('rx.transpose')}</button>{/if}
+	{#if !isCtl}<button type="button" onclick={doTranspose} use:tip={t('rx.transposeTitle')}>{t('rx.transpose')}</button>{/if}
 	<button type="button" class="primary" onclick={printNow} disabled={busy}>{t('rx.print')}</button>
 </div>
 <p class="msg" class:error={failed} role="status" aria-live="polite">
 	{#if message}{message}{:else if saved}{t('rx.savedPrinted', { when: printedAt })}{:else}{t('rx.editingHint')}{/if}
 </p>
 
+<main>
 <article class="rx" aria-label={title}>
 	<header>
 		<div class="practice">
@@ -411,6 +413,7 @@
 		<div class="generated">{saved ? t('rx.footerPrinted', { when: printedAt }) : t('rx.footerGenerated', { when: generatedOn })}</div>
 	</footer>
 </article>
+</main>
 
 <style>
 	:global(body) {
@@ -595,8 +598,8 @@
 	}
 	.radio input,
 	.check input {
-		width: 18px;
-		height: 18px;
+		width: 1.125rem;
+		height: 1.125rem;
 		accent-color: #111;
 	}
 	.none-type {

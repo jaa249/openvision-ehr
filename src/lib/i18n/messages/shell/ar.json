@@ -19,5 +19,8 @@
 	"legalNav": "معلومات قانونية",
 	"legalEnglishOnly": "هذا المستند متوفر بالإنجليزية فقط حاليًا.",
 	"legalBack": "العودة إلى OpenVision",
-	"legalPageTitle": "{title} · OpenVision"
+	"legalPageTitle": "{title} · OpenVision",
+	"dimRoomOn": "تم تشغيل الغرفة المعتمة",
+	"dimRoomOff": "تم إيقاف الغرفة المعتمة",
+	"dimRoomShortcut": "تشغيل الغرفة المعتمة أو إيقافها"
 }

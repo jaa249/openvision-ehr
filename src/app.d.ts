@@ -17,6 +17,8 @@ declare global {
 			mustChangePassword?: boolean;
 			/** The language this request is shown in (D48), set by hooks.server.ts on every request. */
 			locale: import('#lib/i18n/locales.ts').LocaleCode;
+			/** The signed-in user's text size (D53), '100' when signed out; set by hooks.server.ts. */
+			textSize: import('#lib/prefs/textsize.ts').TextSize;
 		}
 		// interface PageData {}
 		// interface PageState {}

@@ -71,5 +71,11 @@
 	"datePointHigh": "{date}: PIO {eye} {value} mmHg por {method}, meta {target}, sobre la meta",
 	"markerPerformed": "{kind} realizado el {date}",
 	"markerPerformedOpen": "{kind} realizado el {date}. Presione para abrir.",
-	"sourceProviderNamed": "valor predeterminado de {name}"
+	"sourceProviderNamed": "valor predeterminado de {name}",
+	"legendLabel": "Leyenda del gráfico",
+	"legendIopOd": "línea continua, marcadores redondos",
+	"legendIopOs": "línea continua, marcadores cuadrados",
+	"legendTargetOd": "guiones largos",
+	"legendTargetOs": "guiones cortos",
+	"legendTest": "barra en la franja bajo el gráfico"
 }

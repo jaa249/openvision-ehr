@@ -10,6 +10,12 @@
 				var t = localStorage.getItem('ov-theme');
 				if (t === 'light' || t === 'dark' || t === 'dim') document.documentElement.setAttribute('data-theme', t);
 			} catch (e) {}
+			// A viewport short in lines of text (zoom, large text): the exam stops pinning its chrome (D53).
+			// Same rule as isShortViewport in src/lib/prefs/textsize.ts.
+			try {
+				var r = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+				if (innerHeight / r < 32) document.documentElement.setAttribute('data-short', '');
+			} catch (e) {}
 		</script>
 		%sveltekit.head%
 	</head>

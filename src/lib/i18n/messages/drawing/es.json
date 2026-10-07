@@ -52,5 +52,6 @@
 	"notSavedTooLarge": "No guardado: el dibujo es demasiado grande",
 	"notSavedError": "No guardado: error {status}",
 	"notSavedRetrying": "No guardado, reintentando",
-	"signedOut": "Sesión cerrada. Es posible que sus últimos cambios no se hayan guardado; vuelva a iniciar sesión."
+	"signedOut": "Sesión cerrada. Es posible que sus últimos cambios no se hayan guardado; vuelva a iniciar sesión.",
+	"pencilGreen": "Verde"
 }

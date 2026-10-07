@@ -71,5 +71,11 @@
 	"datePointHigh": "{date}: IOP {eye} {value} mmHg, {method} से, टारगेट {target}, टारगेट से ऊपर",
 	"markerPerformed": "{kind} {date} को किया गया",
 	"markerPerformedOpen": "{kind} {date} को किया गया। खोलने के लिए दबाएँ।",
-	"sourceProviderNamed": "{name} का डिफ़ॉल्ट"
+	"sourceProviderNamed": "{name} का डिफ़ॉल्ट",
+	"legendLabel": "चार्ट संकेत-सूची",
+	"legendIopOd": "ठोस रेखा, गोल निशान",
+	"legendIopOs": "ठोस रेखा, चौकोर निशान",
+	"legendTargetOd": "लंबे डैश",
+	"legendTargetOs": "छोटे डैश",
+	"legendTest": "चार्ट के नीचे की पट्टी में बार"
 }

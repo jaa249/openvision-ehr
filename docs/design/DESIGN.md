@@ -1,4 +1,4 @@
-# Design Direction — v0.1
+# Design Direction — v0.2
 
 > **OpenVision**. Status: draft for review.
 > Companion files: [`tokens.css`](../../src/lib/styles/tokens.css) (the values) and [`preview.html`](preview.html) (the exam screen rendered with them).
@@ -36,18 +36,24 @@ Neutral, low-saturation UI so clinical color (findings, alerts) stands out. Full
 | `--od` / `--os` | Eye identity tints (blue-ish / amber-ish). **Always paired with the "OD (R)" / "OS (L)" text label** — color-blind safe pair, never the only signal |
 | `--abnormal` | Finding outside normal (e.g. IOP above target). Paired with an icon/marker |
 | `--danger` / `--warn` / `--ok` | Alerts, unsaved conflicts, saved state |
+| `--hairline` / `--field-border` | Dividers only / input outlines. `--field-border` is >= 3:1 against every surface (WCAG 1.4.11); base.css makes text inputs, selects and text areas use it |
+| `--default-bg` `--default-mark` → `--default-tint` | A field still holding the default value: tint plus a **solid** 3px bar on the cell's start edge |
+| `--copied-bg` `--copied-mark` → `--copied-tint` | A field copied from a prior visit: tint plus a **dashed** 3px bar. Both bars >= 3:1 against panel and tint in every mode; the accessible name adds "(default)" or "(copied from <date>)" (D54) |
+| `--paper-filter` | How drawings are *shown*: `none` in light, `brightness(0.82)` dark, `brightness(0.62)` dim room. Drawings are stored and printed on white |
 
 **Dark mode is a clinical requirement, not a theme.** Doctors work in a dimmed room; a bright white screen ruins dark adaptation and lights up the patient's face. Three modes:
 
 - **Light** — front desk, pre-test.
 - **Dark** — default in exam rooms, follows the OS unless overridden.
-- **Dim room** — dark mode with reduced luminance (text capped near 75% white, no pure-white surfaces, accent desaturated). One toggle in the patient banner (`Shift+D`).
+- **Dim room** — dark mode with reduced luminance (text capped near 75% white, no pure-white surfaces, accent desaturated; muted text `--text-3` is `#858a93` so it still meets AA). The colour-mode switch sits in the patient banner (and on the chart, documents and flow sheet); `Shift+D` (not while typing, no other modifier) turns dim room on and back to the previous mode.
+
+**Never colour alone (D54).** Field states use bar shape (solid / dashed), rail states use mark shape, the flow sheet draws target OD with long dashes and target OS with short dashes (OD round markers, OS square), and legends use the text colours. In Windows high contrast (`forced-colors: active`) the field bars become solid / dashed borders in `CanvasText`, chart lines take system colours, and pencil swatches keep their real colours (they are the choice itself).
 
 ### 3.2 Typography
 
 - **Family:** Inter (SIL OFL, self-hosted, Latin subset) with system-ui fallback. Inter has tabular figures and a clear `1/l/I` and `0/O` distinction — essential for `-1.25 +0.50 x 180`.
 - **Figures:** `font-variant-numeric: tabular-nums` on all measurements so columns of sphere/cyl/axis/IOP align.
-- **Scale (compact / touch):** five named steps, no one-offs.
+- **Scale (compact / touch):** five named steps, no one-offs. All in **rem** (sizes below are at a 16px default), so they follow the Windows / browser default font size and the per-user **Text size** (100–200%, set as a percentage on `<html>` by the server). Print resets the text size (D53).
 
 | Token | Compact | Touch | Use |
 |---|---|---|---|
@@ -64,7 +70,7 @@ Neutral, low-saturation UI so clinical color (findings, alerts) stands out. Full
 ### 3.3 Spacing, radius, density
 
 - 4px base grid: `--space-1` 4 · `-2` 8 · `-3` 12 · `-4` 16 · `-5` 24 · `-6` 32.
-- **Density follows the input device, not the device name:** `@media (pointer: coarse)` switches to the touch scale — rows grow from 28px to 44px, targets to ≥ 44×44px. A tablet with a keyboard cover stays touch-sized; a laptop with a touchscreen gets touch targets when a coarse pointer is primary.
+- **Density follows the input device, not the device name:** `@media (pointer: coarse)` switches to the touch scale — rows grow from 1.75rem to 2.75rem (28 → 44px at 100%), targets to ≥ 2.75rem. Space and radius stay in px; what holds text (rows, targets, icons) is in rem and grows with the text. A tablet with a keyboard cover stays touch-sized; a laptop with a touchscreen gets touch targets when a coarse pointer is primary.
 - Radius: `--radius-1` 4px (inputs, chips) · `--radius-2` 8px (panels, menus) · `--radius-pill`. Nested radius = outer − padding.
 - Elevation: borders (1px hairline) do the work; shadows only for overlays (palette, drawers, menus).
 
@@ -130,7 +136,8 @@ There is no single published standard, so this is our rule — stated once and a
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-- **Section rail:** numbered, completion dot per section (empty / started / complete / abnormal). Collapses to icons in portrait.
+- **Section rail:** numbered, one mark per section with four states from one pure function (`src/lib/exam/rail.ts`, D54): **empty** (ring), **started** (half-filled), **complete** (filled, with a tick: every field that has a practice normal holds a value; sections without normals never show it), **abnormal** (triangle with "!": a text finding that is not the practice normal, or an IOP above target; wins over complete). A **Legend** button under the rail explains them; the tooltip says the key and the state. Collapses to a scrolling strip in portrait.
+- **Short screens (D53):** when the viewport is under 32rem high (200% zoom, large text, a small window), `<html data-short>` makes the exam scroll as a whole: banner, rail strip and helper switcher scroll away; only the shorthand bar stays pinned (a rail column beside the exam on a wide window stays).
 - **Main panel:** one section at a time *or* "scroll all" mode (eye_mag users like the whole exam on one page — keep it as an option).
 - **Priors drawer:** right side, compares the same section across visits, aligned row-for-row with the current exam.
 - **Shorthand bar:** bottom, always present when a keyboard is detected; collapsed to a button on touch-only.
@@ -141,7 +148,8 @@ Keeps eye_mag's proven grammar so its users switch with zero retraining: `field:
 
 - **Live parse preview:** as you type, the target field highlights in the panel and a ghost value appears; `Enter` commits all, `Esc` cancels.
 - **Unknown field = visible error chip**, not silently appended to the previous field (eye_mag's current behavior hides typos).
-- Autocomplete field codes after 1 character; show the long name (`rc` → *Right conjunctiva*).
+- **Suggestions (D56):** a WAI-ARIA 1.2 combobox. While a code or a finding is typed, up to 8 suggestions open above the box with the long name (`rc` → *Right conjunctiva*). Nothing is preselected, so `Enter` with the list untouched still commits the box; `↑`/`↓` choose, `Enter` or `Tab` accept, `Esc` closes the list and a second `Esc` clears the box. Near misses ("did you mean") fill the list, tagged; recently used codes (this browser) rank first.
+- **Help sheet:** `?` (outside a text box), `F1`, the `?` button on the bar, or the desktop Help › Keyboard shortcuts open one dialog listing the keys and every shorthand code (filter box; this section or all). The keys come from `src/lib/exam/shortcuts.ts`, the same module the page's key handler uses; a row's code hint opens it filtered to that row.
 - Every commit is one undo step (`Ctrl+Z`).
 
 ### 5.4 Command palette (navigation + actions)
@@ -168,12 +176,33 @@ Techs rarely have a keyboard. A custom keypad replaces the OS keyboard for Rx fi
 - Stylus draws, finger pans/zooms (palm rejection via `pointerType`).
 - Stamps for common findings (drusen, hemorrhage, nevus, RD) that can attach a coded finding.
 - Stored as vector (SVG/JSON strokes), not JPEG, so priors overlay cleanly.
+- **Paper is white.** Drawings are stored and printed on white; dark and dim room only show them dimmer (`--paper-filter`).
+- **Pencil palette:** blue, yellow, orange, brown, red, green, black, and white as the eraser. Every colour is >= 3:1 against white *and* the dimmed paper, which is why yellow and orange are deep shades. Each swatch has a name and a tooltip.
 
 ### 5.7 Saving & feedback
 
 - Field-level autosave, optimistic; status in the banner: `Saving…` (only after 400 ms) → `Saved 9:42`.
 - Offline/conflict: banner turns `--warn`, edits queue locally, never lost.
 - Toasts only for undoable actions (`Copied OD → OS · Undo`). Errors stay inline next to the field.
+- **The undo message (D55)** pauses while hovered, focused or while the window is hidden; it stays for the user's **Keep undo messages visible for** (10 s, 30 s, until closed). `Ctrl+Z` (outside text) or `Alt+U` (anywhere) undoes; `Alt+Shift+U` moves focus to it, `Esc` there goes back. It moves to the end edge, then the top, rather than cover the focused control. Polite live region always in the page.
+
+### 5.9 Tooltips and explanations (D52)
+
+One action, `use:tip` (`src/lib/components/ui/tooltip.ts`), for every tooltip in the app:
+
+- **Mouse:** shows after 400 ms (at once when moving along a toolbar); the pointer may move onto the tip.
+- **Keyboard:** shows at once on `:focus-visible` only (not after a mouse click).
+- **Touch / pen:** long-press (500 ms) shows it and swallows the click that follows, so a long-press explains without pressing.
+- `Esc` closes the tip only, never the dialog around it. One tip at a time; placed like menus, flipped to stay on screen, RTL aware; inside a `<dialog>` it goes into the top layer.
+- The text is also the control's accessible description (`aria-describedby` on a hidden node) unless it repeats the name. No native `title`.
+- **Show tooltips** off (per user): no hover or focus popups; long-press and descriptions stay.
+- Reduced motion: no fade.
+- **Abbreviations:** `<Abbr code="NS">` draws a dotted underline and explains the code from the `glossary` namespace; a control that cannot act uses `aria-disabled` (still focusable) with a tip saying why.
+- **Code hints** under a row label ("RC · LC · BC") spell each code out (right / left / both eyes); a click opens the help sheet filtered to the row. Not a Tab stop: `?` reaches the same table.
+
+### 5.10 First-run tour (D52)
+
+Five short steps on the first exam a user opens: shorthand bar, section keys, quick picks, Normal, Sign (a step whose control is missing is skipped). Next / Back / Skip, `Esc` skips, focus returns afterwards. Shown once per user (`tourSeen`, saved when it first shows); My settings › Show the tour again resets it. Never under automation, with `?notour`, with localStorage `openvision.noTour` = `1`, or on a read-only (signed or locked) exam.
 
 ### 5.8 AI-ready, AI-optional
 
@@ -204,10 +233,28 @@ Techs rarely have a keyboard. A custom keypad replaces the OS keyboard for Rx fi
 
 - WCAG 2.2 AA contrast in all three color modes (dim room included — verify, it's the easy one to fail).
 - Visible `:focus-visible` ring (2px `--accent` + 2px offset) everywhere; never removed.
-- Combobox/listbox semantics for palette, shorthand autocomplete, quick-picks.
-- Hover is enhancement only; every hover action has a tap/keyboard path.
-- Works at 200% zoom; layout reflows rail → top tabs below 900px.
-- Skip link to main exam panel; focus returns to the invoker when drawers/dialogs close.
+- Combobox semantics for the shorthand suggestions (§5.3); the quick-pick list is a grid with roving focus.
+- Hover is enhancement only; every hover action has a tap/keyboard path (§5.9).
+- Works at 200% zoom and at Text size 200%; layout reflows rail → top strip below 900px; short screens unpin the chrome (§5.2).
+- **Skip links:** "Skip to main content" on every page, "Skip to exam" on the exam. One `<main>` per page; the exam's one `<h1>` is the patient in the banner.
+- **Dialogs** return focus to their opener, or a fallback when it is gone (`dialog.ts`).
+- Native checkboxes and radios: 24 × 24px target (WCAG 2.5.8). In Arabic, codes and grades such as `+1` sit in `<bdi dir="ltr">`.
+
+### 7.1 Keyboard (D55)
+
+**One Tab stop per composite** (roving tabindex, `roving.ts`); inside it the arrows move, `Home`/`End` jump:
+
+| Composite | Inside |
+|---|---|
+| Section rail | arrows; the number keys `1`–`0` still jump from anywhere |
+| Helper-panel switch, colour-mode switch | arrows |
+| Section actions, each eye's Normal / Clear | arrows |
+| Quick-pick modifier toolbar | arrows, typeahead |
+| Quick-pick list, document lists | grid: arrows, `Home`/`End`, typeahead |
+
+**Menu button** (Download and every drop-down, `menu.ts`): `Enter`, `Space` or `↓` opens on the first item, `↑` on the last; `↑`/`↓` wrap, `Home`/`End`, typing letters; `Esc` closes and returns to the button; `Tab` closes and moves on.
+
+**Exam keys** (one list, `src/lib/exam/shortcuts.ts`, shown by the help sheet): `Alt+K` shorthand bar · `Alt+T` / `Alt+B` / `Alt+P` / `Alt+D` helper panels · `Ctrl+Z` undo (outside text) · `Alt+U` undo anywhere · `Alt+Shift+U` focus the undo message · `Ctrl+P` print · `?` (outside text) or `F1` help · `Shift+D` dim room · `1`–`0` sections (outside text).
 
 ## 8. References
 

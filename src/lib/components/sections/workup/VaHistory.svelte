@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { openModal } from '#lib/components/ui/dialog.ts';
 	// Visual acuity history (spec §8.2 with FIXes). Opened from the Vision panel's "History" button.
 	// The table is the primary view; the chart plots logMAR with better vision HIGHER (inverted axis),
 	// one line per correction type and eye, with the recorded Snellen value on hover and focus.
 	import { buildVaHistory, snellenFor, vaSeries, VA_GROUPS, VA_GROUP_LONG_KEY, type VaGroup, type VaPoint, type VaSeries, type VaVisitInput } from '#lib/exam/va_history.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
 	import type { Findings } from '#lib/shorthand/parse.ts';
 	import { onMount } from 'svelte';
@@ -28,7 +30,7 @@
 	let focus = $state<{ s: VaSeries; p: VaPoint } | null>(null);
 
 	onMount(() => {
-		dialog.showModal();
+		openModal(dialog); // focus returns to the History button when it closes
 		const ctrl = new AbortController();
 		fetch(`/api/patients/${context.patientId}/encounters/${context.encounterId}/va-history`, { signal: ctrl.signal })
 			.then(async (r) => {
@@ -136,7 +138,7 @@
 
 		<div class="toggles" role="group" aria-label={t('sections.vahLinesShown')}>
 			{#each history.groups as g (g.key)}
-				<button type="button" class="toggle" aria-pressed={on[g.key]} title={long(g)} onclick={() => (on[g.key] = !on[g.key])}>
+				<button type="button" class="toggle" aria-pressed={on[g.key]} use:tip={{ text: long(g), describe: false }} onclick={() => (on[g.key] = !on[g.key])}>
 					<svg width="34" height="14" aria-hidden="true" class="swatch">
 						<line x1="2" y1="7" x2="32" y2="7" stroke-dasharray={DASH[g.key]} />
 						{@render marker(SHAPE[g.key], 17, 7, 3.5, HOLLOW.has(g.key), 'mk')}
@@ -202,7 +204,7 @@
 					<tr>
 						<th scope="col" rowspan="2">{t('sections.vahVisit')}</th>
 						{#each history.groups as g (g.key)}
-							<th scope="colgroup" colspan="2" title={long(g)}>{g.label}</th>
+							<th scope="colgroup" colspan="2"><span use:tip={{ text: long(g), describe: false }}>{g.label}</span><span class="visually-hidden"> ({long(g)})</span></th>
 						{/each}
 					</tr>
 					<tr>
@@ -222,7 +224,11 @@
 							{#each history.groups as g (g.key)}
 								{#each ['OD', 'OS'] as const as eye (eye)}
 									{@const val = v.values[g.key][eye]}
-									<td class="num" title={val?.logmar != null ? `logMAR ${fmt(val.logmar)}` : undefined}>{val?.raw ?? ''}</td>
+									<!-- logMAR is read with the cell and shown on hover / long-press (never hover-only). -->
+									<td class="num"
+										><span use:tip={val?.logmar != null ? { text: t('tips.logmar', { value: fmt(val.logmar) }), describe: false } : null}>{val?.raw ?? ''}</span
+										>{#if val?.logmar != null}<span class="visually-hidden">, {t('tips.logmar', { value: fmt(val.logmar) })}</span>{/if}</td
+									>
 								{/each}
 							{/each}
 						</tr>

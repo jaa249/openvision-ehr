@@ -6,6 +6,7 @@
 	// panel's Remove mode take a mark away; keys 0-4 set the count directly.
 	import { gazeKey, hashOrientation, motilityCell, motilityCount, type GazeH, type GazeV } from '#lib/exam/sections/neuro.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 	import type { CellState } from '../workup/cell.ts';
 
 	let {
@@ -90,7 +91,7 @@
 					class:copied={s.copied}
 					data-field={c.id}
 					aria-label={t('sections.motCellLabel', { eye: eyeName, gaze, n })}
-					title={t('sections.motCellTitle', { gaze, n })}
+					use:tip={{ text: t('sections.motCellTitle', { gaze, n }), press: false }}
 					onclick={(e) => click(e, c.id)}
 					onkeydown={(e) => keydown(e, c.id)}
 					onpointerdown={(e) => pointerDown(e, c.id)}

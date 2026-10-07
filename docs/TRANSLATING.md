@@ -37,6 +37,17 @@ message never carries a translated diagnosis name next to a code: an example suc
 unspecified 9C61.0Z&XK9J"), and only the words around it are translated. ICD-10-CM is a US code set and
 stays English.
 
+**Glossary, tips and keys** (D52, D56). Three namespaces explain the interface rather than label it:
+
+- `glossary`: the plain name of every abbreviation the exam shows (`"ns"` is "nuclear sclerosis ..." for
+  NS). Translate the explanation only; the abbreviation itself stays as written on screen. These are
+  clinical definitions, so a glossary translation needs review by a clinician **and** a native speaker
+  before the language is marked reviewed. `glossary.test.ts` fails when the exam shows an abbreviation
+  that has no entry.
+- `tips`: tooltips, the reasons a button cannot be used right now, and the first-run tour.
+- `keys`: the keyboard and shorthand help sheet and the names of the shortcuts. Key names in the
+  shortcuts themselves (`Alt`, `Ctrl`, `F1`) are not messages and stay as they are.
+
 `npx vitest run src/lib/i18n` checks all of this (keys, placeholders, plurals, no HTML, every key used in
 the code exists in English).
 

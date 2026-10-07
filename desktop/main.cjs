@@ -35,6 +35,7 @@ let srv = null;
 let appOrigin = '';
 let mainWindow = null;
 let updates = null;
+let stopUpdateChecks = () => {}; // the periodic update checks (updates.schedule)
 let shutdownPromise = null;
 let shutdownDone = false;
 
@@ -219,6 +220,17 @@ async function printFocused() {
 		if (!handled) void win.webContents.executeJavaScript('window.print()', true);
 	} catch (e) {
 		log.error('print failed:', e);
+	}
+}
+
+// Help › Keyboard shortcuts: the same event as the page's F1 / ? keys (openKeyboardHelp, D56).
+async function keyboardHelp() {
+	const win = owner();
+	if (!win) return;
+	try {
+		await win.webContents.executeJavaScript(`window.dispatchEvent(new CustomEvent('openvision:keyboard-help', { detail: {} }))`, true);
+	} catch (e) {
+		log.error('keyboard help failed:', e);
 	}
 }
 
@@ -410,6 +422,8 @@ function buildMenu() {
 			label: '&Help',
 			submenu: [
 				{ label: 'About OpenVision', click: () => void about() },
+				// F1 is shown, not registered: the page gets the key itself (any page that has the help sheet).
+				{ label: 'Keyboard shortcuts', accelerator: 'F1', registerAccelerator: false, click: () => void keyboardHelp() },
 				{ type: 'separator' },
 				{ label: 'Terms of Use', click: () => openAppPage('/legal/terms') },
 				{ label: 'Privacy Policy', click: () => openAppPage('/legal/privacy') },
@@ -548,7 +562,7 @@ async function boot() {
 	registerIpc();
 	buildMenu();
 	createMainWindow();
-	if (updates.available) setTimeout(() => updates.check(false), 10_000);
+	stopUpdateChecks = updates.schedule(); // 10 s after start, then every 4 hours
 }
 
 /** Removes the app's sign-in cookie, so closing OpenVision signs the user out of this Windows account's app profile. */
@@ -578,6 +592,7 @@ function shutdown() {
 			shutdownPromise = null; // the next close starts over
 			return { cancelled: true, backedUp: false };
 		}
+		stopUpdateChecks();
 		await forgetSignIn();
 		try {
 			await srv?.close(3000);

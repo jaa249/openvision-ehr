@@ -4,6 +4,8 @@
 	// aligned by date. Missing readings are gaps. y is mmHg from 0 (at least 35).
 	import type { FlowMarker, FlowVisit, MarkerKind } from '#lib/server/flowsheet.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip as tipAction } from '#lib/components/ui/tooltip.ts';
+	import { glossary } from '#lib/i18n/glossary.ts';
 	import { dateScale, dateTicks, iopMax, segments } from './chart.ts';
 	import { MARKER_KIND_KEY, METHOD_LONG_KEY } from './labels.ts';
 
@@ -71,22 +73,24 @@
 	let tip = $state<{ x: number; y: number; text: string } | null>(null);
 </script>
 
-<div class="legend" aria-hidden="true">
-	<span><svg width="28" height="12"><line class="iop od" x1="2" x2="26" y1="6" y2="6" /><circle class="mk od" cx="14" cy="6" r="3.5" /></svg>{t('flowsheet.iopOd')}</span>
-	<span><svg width="28" height="12"><line class="iop os" x1="2" x2="26" y1="6" y2="6" /><rect class="mk os" x="10.5" y="2.5" width="7" height="7" /></svg>{t('flowsheet.iopOs')}</span>
-	<span><svg width="28" height="12"><line class="target od" x1="2" x2="26" y1="6" y2="6" /></svg>{t('flowsheet.targetOd')}</span>
-	<span><svg width="28" height="12"><line class="target os" x1="2" x2="26" y1="6" y2="6" /></svg>{t('flowsheet.targetOs')}</span>
-	<span><svg width="14" height="12"><rect class="bar" x="4" y="1" width="6" height="10" /></svg>{t('flowsheet.testPerformed')}</span>
-</div>
+<!-- The key is read out too (with how each line looks); OD and OS differ by marker shape and the
+     targets by dash length, not only by colour (WCAG 1.4.1). -->
+<ul class="legend" aria-label={t('flowsheet.legendLabel')}>
+	<li use:tipAction={{ text: t('flowsheet.legendIopOd'), describe: false }}><svg width="28" height="12" aria-hidden="true"><line class="iop od" x1="2" x2="26" y1="6" y2="6" /><circle class="mk od" cx="14" cy="6" r="3.5" /></svg>{t('flowsheet.iopOd')}<span class="visually-hidden">: {t('flowsheet.legendIopOd')}</span></li>
+	<li use:tipAction={{ text: t('flowsheet.legendIopOs'), describe: false }}><svg width="28" height="12" aria-hidden="true"><line class="iop os" x1="2" x2="26" y1="6" y2="6" /><rect class="mk os" x="10.5" y="2.5" width="7" height="7" /></svg>{t('flowsheet.iopOs')}<span class="visually-hidden">: {t('flowsheet.legendIopOs')}</span></li>
+	<li use:tipAction={{ text: t('flowsheet.legendTargetOd'), describe: false }}><svg width="28" height="12" aria-hidden="true"><line class="target od" x1="2" x2="26" y1="6" y2="6" /></svg>{t('flowsheet.targetOd')}<span class="visually-hidden">: {t('flowsheet.legendTargetOd')}</span></li>
+	<li use:tipAction={{ text: t('flowsheet.legendTargetOs'), describe: false }}><svg width="28" height="12" aria-hidden="true"><line class="target os" x1="2" x2="26" y1="6" y2="6" /></svg>{t('flowsheet.targetOs')}<span class="visually-hidden">: {t('flowsheet.legendTargetOs')}</span></li>
+	<li use:tipAction={{ text: t('flowsheet.legendTest'), describe: false }}><svg width="14" height="12" aria-hidden="true"><rect class="bar" x="4" y="1" width="6" height="10" /></svg>{t('flowsheet.testPerformed')}<span class="visually-hidden">: {t('flowsheet.legendTest')}</span></li>
+</ul>
 <svg class="eye-ltr" viewBox="0 0 {W} {H}" role="group" aria-label={t('flowsheet.dateChartLabel')} aria-describedby="{uid}-d">
 	<desc id="{uid}-d">{t('flowsheet.dateChartDesc')}</desc>
 	{#each yTicks as tick (tick)}
 		<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={y(tick)} y2={y(tick)} />
 		<text class="tick" x={PAD.l - 6} y={y(tick) + 4} text-anchor="end">{tick}</text>
 	{/each}
-	<text class="tick" x={PAD.l - 6} y="12" text-anchor="end">mmHg</text>
+	<text class="tick" x={PAD.l - 6} y="12" text-anchor="end" use:tipAction={glossary('mmHg', t)}>mmHg</text>
 	{#each Object.entries(STRIP) as [k, sy] (k)}
-		<text class="tick" x={PAD.l - 6} y={sy + 4} text-anchor="end">{kindLabel(k as MarkerKind)}</text>
+		<text class="tick" x={PAD.l - 6} y={sy + 4} text-anchor="end" use:tipAction={glossary(k, t)}>{kindLabel(k as MarkerKind)}</text>
 		<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={sy} y2={sy} />
 	{/each}
 	{#each xTicks as tick (tick)}
@@ -180,9 +184,12 @@
 		gap: var(--space-1) var(--space-3);
 		font-size: var(--text-xs);
 		color: var(--text-2);
-		margin-bottom: var(--space-1);
+		margin: 0 0 var(--space-1);
+		padding: 0;
+		list-style: none;
+		position: relative;
 	}
-	.legend span {
+	.legend li {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-1);
@@ -204,9 +211,14 @@
 		fill: none;
 		stroke-width: 2;
 	}
+	/* Target OD long dashes, target OS short dashes: told apart without colour. */
 	.target {
 		stroke-dasharray: 6 4;
 		stroke-width: 1.5;
+	}
+	.target.os {
+		stroke-dasharray: 2 3;
+		stroke-width: 2;
 	}
 	.od.iop,
 	.od.target,
@@ -267,5 +279,47 @@
 		fill: var(--text-1);
 		font-size: 11px;
 		font-weight: var(--weight-semibold);
+	}
+	/* Windows high contrast: SVG keeps author colours, so give lines and marks system colours; shapes and
+	   dashes still tell OD, OS and the targets apart. */
+	@media (forced-colors: active) {
+		.iop.od,
+		.iop.os,
+		.target.od,
+		.target.os,
+		.od .mk,
+		.os .mk,
+		.mk.od,
+		.mk.os,
+		.pt.cur .mk {
+			stroke: CanvasText;
+		}
+		.od .mk,
+		.os .mk,
+		.mk.od,
+		.mk.os,
+		.bar,
+		.hi {
+			fill: CanvasText;
+		}
+		.pt.high .mk {
+			stroke: Highlight;
+		}
+		.grid {
+			stroke: GrayText;
+		}
+		.tick,
+		.tip text {
+			fill: CanvasText;
+		}
+		.tip rect {
+			fill: Canvas;
+			stroke: CanvasText;
+		}
+		.pt:focus-visible .hit,
+		.mark:focus-visible .hit {
+			stroke: Highlight;
+			fill: none;
+		}
 	}
 </style>

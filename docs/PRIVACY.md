@@ -33,7 +33,7 @@ The app works offline. It connects to the internet only in these cases, and neve
 
 | When | Where | What is sent |
 |---|---|---|
-| Checking for and downloading updates (at start and from Help > Check for updates) | GitHub (github.com and its download servers) | A normal web request: your computer's IP address, the app version and operating system in the request headers. GitHub's own privacy statement applies to that request. |
+| Checking for and downloading updates (at start, every 4 hours while open, and from Help > Check for updates) | GitHub (github.com and its download servers) | A normal web request: your computer's IP address, the app version and operating system in the request headers. GitHub's own privacy statement applies to that request. |
 | An admin downloads a diagnosis code set (Settings > Code sets) | CMS (www.cms.gov) for ICD-10-CM; WHO (icdcdn.who.int) for ICD-11 | A normal web request for the published file. The publishers' privacy terms apply. |
 | You click a help link (for example to Microsoft's BitLocker help) | That website, in your normal web browser | Whatever your browser sends to any website. |
 

@@ -19,5 +19,8 @@
 	"legalNav": "कानूनी जानकारी",
 	"legalEnglishOnly": "यह दस्तावेज़ अभी केवल अंग्रेज़ी में है।",
 	"legalBack": "OpenVision पर वापस जाएँ",
-	"legalPageTitle": "{title} · OpenVision"
+	"legalPageTitle": "{title} · OpenVision",
+	"dimRoomOn": "अंधेरा कमरा चालू",
+	"dimRoomOff": "अंधेरा कमरा बंद",
+	"dimRoomShortcut": "अंधेरा कमरा चालू या बंद करें"
 }

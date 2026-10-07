@@ -71,5 +71,11 @@
 	"datePointHigh": "{date}: ضغط العين {eye} {value} mmHg بطريقة {method}، الهدف {target}، أعلى من الهدف",
 	"markerPerformed": "{kind} أُجري في {date}",
 	"markerPerformedOpen": "{kind} أُجري في {date}. اضغط للفتح.",
-	"sourceProviderNamed": "القيمة الافتراضية لـ {name}"
+	"sourceProviderNamed": "القيمة الافتراضية لـ {name}",
+	"legendLabel": "دليل الرسم البياني",
+	"legendIopOd": "خط متصل، علامات دائرية",
+	"legendIopOs": "خط متصل، علامات مربعة",
+	"legendTargetOd": "شرطات طويلة",
+	"legendTargetOs": "شرطات قصيرة",
+	"legendTest": "عمود في الشريط أسفل الرسم البياني"
 }

@@ -71,5 +71,11 @@
 	"datePointHigh": "{date}：眼压 {eye} {value} mmHg（{method}），目标 {target}，高于目标",
 	"markerPerformed": "{kind}，检查于 {date}",
 	"markerPerformedOpen": "{kind}，检查于 {date}。点击打开。",
-	"sourceProviderNamed": "{name} 的默认值"
+	"sourceProviderNamed": "{name} 的默认值",
+	"legendLabel": "图表图例",
+	"legendIopOd": "实线，圆形标记",
+	"legendIopOs": "实线，方形标记",
+	"legendTargetOd": "长虚线",
+	"legendTargetOs": "短虚线",
+	"legendTest": "图表下方条带中的竖条"
 }

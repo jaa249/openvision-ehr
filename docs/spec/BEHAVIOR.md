@@ -332,6 +332,8 @@ Vocabulary tables (aliases and abbreviation expansions) are in [SHORTHAND.md](SH
 
 **After processing** (EB:2454-2455): the form is saved once and the box is cleared.
 
+**OpenVision addition (not in the original; DECISIONS D56):** while a code or a finding is typed, a suggestion list opens (a WAI-ARIA combobox, with "did you mean" near misses and recently used codes). Nothing in it is selected until the arrow keys are used, so **Enter** with the list open but untouched still processes the box exactly as above; Enter or Tab on a highlighted suggestion inserts it instead, and Escape closes the list (a second Escape clears the box). A keyboard and shorthand help sheet (`?`, F1) lists every code.
+
 ### 2.2 Grammar
 
 The form of an input is `entry ; entry ; entry`, where each entry is `CODE:text`, optionally ending in `.a` to append.

@@ -1,6 +1,6 @@
 {
-	"legendCopied": "Copié d'une consultation antérieure.",
-	"legendDefault": "Teinté : encore la valeur « normale » par défaut.",
+	"legendCopied": "Barre en tirets : copié d'une consultation antérieure.",
+	"legendDefault": "Barre pleine : encore la valeur « normale » par défaut.",
 	"legendShorthand": "Abréviations : {codes}.",
 	"labelDefault": "{label} (par défaut)",
 	"normal": "Normal",
@@ -585,5 +585,7 @@
 	"fieldDilationRisks": "Risques de la dilatation expliqués",
 	"tgtSourceProviderNamed": "valeur par défaut de {name}",
 	"rxTransposeNeedSph": "{source} {eye} : saisissez la sphère (ou PLANO) avant de transposer.",
-	"rxTransposeNeedAxis": "{source} {eye} : saisissez l'axe avant de transposer."
+	"rxTransposeNeedAxis": "{source} {eye} : saisissez l'axe avant de transposer.",
+	"labelCopied": "{label} (copié du {date})",
+	"labelCopiedNoDate": "{label} (copié)"
 }

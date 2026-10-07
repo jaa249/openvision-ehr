@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { openModal } from '#lib/components/ui/dialog.ts';
 	// Patient documents (spec §15.4): every stored photo, scan and letter, filterable by exam zone and
 	// category, with upload, notes, soft delete and a viewer. Newest by date taken first (FIX).
 	import { page } from '$app/state';
@@ -18,6 +19,7 @@
 	} from '#lib/components/documents/types.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -139,7 +141,8 @@
 	function askDelete(d: DocMeta) {
 		toDelete = d;
 		deleteError = '';
-		confirmDialog.showModal();
+		// After a delete the row (and its button) is gone: focus then goes to the page heading.
+		openModal(confirmDialog, { fallback: () => document.querySelector<HTMLElement>('main h1') });
 	}
 	async function confirmDelete() {
 		if (!toDelete) return;
@@ -245,7 +248,7 @@
 				{#each shown as d (d.id)}
 					{@const visit = d.encounterId ? visitById.get(d.encounterId) : null}
 					<li class="doc">
-						<button type="button" class="thumb" onclick={() => (viewing = d)} aria-label={t('documents.viewAria', { category: d.categoryName, date: d.takenOn })}>
+						<button type="button" class="thumb" onclick={() => (viewing = d)} aria-label={t('documents.viewAria', { category: d.categoryName, date: d.takenOn })} use:tip={t('tips.fileName', { name: d.filename })}>
 							{#if isImage(d.mime)}
 								<img src={docUrl(pid, d.id)} alt="" loading="lazy" decoding="async" />
 							{:else}
@@ -254,7 +257,8 @@
 						</button>
 						<div class="info">
 							<p class="cat">{d.categoryName} <span class="num date">{d.takenOn}</span></p>
-							<p class="file" title={d.filename}>{d.filename}</p>
+							<!-- The full name: on hover / long-press here, and on keyboard focus of the thumbnail above. -->
+							<p class="file" use:tip={{ text: d.filename, describe: false }}>{d.filename}</p>
 							<p class="meta num">
 								{t('documents.sizeBy', { size: formatBytes(d.size), name: d.createdBy })}{#if visit}{' · '}<a href="/patients/{pid}/encounters/{visit.id}">{t('documents.visitLink', { date: visit.date })}</a>{/if}
 								{#if catById.get(d.category)?.flow}{' · '}{t('documents.onFlowSheet')}{/if}
@@ -303,7 +307,7 @@
 		{#if deleteError}<p class="err" role="alert">{deleteError}</p>{/if}
 		<div class="actions">
 			<button type="button" class="danger-solid" onclick={confirmDelete}>{t('documents.deleteConfirm')}</button>
-			<button type="button" onclick={() => confirmDialog.close()}>{t('documents.keepIt')}</button>
+			<button type="button" onclick={() => confirmDialog.close()} data-initial-focus>{t('documents.keepIt')}</button>
 		</div>
 	{/if}
 </dialog>

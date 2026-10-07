@@ -17,6 +17,8 @@ export const load: PageServerLoad = ({ locals, url }) => {
 		cylinder: prefs.cylinder,
 		examMode: prefs['exam.mode'],
 		locale: prefs.locale,
+		textSize: prefs.textSize,
+		undoDuration: prefs['undo.duration'],
 		practiceLocale: getDefaultLocale(db),
 		required: !!locals.mustChangePassword || url.searchParams.get('required') === '1'
 	};
@@ -32,16 +34,24 @@ export const actions: Actions = {
 			displayName: str(f.get('displayName')),
 			cylinder: str(f.get('cylinder')),
 			examMode: str(f.get('examMode')),
-			locale: str(f.get('locale'))
+			locale: str(f.get('locale')),
+			textSize: str(f.get('textSize')),
+			undoDuration: str(f.get('undoDuration'))
 		};
 		const errors: Record<string, string> = {};
 		const { t } = serverT(locals.locale);
 		const cylinder = checkPref('cylinder', values.cylinder);
 		const examMode = checkPref('exam.mode', values.examMode);
 		const locale = checkPref('locale', values.locale);
+		// Text size (D53): an older form without the field keeps the saved size.
+		const textSize = values.textSize ? checkPref('textSize', values.textSize) : getPrefs(db, locals.userId).textSize;
 		if (!cylinder) errors.cylinder = t('settings.chooseCylinder');
 		if (!examMode) errors.examMode = t('settings.choosePanel');
 		if (!locale) errors.locale = t('settings.chooseLanguage');
+		if (!textSize) errors.textSize = t('settings.chooseTextSize');
+		// Undo message time (WCAG 2.2.1): an older form without the field keeps the saved value.
+		const undoDuration = values.undoDuration ? checkPref('undo.duration', values.undoDuration) : getPrefs(db, locals.userId)['undo.duration'];
+		if (!undoDuration) errors.undoDuration = t('settings.chooseUndoDuration');
 		// The name is saved even when a radio is invalid (it is validated on its own).
 		try {
 			updateDisplayName(db, locals.userId, values.displayName);
@@ -51,7 +61,7 @@ export const actions: Actions = {
 		}
 		if (Object.keys(errors).length) return fail(400, { section: 'profile' as const, errors, values });
 		// enhance reloads the page data after a save, so a new language shows at once.
-		setPrefs(db, locals.userId, { cylinder, 'exam.mode': examMode, locale });
+		setPrefs(db, locals.userId, { cylinder, 'exam.mode': examMode, locale, textSize, 'undo.duration': undoDuration });
 		return { section: 'profile' as const, ok: true };
 	},
 

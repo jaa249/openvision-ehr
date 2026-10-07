@@ -249,5 +249,16 @@
 	"auditActExportFhir": "Exported as FHIR",
 	"auditActRxPrint": "Rx printed",
 	"auditActDocumentView": "Document opened",
-	"auditActDocumentDownload": "Document downloaded"
+	"auditActDocumentDownload": "Document downloaded",
+	"prefTextSize": "Text size",
+	"textSizeHint": "Makes text and controls larger on every page, on top of the text size set in Windows or your browser. Zoom (Ctrl and +) still works as well.",
+	"textSizePercent": "{size}%",
+	"textSizeStandard": "{size}% (standard)",
+	"prefUndoDuration": "Keep undo messages visible for",
+	"undo10s": "10 seconds",
+	"undo30s": "30 seconds",
+	"undoUntilDismissed": "Until I close it",
+	"undoDurationHint": "The message after Normal, copy, clear or a quick pick, with its Undo button. The time stops while the pointer or keyboard is on the message.",
+	"chooseUndoDuration": "Choose how long undo messages stay.",
+	"chooseTextSize": "Choose a text size."
 }

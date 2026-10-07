@@ -1,7 +1,7 @@
 'use strict';
 // Updates (D41, D51): electron-updater against this project's GitHub Releases (publish settings in
-// builder.config.cjs end up in resources\app-update.yml). Checked at start and from Help › Check for
-// updates. A downloaded update is never installed behind anyone's back: the user picks "Restart now"
+// builder.config.cjs end up in resources\app-update.yml). Checked 10 s after start, every 4 hours while
+// the app runs, and from Help › Check for updates. A downloaded update is never installed behind anyone's back: the user picks "Restart now"
 // or "Later" (installed when OpenVision closes). Either way a backup of the database is taken first;
 // if the backup fails the update waits. A window kept open with "Wait" (changes still saving) calls
 // "Restart now" off; the update then installs on the next normal close.
@@ -16,7 +16,35 @@ const { restartAction } = require('./shutdown.cjs');
  * it would never see the next version. From 1.0 on, the app follows full releases only.
  */
 function followsPrereleases(version) {
-	return /^0./.test(String(version));
+	return /^0\./.test(String(version));
+}
+
+/** How often a running app looks for a new version (a clinic computer may stay open for weeks). */
+const CHECK_EVERY_MS = 4 * 60 * 60 * 1000;
+const FIRST_CHECK_MS = 10_000;
+
+/**
+ * Whether a scheduled (quiet) check should run now: not while one is already running, and not once an
+ * update has been downloaded and is waiting for "Restart now" or the next close.
+ */
+function shouldCheckNow({ ready, checking }) {
+	return !ready && !checking;
+}
+
+/**
+ * Checks FIRST_CHECK_MS after start and then every CHECK_EVERY_MS while the app runs. Returns stop().
+ * Timers are injectable for tests.
+ */
+function scheduleChecks(run, { setTimeoutFn = setTimeout, setIntervalFn = setInterval, clearTimeoutFn = clearTimeout, clearIntervalFn = clearInterval } = {}) {
+	let interval = null;
+	const first = setTimeoutFn(() => {
+		run();
+		interval = setIntervalFn(run, CHECK_EVERY_MS);
+	}, FIRST_CHECK_MS);
+	return () => {
+		clearTimeoutFn(first);
+		if (interval) clearIntervalFn(interval);
+	};
 }
 
 /**
@@ -28,6 +56,7 @@ function createUpdates({ app, dialog, log, getWindow, enabled, backup, shutdown,
 	let updater = null;
 	let ready = null; // the downloaded update's info
 	let manualCheck = false;
+	let checking = false; // a check is running
 
 	if (enabled) {
 		try {
@@ -111,15 +140,26 @@ ${log.file}`);
 		get pending() {
 			return ready;
 		},
-		/** Background check at start (quiet), or from the menu (says what happened). */
+		/** Background check (quiet: at start and every few hours), or from the menu (says what happened). */
 		check(manual = false) {
 			if (!updater) {
 				if (manual) info(enabled ? 'Updates are not available in this copy of OpenVision.' : 'Update checks are turned off (development copy, or OPENVISION_UPDATES=off).');
 				return;
 			}
 			if (manual && ready) return void offerRestart();
+			if (!manual && !shouldCheckNow({ ready, checking })) return;
 			manualCheck = manual;
-			updater.checkForUpdates().catch((e) => log.error('update check failed:', e));
+			checking = true;
+			updater
+				.checkForUpdates()
+				.catch((e) => log.error('update check failed:', e))
+				.finally(() => {
+					checking = false;
+				});
+		},
+		/** Quiet checks 10 s after start and every 4 hours while the app runs. Returns stop(). */
+		schedule() {
+			return updater ? scheduleChecks(() => this.check(false)) : () => {};
 		},
 		/**
 		 * Called by shutdown after the server stopped and before the database closes: when an update is
@@ -142,4 +182,4 @@ ${log.file}`);
 	};
 }
 
-module.exports = { createUpdates, followsPrereleases };
+module.exports = { createUpdates, followsPrereleases, shouldCheckNow, scheduleChecks, CHECK_EVERY_MS, FIRST_CHECK_MS };

@@ -52,5 +52,6 @@
 	"notSavedTooLarge": "Not saved: drawing is too large",
 	"notSavedError": "Not saved: error {status}",
 	"notSavedRetrying": "Not saved, retrying",
-	"signedOut": "Signed out. Your last changes may not be saved; sign in again."
+	"signedOut": "Signed out. Your last changes may not be saved; sign in again.",
+	"pencilGreen": "Green"
 }

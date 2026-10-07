@@ -2,6 +2,7 @@
 	// Slim top bar for the non-exam pages: home, Patients, Visits, Settings by role, who is signed in, Sign out.
 	import { page } from '$app/state';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 
 	let { user }: { user: { id: number; displayName: string; role: 'admin' | 'provider' | 'tech' } } = $props();
 
@@ -27,7 +28,7 @@
 		</ul>
 	</nav>
 	<div class="who">
-		<a class="me" href="/settings/me" title={t('shell.mySettings')}>
+		<a class="me" href="/settings/me" use:tip={{ text: t('shell.mySettings'), placement: 'bottom' }}>
 			<span class="name">{user.displayName}</span>
 			<span class="role">{roleLabel(user.role)}</span>
 		</a>

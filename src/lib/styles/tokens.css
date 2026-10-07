@@ -1,16 +1,18 @@
-/* OpenVision design tokens v0.1 — see DESIGN.md for the rationale.
+/* OpenVision design tokens v0.2 — see DESIGN.md for the rationale.
    Themes: light (default), dark (OS or data-theme="dark"), dim room (data-theme="dim").
-   Density: compact for fine pointers, touch for coarse pointers. */
+   Density: compact for fine pointers, touch for coarse pointers.
+   Text size (D53): type, row heights and targets are in rem, so they follow the browser / Windows
+   default font size and the per-user "Text size" setting (a percentage on <html>). 1rem = 16px at 100%. */
 
 :root {
   /* ---- Type ---- */
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
-  --text-xs: 11px;
-  --text-sm: 13px;  /* base */
-  --text-md: 15px;
-  --text-lg: 18px;
-  --text-xl: 22px;
+  --text-xs: 0.6875rem; /* 11px at 100% */
+  --text-sm: 0.8125rem; /* 13px, base */
+  --text-md: 0.9375rem; /* 15px */
+  --text-lg: 1.125rem;  /* 18px */
+  --text-xl: 1.375rem;  /* 22px */
   --weight-regular: 400;
   --weight-semibold: 600;
   --leading-tight: 1.2;
@@ -25,9 +27,10 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
-  --row-height: 28px;
-  --target-min: 28px;
-  --icon-size: 16px;
+  /* Space stays in px; what holds text (rows, targets, icons) grows with the text. */
+  --row-height: 1.75rem; /* 28px */
+  --target-min: 1.75rem; /* 28px */
+  --icon-size: 1rem;     /* 16px */
 
   /* ---- Radius ---- */
   --radius-1: 4px;
@@ -66,22 +69,33 @@
   --os: #8a4b00;      --os-soft: #fdf2e3;
   --abnormal: #b4235a; --abnormal-soft: #fcebf1;
   --danger: #c62828;  --warn: #9a5b00;  --ok: #157f3b;
-  --default-tint: #fbf5e6; /* field still holding a default value (spec §3.2) */
-  --copied-tint: #eaf6ee; /* filled from a prior visit (spec §6) */
+  /* Input outlines: >= 3:1 against every surface (WCAG 1.4.11); --hairline is for dividers only. */
+  --field-border: #7e8592;
+  /* Field states are never colour alone (WCAG 1.4.1): a tint plus a 3px bar on the cell's left edge,
+     solid for "default", dashed for "copied from a prior visit". Bars >= 3:1 against panel and tint. */
+  --default-bg: #fbf5e6;   /* field still holding a default value (spec §3.2) */
+  --default-mark: #9a5b00;
+  --copied-bg: #eaf6ee;    /* filled from a prior visit (spec §6) */
+  --copied-mark: #157f3b;
+  /* Drawings are stored on white paper; dark modes only dim how they are shown (never printed). */
+  --paper-filter: none;
   --shadow-overlay: 0 8px 24px rgb(16 24 40 / .14), 0 1px 3px rgb(16 24 40 / .08);
+  /* Used as `background: var(--default-tint)`: the tint with its bar (one layer list per state). */
+  --default-tint: linear-gradient(var(--default-mark), var(--default-mark)) left / 3px 100% no-repeat, var(--default-bg);
+  --copied-tint: repeating-linear-gradient(to bottom, var(--copied-mark) 0 4px, transparent 4px 7px) left / 3px 100% no-repeat, var(--copied-bg);
 }
 
 /* Touch density: driven by input capability, not device name */
 @media (pointer: coarse) {
   :root {
-    --text-xs: 12px;
-    --text-sm: 14px;
-    --text-md: 16px;
-    --text-lg: 20px;
-    --text-xl: 24px;
-    --row-height: 44px;
-    --target-min: 44px;
-    --icon-size: 20px;
+    --text-xs: 0.75rem;  /* 12px */
+    --text-sm: 0.875rem; /* 14px */
+    --text-md: 1rem;     /* 16px */
+    --text-lg: 1.25rem;  /* 20px */
+    --text-xl: 1.5rem;   /* 24px */
+    --row-height: 2.75rem; /* 44px */
+    --target-min: 2.75rem; /* 44px */
+    --icon-size: 1.25rem;  /* 20px */
   }
 }
 
@@ -105,8 +119,12 @@
     --os: #f0b465;      --os-soft: #33250f;
     --abnormal: #ff8fb1; --abnormal-soft: #3a1724;
     --danger: #ff7b72;  --warn: #e3b341;  --ok: #56d364;
-    --default-tint: #2a2619; /* field still holding a default value (spec §3.2) */
-    --copied-tint: #17291f; /* filled from a prior visit (spec §6) */
+    --field-border: #737a88;
+    --default-bg: #2a2619;
+    --default-mark: #e3b341;
+    --copied-bg: #17291f;
+    --copied-mark: #56d364;
+    --paper-filter: brightness(0.82);
     --shadow-overlay: 0 8px 24px rgb(0 0 0 / .5), 0 0 0 1px #2a2f3a;
   }
 }
@@ -128,8 +146,12 @@
   --os: #f0b465;      --os-soft: #33250f;
   --abnormal: #ff8fb1; --abnormal-soft: #3a1724;
   --danger: #ff7b72;  --warn: #e3b341;  --ok: #56d364;
-  --default-tint: #2a2619; /* field still holding a default value (spec §3.2) */
-  --copied-tint: #17291f; /* filled from a prior visit (spec §6) */
+  --field-border: #737a88;
+  --default-bg: #2a2619;
+  --default-mark: #e3b341;
+  --copied-bg: #17291f;
+  --copied-mark: #56d364;
+  --paper-filter: brightness(0.82);
   --shadow-overlay: 0 8px 24px rgb(0 0 0 / .5), 0 0 0 1px #2a2f3a;
 }
 
@@ -144,7 +166,7 @@
   --hairline: #1f232b;
   --text-1: #bfc3ca;
   --text-2: #959aa3;
-  --text-3: #7d828b;
+  --text-3: #858a93;
   --accent: #7d93c9;
   --accent-text: #08090b;
   --accent-soft: #161d2e;
@@ -153,8 +175,12 @@
   --os: #c9a06a;      --os-soft: #1f1a10;
   --abnormal: #d68aa3; --abnormal-soft: #24121a;
   --danger: #d9837c;  --warn: #c4a45a;  --ok: #74b783;
-  --default-tint: #1a1710; /* field still holding a default value (spec §3.2) */
-  --copied-tint: #111c15; /* filled from a prior visit (spec §6) */
+  --field-border: #686e79;
+  --default-bg: #1a1710;
+  --default-mark: #c4a45a;
+  --copied-bg: #111c15;
+  --copied-mark: #74b783;
+  --paper-filter: brightness(0.62);
   --shadow-overlay: 0 8px 24px rgb(0 0 0 / .6), 0 0 0 1px #1f232b;
 }
 

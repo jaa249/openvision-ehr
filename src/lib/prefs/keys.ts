@@ -3,6 +3,7 @@
 // Booleans are real booleans in the API and '1'/'0' in the database, never translated words.
 import { LOCALE_CODES, type LocaleCode } from '#lib/i18n/locales.ts';
 import type { MessageKey } from '#lib/i18n/catalog.ts';
+import { TEXT_SIZES } from './textsize.ts';
 
 interface BoolDef {
 	type: 'boolean';
@@ -33,6 +34,8 @@ export const EXAM_MODE_LABEL_KEY: Record<ExamMode, MessageKey> = {
 };
 /** The user's language (D48): 'practice' follows the practice default, else a language code. */
 export const LOCALE_PREF_VALUES: readonly ('practice' | LocaleCode)[] = ['practice', ...LOCALE_CODES];
+/** "Keep undo messages visible for" (WCAG 2.2.1): seconds, or until dismissed. */
+export const UNDO_DURATIONS = ['10', '30', 'never'] as const;
 /** Must match COVER_ZONES in #lib/exam/sections/neuro.ts (checked by a test). */
 export const COVER_ZONE_KEYS = ['SCDIST', 'CCDIST', 'SCNEAR', 'CCNEAR'] as const;
 
@@ -53,7 +56,12 @@ export const PREF_DEFS = {
 	tooltips: bool(true, 'Tooltips on'),
 	'pmsfh.open': bool(true, 'History slide-out open'),
 	'retina.wide': bool(true, 'Fundus text grid wide'),
-	locale: oneOf(LOCALE_PREF_VALUES, 'practice', 'Language')
+	locale: oneOf(LOCALE_PREF_VALUES, 'practice', 'Language'),
+	/** Text size (D53): percent of the browser's default font size. */
+	textSize: oneOf(TEXT_SIZES, '100', 'Text size'),
+	'undo.duration': oneOf(UNDO_DURATIONS, '10', 'Keep undo messages visible for'),
+	/** The first-run exam tour (D52) was finished or skipped; My settings can show it again. */
+	tourSeen: bool(false, 'Exam tour seen')
 } as const;
 
 export type PrefKey = keyof typeof PREF_DEFS;
@@ -72,7 +80,10 @@ export const PREF_LABEL_KEY: Record<PrefKey, MessageKey> = {
 	tooltips: 'settings.prefTooltips',
 	'pmsfh.open': 'settings.prefHistorySlideOut',
 	'retina.wide': 'settings.prefFundusGridWide',
-	locale: 'common.language'
+	locale: 'common.language',
+	textSize: 'settings.prefTextSize',
+	'undo.duration': 'settings.prefUndoDuration',
+	tourSeen: 'tips.prefTourSeen'
 };
 type DefOf<K extends PrefKey> = (typeof PREF_DEFS)[K];
 export type PrefValue<K extends PrefKey> = DefOf<K> extends { type: 'boolean' } ? boolean : DefOf<K> extends EnumDef<infer V> ? V : never;

@@ -19,5 +19,8 @@
 	"legalNav": "Legal",
 	"legalEnglishOnly": "This document is in English only for now.",
 	"legalBack": "Back to OpenVision",
-	"legalPageTitle": "{title} · OpenVision"
+	"legalPageTitle": "{title} · OpenVision",
+	"dimRoomOn": "Dim room on",
+	"dimRoomOff": "Dim room off",
+	"dimRoomShortcut": "Turn dim room on or off"
 }

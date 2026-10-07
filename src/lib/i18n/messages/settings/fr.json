@@ -256,5 +256,16 @@
 	"auditActExportFhir": "Exporté en FHIR",
 	"auditActRxPrint": "Ordonnance imprimée",
 	"auditActDocumentView": "Document ouvert",
-	"auditActDocumentDownload": "Document téléchargé"
+	"auditActDocumentDownload": "Document téléchargé",
+	"prefTextSize": "Taille du texte",
+	"textSizeHint": "Agrandit le texte et les commandes sur toutes les pages, en plus de la taille du texte de Windows ou du navigateur. Le zoom (Ctrl et +) fonctionne toujours.",
+	"textSizePercent": "{size} %",
+	"textSizeStandard": "{size} % (standard)",
+	"prefUndoDuration": "Garder les messages d'annulation affichés pendant",
+	"undo10s": "10 secondes",
+	"undo30s": "30 secondes",
+	"undoUntilDismissed": "Jusqu'à ce que je le ferme",
+	"undoDurationHint": "Le message après Normal, copier, effacer ou un choix rapide, avec son bouton Annuler. Le temps s'arrête tant que le pointeur ou le clavier est sur le message.",
+	"chooseUndoDuration": "Choisissez la durée d'affichage des messages d'annulation.",
+	"chooseTextSize": "Choisissez une taille de texte."
 }

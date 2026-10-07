@@ -59,6 +59,9 @@ function resolve(code: string): string[] | null {
 	return ALIASES[code] ?? null;
 }
 
+/** The field ids an upper-case code writes to (an alias or a field id), or null. Used by the bar's suggestions. */
+export const resolveCode = resolve;
+
 export function parseShorthand(input: string): ParseResult {
 	const ops: Op[] = [];
 	const errors: ParseError[] = [];

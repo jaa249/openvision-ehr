@@ -1,6 +1,6 @@
 {
-	"legendCopied": "从既往就诊复制。",
-	"legendDefault": "浅色底纹：仍为默认的“正常”值。",
+	"legendCopied": "虚线条：从既往就诊复制。",
+	"legendDefault": "实线条：仍为默认的“正常”值。",
 	"legendShorthand": "简码：{codes}。",
 	"labelDefault": "{label}（默认）",
 	"normal": "正常",
@@ -583,5 +583,7 @@
 	"fieldDilationRisks": "已告知散瞳风险",
 	"tgtSourceProviderNamed": "{name} 的默认值",
 	"rxTransposeNeedSph": "{source} {eye}：请先输入球镜（或 PLANO）再转换。",
-	"rxTransposeNeedAxis": "{source} {eye}：请先输入轴位再转换。"
+	"rxTransposeNeedAxis": "{source} {eye}：请先输入轴位再转换。",
+	"labelCopied": "{label}（复制自 {date}）",
+	"labelCopiedNoDate": "{label}（已复制）"
 }

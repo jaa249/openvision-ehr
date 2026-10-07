@@ -16,10 +16,16 @@
 	import MotilityDiagram from './neuro/MotilityDiagram.svelte';
 	import CoverTest from './neuro/CoverTest.svelte';
 	import Msg from '#lib/i18n/Msg.svelte';
+	import Abbr from '#lib/components/ui/Abbr.svelte';
+	import CodeHint from '#lib/components/ui/CodeHint.svelte';
+	import { tip } from '#lib/components/ui/tooltip.ts';
+	import { glossary } from '#lib/i18n/glossary.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { stateLabel, useCopiedFrom } from '#lib/exam/copied.ts';
 
 	let { findings, preview, copied, onedit, oncommit }: PanelProps = $props();
 	const { t } = useI18n();
+	const copiedFrom = useCopiedFrom();
 	const rowLabel = (key: keyof typeof NEURO_ROW_LABEL_KEY) => t(NEURO_ROW_LABEL_KEY[key]);
 
 	const cell = (id: string) => cellState(id, findings, preview, copied);
@@ -59,7 +65,7 @@
 			class={opts.size ?? 's'}
 			value={c.value}
 			autocomplete="off"
-			aria-label={c.isDefault ? t('sections.labelDefault', { label }) : label}
+			aria-label={stateLabel(t, label, { isDefault: c.isDefault, copied: c.copied, date: copiedFrom(id) })}
 			placeholder={opts.placeholder ?? '–'}
 			oninput={(e) => onedit(id, e.currentTarget.value)}
 		/>
@@ -79,12 +85,12 @@
 		<div class="panel" role="group" aria-labelledby="motility-title">
 			<div class="card-head">
 				<h3 id="motility-title">{t('sections.motility')}</h3>
-				<button type="button" class="mini" aria-pressed={removeMode} onclick={() => (removeMode = !removeMode)}>
+				<button type="button" class="mini" aria-pressed={removeMode} use:tip={t('tips.motilityRemove')} onclick={() => (removeMode = !removeMode)}>
 					<span aria-hidden="true">−</span> {t('sections.motilityRemoveMode')}
 				</button>
 				<label class="check">
 					<input type="checkbox" checked={motNormal} onchange={(e) => setMotilityNormal(e.currentTarget.checked)} />
-					{t('sections.normal')} <span class="unit">{t('sections.motilityDvFull')}</span>
+					{t('sections.normal')} <span class="unit" use:tip={{ text: glossary('D&V', t) ?? '', host: true }}>{t('sections.motilityDvFull')}</span>
 				</label>
 			</div>
 			<div class="motility eye-ltr">
@@ -105,8 +111,8 @@
 				<thead>
 					<tr>
 						<th scope="col" class="rowhead"><span class="visually-hidden">{t('sections.measure')}</span></th>
-						<th scope="col"><span class="eye od">{t('sections.eyeOdR')}</span></th>
-						<th scope="col"><span class="eye os">{t('sections.eyeOsL')}</span></th>
+						<th scope="col"><span class="eye od" use:tip={t('tips.eyeOd')}>{t('sections.eyeOdR')}</span></th>
+						<th scope="col"><span class="eye os" use:tip={t('tips.eyeOs')}>{t('sections.eyeOsL')}</span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -115,13 +121,13 @@
 						<tr>
 							<th scope="row">
 								<span class="rowname">
-									{label}
+									<Abbr code={r.key} text={label} />
 									{#if r.normal}
 										<button
 											type="button"
 											class="mini normal"
-											aria-label={t('sections.neuroRowNormalLabel', { label, value: r.normal })}
-											title={t('sections.neuroBothEyes', { value: r.normal })}
+											aria-label="{t('sections.normal')}: {t('sections.neuroRowNormalLabel', { label, value: r.normal })}"
+											use:tip={t('sections.neuroBothEyes', { value: r.normal })}
 											onclick={() => rowNormal(r)}>{t('sections.normal')}</button
 										>
 									{/if}
@@ -154,7 +160,7 @@
 						<td class="cell" colspan="2">{@render text('VERTFUSAMPS', t('sections.neuroVertFusional'), { size: 'l' })}</td>
 					</tr>
 					<tr>
-						<th scope="row">{t('sections.neuroNpc')}</th>
+						<th scope="row"><Abbr code="NPC" text={t('sections.neuroNpc')} /></th>
 						<td class="cell" colspan="2">{@render text('NPC', t('sections.neuroNpcLong'), { size: 'l' })}</td>
 					</tr>
 					<tr>
@@ -175,7 +181,7 @@
 			{#snippet comments()}
 				{@const c = cell('NEURO_COMMENTS')}
 				<label class="comments">
-					<span>{t('sections.neuroComments')} <span class="code">NCOM</span></span>
+					<span>{t('sections.neuroComments')} <CodeHint hint="NCOM" inline /></span>
 					<textarea
 						rows="2"
 						class:ghost={c.ghost}
@@ -281,8 +287,8 @@
 		cursor: pointer;
 	}
 	.check input {
-		width: 18px;
-		height: 18px;
+		width: 1.125rem;
+		height: 1.125rem;
 		accent-color: var(--accent);
 	}
 	.motility {

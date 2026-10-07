@@ -71,5 +71,11 @@
 	"datePointHigh": "{date}: IOP {eye} {value} mmHg by {method}, target {target}, above target",
 	"markerPerformed": "{kind} performed {date}",
 	"markerPerformedOpen": "{kind} performed {date}. Press to open.",
-	"sourceProviderNamed": "{name}'s default"
+	"sourceProviderNamed": "{name}'s default",
+	"legendLabel": "Chart key",
+	"legendIopOd": "solid line, round markers",
+	"legendIopOs": "solid line, square markers",
+	"legendTargetOd": "long dashes",
+	"legendTargetOs": "short dashes",
+	"legendTest": "bar in the strip under the chart"
 }

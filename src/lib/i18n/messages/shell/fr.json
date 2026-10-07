@@ -19,5 +19,8 @@
 	"legalNav": "Informations juridiques",
 	"legalEnglishOnly": "Pour l'instant, ce document n'existe qu'en anglais.",
 	"legalBack": "Retour à OpenVision",
-	"legalPageTitle": "{title} · OpenVision"
+	"legalPageTitle": "{title} · OpenVision",
+	"dimRoomOn": "Salle obscure activée",
+	"dimRoomOff": "Salle obscure désactivée",
+	"dimRoomShortcut": "Activer ou désactiver la salle obscure"
 }

@@ -55,11 +55,11 @@
 	<button type="button" class="primary" onclick={printWhenReady}>{t('report.print')}</button>
 </div>
 
-<div class="sheets">
+<main class="sheets">
 	{#each data.items as item (item.encounter.id)}
 		<ExamReport {item} practice={data.practice} {generatedOn} />
 	{/each}
-</div>
+</main>
 
 <style>
 	:global(body) {

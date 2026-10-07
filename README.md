@@ -7,7 +7,7 @@
 <p align="center">A free, open-source eye exam and eye-care records app for optometrists and ophthalmologists.</p>
 
 <p align="center">
-  <a href="https://github.com/jaa249/openvision-ehr/releases/download/v0.1.0/OpenVision-Setup.exe"><strong>Download for Windows</strong></a> (version 0.1.0, 64-bit, Windows 10 or 11)
+  <a href="https://github.com/jaa249/openvision-ehr/releases/download/v0.2.0/OpenVision-Setup.exe"><strong>Download for Windows</strong></a> (version 0.2.0, 64-bit, Windows 10 or 11)
   &nbsp;|&nbsp; <a href="#install-on-windows">How to install</a>
   &nbsp;|&nbsp; <a href="#a-quick-tour">See screenshots</a>
 </p>
@@ -43,7 +43,7 @@ All names and clinical data in these screenshots are fictional (the built-in dem
 
 ## What it does
 
-Status: early (0.1.0). Still to come: database encryption at rest, see [`docs/SECURITY.md`](docs/SECURITY.md).
+Status: early (0.2.0). Still to come: database encryption at rest, see [`docs/SECURITY.md`](docs/SECURITY.md).
 
 **Patients and history**
 - Patients and visits: create, search, chart, new visit.
@@ -69,6 +69,14 @@ Status: early (0.1.0). Still to come: database encryption at rest, see [`docs/SE
 - CSV and FHIR R4 export (with the impression/plan as Conditions).
 - A Download menu in the exam (PDF or FHIR, to add the visit to another chart).
 
+**Accessibility**
+- Tooltips on every button, and a plain-English name for every abbreviation (hover, Tab to it, or press and hold).
+- Text size up to 200% per user, plus high contrast (Windows high contrast mode) and a dim-room mode (`Shift+D`) that shows drawings dimmer without changing them.
+- Works by keyboard alone, with one Tab stop per group of buttons; `?` or `F1` in the exam lists every key and shorthand code.
+- Shorthand suggestions while you type, with "did you mean" for typos.
+- Labels for screen readers, including which values are defaults or copied from a prior visit.
+- My settings: Text size, Show tooltips, Show the tour again, and Keep undo messages visible for (10 s, 30 s or until closed).
+
 **Safety and administration**
 - Exam locking while someone edits; final electronic signing with addenda.
 - Sign-in with roles (admin, provider, technician), automatic logoff, and an audit log of sign-ins and chart views.
@@ -78,7 +86,7 @@ Status: early (0.1.0). Still to come: database encryption at rest, see [`docs/SE
 
 ## Install on Windows
 
-1. **[Download OpenVision-Setup.exe](https://github.com/jaa249/openvision-ehr/releases/download/v0.1.0/OpenVision-Setup.exe)** (about 115 MB). This is version 0.1.0; every version and its release notes are on the [Releases page](https://github.com/jaa249/openvision-ehr/releases).
+1. **[Download OpenVision-Setup.exe](https://github.com/jaa249/openvision-ehr/releases/download/v0.2.0/OpenVision-Setup.exe)** (about 115 MB). This is version 0.2.0; every version and its release notes are on the [Releases page](https://github.com/jaa249/openvision-ehr/releases).
 2. Double-click the file and allow it to make changes (it installs for everyone on the computer, so it needs an administrator).
 3. The installer is not code-signed yet, so Windows may say **"Windows protected your PC"**. Click **More info**, then **Run anyway**. Only do this for a file downloaded from the link above.
 4. Read and accept the data safety notice and the [Terms of Use](docs/TERMS.md) (see also the [Privacy Policy](docs/PRIVACY.md)).
@@ -102,11 +110,11 @@ HOST=127.0.0.1 PORT=3000 BODY_SIZE_LIMIT=20M node build    # PowerShell: $env:HO
 
 Open http://127.0.0.1:3000. A fresh install creates `data/openvision.sqlite` with two fictional patients and three demo accounts, all with the password `openvision-demo`: `demo-provider`, `demo-tech` and `demo-admin`. Set `OPENVISION_DB` to store the database elsewhere. When a newer version needs to upgrade the database, it first writes a copy to `backups/pre-migrate-...sqlite` beside the database (or to `OPENVISION_BACKUP_DIR`) and keeps the newest 5; if the copy fails, it does not upgrade or start. Set `OPENVISION_DEMO=0` before the first start for an empty install; the first visit then asks you to create the admin account. Locked out? `node scripts/reset-admin.mjs <admin username>` on the server gives an admin a temporary password. Diagnosis codes are not part of the package: an admin downloads the practice's code set (ICD-10-CM or WHO ICD-11) in Settings > Code sets, or imports the official file on a computer without internet (see [`codes/README.md`](codes/README.md)).
 
-> **Not for real patients yet.** Version 0.1.0 is a pre-release until a practising eye-care professional has reviewed it, and OpenVision does not encrypt its database. Keep the browser build bound to `127.0.0.1`, and read [`docs/SECURITY.md`](docs/SECURITY.md).
+> **Not for real patients yet.** Version 0.2.0 is a pre-release until a practising eye-care professional has reviewed it, and OpenVision does not encrypt its database. Keep the browser build bound to `127.0.0.1`, and read [`docs/SECURITY.md`](docs/SECURITY.md).
 
 Development: `npm run codes:fetch` (once, downloads the diagnosis code sets into the git-ignored `codes/`), then `npm run dev`, `npm test`, `npm run check`.
 
-In the exam: press `Alt+K` for the shorthand bar, then try `das; rc:1+ inj; lk:tr spk.a` and Enter. Keys `1`-`0` switch sections (`5` External, `6` Slit lamp, `7` Fundus). The **Quick picks** and **Prior visits** buttons open a helper panel; the demo patient Jordan Demo has two earlier visits to copy from. **Print** (or `Ctrl+P`) in the exam prints the report; **All encounters & printing** on the home page prints or exports many visits at once: **CSV** (one row per visit, for spreadsheets) or **FHIR R4** (a Bundle of Patient, Encounter, AllergyIntolerance and Observation resources, for other EHR systems).
+In the exam: press `Alt+K` for the shorthand bar, then try `das; rc:1+ inj; lk:tr spk.a` and Enter. Keys `1`-`0` switch sections (`5` External, `6` Slit lamp, `7` Fundus). `F1` (or `?` outside a text box) lists every key and shorthand code. The **Quick picks** and **Prior visits** buttons open a helper panel; the demo patient Jordan Demo has two earlier visits to copy from. **Print** (or `Ctrl+P`) in the exam prints the report; **All encounters & printing** on the home page prints or exports many visits at once: **CSV** (one row per visit, for spreadsheets) or **FHIR R4** (a Bundle of Patient, Encounter, AllergyIntolerance and Observation resources, for other EHR systems).
 
 ## Docs
 

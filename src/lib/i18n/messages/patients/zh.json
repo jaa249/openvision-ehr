@@ -59,5 +59,6 @@
 	"nkdaMark": "标记为无已知过敏",
 	"nkdaUnmark": "取消“无已知过敏”标记",
 	"allergyAdded": "已添加过敏。",
-	"addAllergy": "添加过敏"
+	"addAllergy": "添加过敏",
+	"listTitle": "患者 · OpenVision"
 }

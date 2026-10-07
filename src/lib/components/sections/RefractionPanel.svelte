@@ -40,6 +40,8 @@
 	import { defaultPrefs, type PrefKey, type Prefs as StoredPrefs } from '#lib/prefs/keys.ts';
 	import { loadPrefs, savePrefs } from '#lib/prefs/client.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
+	import Abbr from '#lib/components/ui/Abbr.svelte';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
@@ -169,6 +171,28 @@
 	const MR_COLS: Col[] = [C.SPH, C.CYL, C.AXIS, C.VA, C.ADD, C.NEARVA, C.PRISM, C.BASE];
 	const CR_COLS: Col[] = [C.SPH, C.CYL, C.AXIS, C.VA];
 	const AR_COLS: Col[] = [C.SPH, C.CYL, C.AXIS, C.VA, C.ADD, C.NEARVA, C.PRISM];
+	/** Glossary entry explaining each column head; columns not listed are plain words. */
+	const COL_GLOSSARY: Record<string, string> = {
+		SPH: 'Sph',
+		CYL: 'Cyl',
+		AXIS: 'Axis',
+		VA: 'VA',
+		NEARVA: 'VA',
+		MIDADD: 'ADD',
+		ADD: 'ADD',
+		PRISM: 'Prism',
+		HPD: 'Prism',
+		VPD: 'Prism',
+		BASE: 'Base',
+		HBASE: 'Base',
+		VBASE: 'Base',
+		SLABOFF: 'Slab-off',
+		VERTEXDIST: 'Vertex',
+		MPDD: 'PD',
+		MPDN: 'PD',
+		BC: 'BC',
+		DIAM: 'DIA'
+	};
 	const CTL_COLS: Col[] = [C.SPH, C.CYL, C.AXIS, { col: 'BC', head: 'sections.rxHeadBc', fmt: 'text' }, { col: 'DIAM', head: 'sections.rxHeadDiam', fmt: 'text' }, C.ADD, C.VA];
 	const CTL_LENS: Col[] = [
 		{ col: 'BRAND', head: 'sections.rxHeadBrand', fmt: 'text', list: 'ctl-brands' },
@@ -339,7 +363,7 @@
 				value={s.value}
 				aria-label={label}
 				aria-invalid={w ? 'true' : undefined}
-				title={w || undefined}
+				use:tip={w || null}
 				list={c.list}
 				inputmode={c.fmt === 'axis' ? 'numeric' : undefined}
 				autocomplete="off"
@@ -360,13 +384,13 @@
 			<thead>
 				<tr>
 					<th scope="col" class="eyehead"><span class="visually-hidden">{t('sections.rxEye')}</span></th>
-					{#each cols as c (c.col)}<th scope="col">{t(c.head)}</th>{/each}
+					{#each cols as c (c.col)}<th scope="col"><Abbr code={COL_GLOSSARY[c.col] ?? ''} text={t(c.head)} /></th>{/each}
 				</tr>
 			</thead>
 			<tbody>
 				{#each EYES as eye (eye)}
 					<tr>
-						<th scope="row"><span class="eye {eye.toLowerCase()}">{eye}</span></th>
+						<th scope="row"><span class="eye {eye.toLowerCase()}" use:tip={eye === 'OD' ? t('tips.eyeOd') : t('tips.eyeOs')}>{eye}</span></th>
 						{#each cols as c (c.col)}{@render eyeCell(source, c, eye)}{/each}
 					</tr>
 				{/each}
@@ -398,11 +422,12 @@
 	<div class="card-head">
 		<h3>{title}</h3>
 		<span class="actions">
-			<button type="button" class="mini" onclick={() => doTranspose(source)} title={t('sections.rxTransposeTitle')}>± {t('sections.rxTranspose')}</button>
-			<button type="button" class="mini" onclick={() => printRx(source)} aria-label={t('sections.rxPrintSource', { source: srcLabel(source) })}>{t('sections.rxPrint')}</button>
+			<button type="button" class="mini" onclick={() => doTranspose(source)} use:tip={t('sections.rxTransposeTitle')}>± {t('sections.rxTranspose')}</button>
+			<!-- Names start with the visible text (WCAG 2.5.3): "Print Rx: Manifest". -->
+			<button type="button" class="mini" onclick={() => printRx(source)} aria-label="{t('sections.rxPrint')}: {srcLabel(source)}" use:tip={t('sections.rxPrintSource', { source: srcLabel(source) })}>{t('sections.rxPrint')}</button>
 			<button type="button" class="mini" onclick={() => clearSource(source)} aria-label={t('sections.rxClearSource', { source: srcLabel(source) })}>{t('sections.clear')}</button>
 			{#if onclose}
-				<button type="button" class="mini close" onclick={onclose} aria-label={t('sections.rxCloseTitle', { title })}>✕</button>
+				<button type="button" class="mini close" onclick={onclose} aria-label={t('sections.rxCloseTitle', { title })} use:tip={t('sections.rxCloseTitle', { title })}>✕</button>
 			{/if}
 		</span>
 	</div>
@@ -416,17 +441,17 @@
 				{@const hidden = !prefs[tg.key]}
 				<button type="button" aria-pressed={prefs[tg.key]} onclick={() => setPref(tg.key, !prefs[tg.key])}>
 					{t(tg.label)}
-					{#if hidden && tg.sources.some((s) => has(s))}<span class="dot" title={t('sections.rxHasValues')}><span class="visually-hidden">{t('sections.rxHasValuesHidden')}</span></span>{/if}
+					{#if hidden && tg.sources.some((s) => has(s))}<span class="dot" use:tip={{ text: t('tips.rxHiddenValues'), describe: false }}><span class="visually-hidden">{t('sections.rxHasValuesHidden')}</span></span>{/if}
 				</button>
 			{/each}
 		</div>
 		<span class="tools">
-			<button type="button" aria-pressed={prefs.wide} onclick={() => setPref('wide', !prefs.wide)} title={t('sections.rxDetailsTitle')}>{t('sections.rxDetails')}</button>
+			<button type="button" aria-pressed={prefs.wide} onclick={() => setPref('wide', !prefs.wide)} use:tip={t('sections.rxDetailsTitle')}>{t('sections.rxDetails')}</button>
 			<button
 				type="button"
 				onclick={() => setPref('cyl', prefs.cyl === '+' ? '-' : '+')}
-				title={t('sections.rxCylTitle')}
-				aria-label={prefs.cyl === '+' ? t('sections.rxCylLabelPlus') : t('sections.rxCylLabelMinus')}
+				use:tip={t('sections.rxCylTitle')}
+				aria-label="{t('sections.rxCylButton', { sign: prefs.cyl === '+' ? '+' : '−' })}: {prefs.cyl === '+' ? t('sections.rxCylLabelPlus') : t('sections.rxCylLabelMinus')}"
 			>
 				{t('sections.rxCylButton', { sign: prefs.cyl === '+' ? '+' : '−' })}
 			</button>
@@ -785,8 +810,8 @@
 	.radio input,
 	.check input {
 		min-height: 0;
-		width: 18px;
-		height: 18px;
+		width: 1.125rem;
+		height: 1.125rem;
 		accent-color: var(--accent);
 	}
 	.ou-row {

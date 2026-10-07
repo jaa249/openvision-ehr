@@ -20,7 +20,7 @@
 
 <svelte:head><title>{t('rx.historyPageTitle', { name: p.legalName })}</title></svelte:head>
 
-<div class="page">
+<main class="page">
 	<nav class="crumbs">
 		<a href="/patients/{p.id}/encounters/{data.encounter.id}">{t('rx.backToExam')}</a>
 	</nav>
@@ -90,7 +90,7 @@
 			{/each}
 		</ol>
 	{/if}
-</div>
+</main>
 
 <style>
 	.page {

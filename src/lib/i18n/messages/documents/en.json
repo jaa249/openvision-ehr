@@ -86,5 +86,6 @@
 	"fileWrongType": "{name} is not a PNG, JPEG or PDF. Phone photos in HEIC format must be saved as JPEG first.",
 	"serverTooLarge": "This file is larger than the server accepts. Files up to 15 MB are supported when the server runs with {setting} (ask your administrator).",
 	"visitLocked": "This visit is signed or being edited elsewhere, so its documents cannot change.",
-	"serverAnsweredSentence": "The server answered {status}."
+	"serverAnsweredSentence": "The server answered {status}.",
+	"zoneKeysHint": "Arrow keys move between categories and between their buttons; type the first letters of a category to jump to it."
 }

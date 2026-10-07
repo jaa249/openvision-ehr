@@ -4,6 +4,64 @@ OpenVision follows [semantic versioning](https://semver.org/). **1.0 will follow
 practising eye-care professional**; until then every release is a pre-release and is not for real patient
 data.
 
+## 0.2.0 — 2026-10-07 (pre-release, not for real patient data until clinical review)
+
+Accessibility and tooltips. Automated WCAG 2.2 AA checks (axe) pass on all main screens, in the light,
+dark and dim-room modes and in Arabic (the project's browser test suite). Crossing the whole slit lamp page with the keyboard now
+takes 45 Tab presses instead of 194 (29 within the exam itself). Decisions D52 to D56.
+
+### Tooltips and explanations
+
+- Every button and abbreviation explains itself: point at it, tab to it, or press and hold it on a tablet.
+  Escape closes the tip. Screen readers hear the same text.
+- A glossary spells out every abbreviation the exam shows (OD, NS, sc, ADD, mmHg, 920xx ...), in every
+  interface language (the explanations are drafts until a clinician and a native speaker review them).
+- The small codes under a row label ("RC · LC · BC") say what each code means; clicking them opens the
+  shorthand help for that row.
+- A button that cannot be used right now says why (for example "Nothing to undo").
+- A short tour (five steps) shows a new user around their first exam. It shows once and can be skipped.
+
+### Seeing and reading
+
+- Text size: make text and controls up to twice as large for your own account. On a short or zoomed screen
+  the exam scrolls as a whole and keeps only the shorthand bar pinned. Printouts are not affected.
+- Field states are no longer shown by colour alone: a solid bar marks a default value, a dashed bar a value
+  copied from a prior visit, and screen readers hear "(default)" or "(copied from <date>)".
+- The section list marks each section empty, started, complete or abnormal, each with its own shape, and has
+  a legend.
+- Input borders are easier to see in every colour mode, and muted text in the dim-room mode; the flow sheet
+  tells the OD and OS targets apart by dash length.
+- Drawings show dimmer in the dark and dim-room modes but are stored and printed on white; every pencil
+  colour stays visible on both.
+- Shift+D turns the dim-room mode on and off. Windows high contrast mode is supported.
+
+### Keyboard
+
+- One Tab stop per group (section list, section and eye buttons, quick picks, modifiers, document lists);
+  the arrow keys move inside it.
+- Menus and dialogs follow the standard keys and return focus to where you were.
+- The undo message waits while you point at it, tab to it or switch windows; Ctrl+Z (outside a text box) or
+  Alt+U undoes, Alt+Shift+U moves to the message. It never covers the field you are in.
+- "Skip to main content" on every page, one main heading on the exam, larger checkboxes and radio buttons.
+
+### Shorthand
+
+- Suggestions while you type a code or a finding, with recently used codes first and "did you mean" for typos.
+  Nothing is chosen until you press the arrow keys, so Enter still saves the bar as before.
+- Keyboard and shorthand help: press `?` or F1 in the exam, click the `?` on the shorthand bar, or in the
+  desktop app choose Help › Keyboard shortcuts.
+
+### Settings
+
+- My settings has Text size, Show tooltips, Show the tour again, and Keep undo messages visible for
+  (10 seconds, 30 seconds or until you close it).
+
+### Windows desktop app
+
+- Updates are checked 10 seconds after start and then every 4 hours while the app is open, not only at
+  start; no check runs while one is already running or an update is waiting.
+- Help › Keyboard shortcuts (F1).
+
 ## 0.1.0 — 2026-10-07 (pre-release, not for real patient data until clinical review)
 
 The first release. Everything below is new.

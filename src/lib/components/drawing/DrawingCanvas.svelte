@@ -7,6 +7,7 @@
 	import { DrawingSaver } from './saver.svelte.ts';
 	import { BLANK_BASE, baseFor, ZONE_LABEL_KEY } from '#lib/drawings/bases.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let { patientId, encounterId, zone }: { patientId: number; encounterId: number; zone: string } = $props();
@@ -14,12 +15,16 @@
 	/** Logical canvas size (§5.1). The backing store is 2-3× this for crisp lines on HiDPI screens. */
 	const W = 450;
 	const H = 250;
+	// Every colour is >= 3:1 against the white paper and against the dimmed paper of the dark and dim-room
+	// modes (--paper-filter), so a line stays visible (WCAG 1.4.11). Yellow and orange are deep shades for
+	// that reason. White is the eraser: it paints the paper colour.
 	const PENCILS: { name: MessageKey; color: string }[] = [
 		{ name: 'drawing.pencilBlue', color: '#1f5fd6' },
-		{ name: 'drawing.pencilYellow', color: '#f2c200' },
-		{ name: 'drawing.pencilOrange', color: '#f07a12' },
+		{ name: 'drawing.pencilYellow', color: '#8a6d00' },
+		{ name: 'drawing.pencilOrange', color: '#b85500' },
 		{ name: 'drawing.pencilBrown', color: '#7a4a1e' },
 		{ name: 'drawing.pencilRed', color: '#d42020' },
+		{ name: 'drawing.pencilGreen', color: '#2e7d32' },
 		{ name: 'drawing.pencilBlack', color: '#111111' },
 		{ name: 'drawing.pencilWhite', color: '#ffffff' }
 	];
@@ -371,14 +376,14 @@
 					class:on={color === p.color}
 					aria-pressed={color === p.color}
 					aria-label={t('drawing.pencil', { colour: t(p.name) })}
-					title={t('drawing.pencil', { colour: t(p.name) })}
+					use:tip={t('drawing.pencil', { colour: t(p.name) })}
 					onclick={() => (color = p.color)}
 				>
 					<span class="swatch" style:background={p.color}></span>
 				</button>
 			{/each}
-			<label class="pencil picker" class:on={customActive} title={t('drawing.pickColour')}>
-				<input type="color" value={customActive ? color : '#2e7d32'} oninput={(e) => (color = e.currentTarget.value)} />
+			<label class="pencil picker" class:on={customActive} use:tip={{ text: t('drawing.pickColour'), host: true }}>
+				<input type="color" value={customActive ? color : '#6a3fb0'} oninput={(e) => (color = e.currentTarget.value)} />
 				<span class="visually-hidden">{t('drawing.customColour')}</span>
 			</label>
 		</div>
@@ -391,7 +396,7 @@
 					class:on={width === w}
 					aria-pressed={width === w}
 					aria-label={t('drawing.lineWidth', { width: w })}
-					title={t('drawing.lineWidth', { width: w })}
+					use:tip={t('drawing.lineWidth', { width: w })}
 					onclick={() => (width = w)}
 				>
 					<span class="sample" style:height="{Math.min(w, 12)}px"></span>
@@ -401,11 +406,12 @@
 		</div>
 
 		<div class="row actions">
-			<button type="button" onclick={undo} disabled={!canUndo} aria-keyshortcuts="Control+Z" title={t('drawing.undoTitle')}>{t('drawing.undo')}</button>
-			<button type="button" onclick={redo} disabled={!canRedo} aria-keyshortcuts="Control+Y Control+Shift+Z" title={t('drawing.redoTitle')}>{t('drawing.redo')}</button>
-			<button type="button" onclick={revert} disabled={!ready} title={t('drawing.revertTitle')}>{t('drawing.revert')}</button>
-			<button type="button" onclick={() => loadBase(baseFor(zone))} disabled={!ready} title={t('drawing.newTitle', { zone: label })}>{t('drawing.new')}</button>
-			<button type="button" onclick={() => loadBase(BLANK_BASE)} disabled={!ready} title={t('drawing.blankTitle')}>{t('drawing.blank')}</button>
+			<!-- Undo / Redo: aria-disabled so the tip can say "Nothing to undo"; undo() / redo() check history themselves. -->
+			<button type="button" onclick={undo} aria-disabled={!canUndo ? 'true' : undefined} aria-keyshortcuts="Control+Z" use:tip={canUndo ? t('drawing.undoTitle') : t('tips.nothingToUndo')}>{t('drawing.undo')}</button>
+			<button type="button" onclick={redo} aria-disabled={!canRedo ? 'true' : undefined} aria-keyshortcuts="Control+Y Control+Shift+Z" use:tip={canRedo ? t('drawing.redoTitle') : t('tips.nothingToRedo')}>{t('drawing.redo')}</button>
+			<button type="button" onclick={revert} disabled={!ready} use:tip={t('drawing.revertTitle')}>{t('drawing.revert')}</button>
+			<button type="button" onclick={() => loadBase(baseFor(zone))} disabled={!ready} use:tip={t('drawing.newTitle', { zone: label })}>{t('drawing.new')}</button>
+			<button type="button" onclick={() => loadBase(BLANK_BASE)} disabled={!ready} use:tip={t('drawing.blankTitle')}>{t('drawing.blank')}</button>
 		</div>
 	</div>
 </section>
@@ -462,6 +468,20 @@
 		background: #fff;
 		border: 1px solid var(--hairline);
 		border-radius: var(--radius-1);
+		/* Stored on white paper; the dark and dim-room modes only show it dimmer (tokens.css). */
+		filter: var(--paper-filter);
+	}
+	@media print {
+		canvas,
+		.prior img {
+			filter: none;
+		}
+	}
+	/* Windows high contrast: pencil swatches keep their real colours (they are the choice itself). */
+	@media (forced-colors: active) {
+		.swatch {
+			forced-color-adjust: none;
+		}
 	}
 	canvas {
 		/* Only the canvas swallows touch gestures, so the page still scrolls elsewhere. */

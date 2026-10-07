@@ -248,8 +248,8 @@
 		width: 44px;
 	}
 	.check input {
-		width: 20px;
-		height: 20px;
+		width: 24px;
+		height: 24px;
 	}
 	.num {
 		font-variant-numeric: tabular-nums;

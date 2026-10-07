@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const { resolveDataDir, dataLayout, prepareDataDir, clearTmp, TMP_MAX_AGE_MS } = require('./paths.cjs');
@@ -321,5 +321,40 @@ describe('updates follow pre-releases only before 1.0', () => {
 		expect(followsPrereleases('0.12.3')).toBe(true);
 		expect(followsPrereleases('1.0.0')).toBe(false);
 		expect(followsPrereleases('10.0.0')).toBe(false);
+	});
+});
+
+describe('periodic update checks', () => {
+	const { shouldCheckNow, scheduleChecks, CHECK_EVERY_MS, FIRST_CHECK_MS } = require('./updates.cjs');
+
+	it('skips a quiet check while one runs or an update is waiting', () => {
+		expect(shouldCheckNow({ ready: null, checking: false })).toBe(true);
+		expect(shouldCheckNow({ ready: null, checking: true })).toBe(false);
+		expect(shouldCheckNow({ ready: { version: '0.3.0' }, checking: false })).toBe(false);
+	});
+
+	it('checks 10 s after start, then every 4 hours, until stopped', () => {
+		vi.useFakeTimers();
+		try {
+			let runs = 0;
+			const stop = scheduleChecks(() => runs++);
+			vi.advanceTimersByTime(FIRST_CHECK_MS - 1);
+			expect(runs).toBe(0);
+			vi.advanceTimersByTime(1);
+			expect(runs).toBe(1);
+			vi.advanceTimersByTime(CHECK_EVERY_MS * 2);
+			expect(runs).toBe(3);
+			stop();
+			vi.advanceTimersByTime(CHECK_EVERY_MS * 3);
+			expect(runs).toBe(3);
+			expect(CHECK_EVERY_MS).toBe(4 * 60 * 60 * 1000);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('follows pre-releases only for 0.x versions', () => {
+		expect(followsPrereleases('0.2.0')).toBe(true);
+		expect(followsPrereleases('01.0.0')).toBe(false);
 	});
 });

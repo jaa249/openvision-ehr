@@ -1,0 +1,64 @@
+/* The one tooltip bubble (tooltip.ts). Inverted colours so it reads as "not part of the page".
+   [popover] resets: the UA gives popovers inset:0, margin:auto, a border and padding. */
+.ov-tip {
+	position: fixed;
+	inset: auto;
+	top: 0;
+	left: 0;
+	margin: 0;
+	z-index: 1000;
+	max-width: min(22rem, calc(100vw - 16px));
+	width: max-content;
+	padding: 5px 8px;
+	border: 0;
+	border-radius: var(--radius-1, 4px);
+	background: var(--text-1, #14171c);
+	color: var(--surface-1, #fff);
+	box-shadow: var(--shadow-overlay, 0 4px 12px rgb(0 0 0 / .2));
+	font: var(--weight-regular, 400) var(--text-xs, 12px) / 1.4 var(--font-sans, system-ui, sans-serif);
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+	text-align: start;
+	pointer-events: auto;
+	overflow: visible;
+	opacity: 0;
+	visibility: hidden;
+	transition:
+		opacity var(--dur-small-out, 110ms) var(--ease-exit, ease-in),
+		visibility 0s linear var(--dur-small-out, 110ms);
+}
+.ov-tip[data-open] {
+	opacity: 1;
+	visibility: visible;
+	transition:
+		opacity var(--dur-small-in, 150ms) var(--ease-enter, ease-out),
+		visibility 0s;
+}
+.ov-tip:not([data-open]) {
+	pointer-events: none;
+}
+/* Forced colours (Windows high contrast): a real border, system colours. */
+@media (forced-colors: active) {
+	.ov-tip {
+		border: 1px solid CanvasText;
+		background: Canvas;
+		color: CanvasText;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.ov-tip,
+	.ov-tip[data-open] {
+		transition: none;
+	}
+}
+/* Abbreviations explained by a tip: a dotted underline says "there is more here". */
+abbr.ov-abbr {
+	text-decoration: underline dotted;
+	text-underline-offset: 2px;
+	text-decoration-thickness: 1px;
+	cursor: help;
+}
+button abbr.ov-abbr,
+[role='button'] abbr.ov-abbr {
+	cursor: inherit;
+}

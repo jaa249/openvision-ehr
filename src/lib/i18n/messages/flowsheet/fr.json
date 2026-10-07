@@ -71,5 +71,11 @@
 	"datePointHigh": "{date} : PIO {eye} {value} mmHg par {method}, cible {target}, au-dessus de la cible",
 	"markerPerformed": "{kind} réalisé le {date}",
 	"markerPerformedOpen": "{kind} réalisé le {date}. Appuyez pour ouvrir.",
-	"sourceProviderNamed": "valeur par défaut de {name}"
+	"sourceProviderNamed": "valeur par défaut de {name}",
+	"legendLabel": "Légende du graphique",
+	"legendIopOd": "ligne pleine, repères ronds",
+	"legendIopOs": "ligne pleine, repères carrés",
+	"legendTargetOd": "tirets longs",
+	"legendTargetOs": "tirets courts",
+	"legendTest": "barre dans la bande sous le graphique"
 }

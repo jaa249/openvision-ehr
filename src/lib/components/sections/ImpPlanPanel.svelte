@@ -12,6 +12,7 @@
 	import Builder from './plan/Builder.svelte';
 	import Orders from './plan/Orders.svelte';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { tip } from '#lib/components/ui/tooltip.ts';
 
 	let { context, findings }: PanelProps = $props();
 	const { t } = useI18n();
@@ -517,7 +518,8 @@
 							ondrop={dropOnNewDx}
 						></textarea>
 						<div class="newdx-actions">
-							<button type="button" onclick={() => commitNewDx()} disabled={newDx.trim().length < 2}>{t('plan.addToList')}</button>
+							<!-- aria-disabled: stays focusable and its tip says what is missing; commitNewDx() checks the length itself. -->
+							<button type="button" onclick={() => commitNewDx()} aria-disabled={newDx.trim().length < 2 ? 'true' : undefined} use:tip={newDx.trim().length < 2 ? t('tips.addToListShort') : null}>{t('plan.addToList')}</button>
 						</div>
 						<p class="help" id="imp-newdx-help">
 							{codeSet === 'icd11' ? t('plan.newDxHelpIcd11') : t('plan.newDxHelpIcd10')}
@@ -637,7 +639,7 @@
 		align-items: start;
 		min-width: 0;
 	}
-	@container (min-width: 760px) {
+	@container (min-width: 47.5rem) {
 		.cols {
 			grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
 		}

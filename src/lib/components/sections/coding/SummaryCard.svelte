@@ -6,6 +6,7 @@
 	import { codeSetsShort } from '#lib/codesets/index.ts';
 	import { MAX_DX } from '#lib/coding/codes.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import Abbr from '#lib/components/ui/Abbr.svelte';
 	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let { summary }: { summary: CodingSummary } = $props();
@@ -42,7 +43,7 @@
 		<div class="tbl">
 			<h4>{t('codes.summaryProcedures')}</h4>
 			<table>
-				<thead><tr><th scope="col" class="code">CPT</th><th scope="col">{t('codes.summaryDescription')}</th><th scope="col" class="mod">{t('codes.summaryMod')}</th><th scope="col" class="ptr">{t('codes.summaryPtr')}</th></tr></thead>
+				<thead><tr><th scope="col" class="code"><Abbr code="CPT" /></th><th scope="col">{t('codes.summaryDescription')}</th><th scope="col" class="mod">{t('codes.summaryMod')}</th><th scope="col" class="ptr">{t('codes.summaryPtr')}</th></tr></thead>
 				<tbody>
 					{#each summary.cpt as l, i (i)}
 						<tr class:over={l.pointers.length > 4}>

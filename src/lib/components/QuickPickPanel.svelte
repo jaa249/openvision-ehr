@@ -3,6 +3,11 @@
 	import { rowLabel, sectionTitle, type SectionDef } from '#lib/exam/catalog.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
+	import { roving } from './ui/roving.ts';
+	import { tip } from './ui/tooltip.ts';
+	import Abbr from './ui/Abbr.svelte';
+	import { glossaryKey } from '#lib/i18n/glossary.ts';
 
 	type Eye = 'OD' | 'OS' | 'OU';
 	let {
@@ -32,38 +37,95 @@
 	function toggle(m: string) {
 		modifier = modifier === m ? null : m;
 	}
+	/** The starter "clear field" pick shows in the page language; a user's own pick keeps its name. */
+	const shown = (p: QuickPick) => (p.mode === 'replace' && !p.text && p.label === 'clear field' ? t('exam.qpClearField') : p.label);
+	/** Plain-language meaning of each grade chip (tooltip and accessible description). */
+	const GRADE_TIP: Record<string, MessageKey> = {
+		no: 'exam.qpGradeTipNo',
+		trace: 'exam.qpGradeTipTrace',
+		'+1': 'exam.qpGradeTip1',
+		'+2': 'exam.qpGradeTip2',
+		'+3': 'exam.qpGradeTip3'
+	};
+	/**
+	 * A pick's label in pieces, abbreviations marked ("seb ker", "NLDO, acute", "2+ NS"): two-word
+	 * glossary entries first, then single words; everything else stays plain text.
+	 */
+	function pieces(label: string): { text: string; abbr: boolean }[] {
+		if (glossaryKey(label)) return [{ text: label, abbr: true }];
+		const tokens = label.split(/(\s+|,\s*)/);
+		const out: { text: string; abbr: boolean }[] = [];
+		for (let i = 0; i < tokens.length; i++) {
+			const two = i + 2 < tokens.length && /^\s+$/.test(tokens[i + 1]) ? `${tokens[i]} ${tokens[i + 2]}` : null;
+			if (two && glossaryKey(two)) {
+				out.push({ text: two, abbr: true });
+				i += 2;
+			} else out.push({ text: tokens[i], abbr: !!tokens[i].trim() && !!glossaryKey(tokens[i]) });
+		}
+		return out;
+	}
+	const EYES = [
+		{ eye: 'OD', cls: 'od', key: 'exam.qpRightEye' },
+		{ eye: 'OS', cls: 'os', key: 'exam.qpLeftEye' },
+		{ eye: 'OU', cls: '', key: 'exam.qpBothEyes' }
+	] as const satisfies readonly { eye: Eye; cls: string; key: MessageKey }[];
 </script>
 
-{#snippet chips(name: string, values: string[])}
+{#snippet chips(name: string, values: string[], tips?: Record<string, MessageKey>)}
 	<div class="mods" role="group" aria-label={name}>
-		<span class="mods-label">{name}</span>
+		<span class="mods-label" aria-hidden="true">{name}</span>
 		{#each values as m (m)}
-			<button type="button" class="chip" aria-pressed={modifier === m} onclick={() => toggle(m)}>{m}</button>
+			<!-- dir=ltr: "+1" must not turn into "1+" in right-to-left languages. -->
+			<button type="button" class="chip" aria-pressed={modifier === m} onclick={() => toggle(m)} use:tip={tips?.[m] ? t(tips[m]) : null}
+				><bdi dir="ltr">{#if !tips?.[m] && glossaryKey(m)}<Abbr code={m} />{:else}{m}{/if}</bdi></button
+			>
 		{/each}
 	</div>
 {/snippet}
 
 <section class="qp" aria-label={t('exam.qpFor', { section: sectionTitle(sec, t) })}>
 	<div class="modbar">
-		{@render chips(t('exam.qpGrade'), GRADES)}
-		{@render chips(t('exam.qpSize'), SIZES)}
-		{@render chips(t('exam.qpLocation'), sec.locations)}
+		<!-- One Tab stop for every modifier: arrow keys move between chips (APG toolbar). -->
+		<div class="toolbar" role="toolbar" aria-label={t('exam.qpModifiers')} use:roving={{ items: '.chip', key: sec.id }}>
+			{@render chips(t('exam.qpGrade'), GRADES, GRADE_TIP)}
+			{@render chips(t('exam.qpSize'), SIZES)}
+			{@render chips(t('exam.qpLocation'), sec.locations)}
+		</div>
 		<p class="status" aria-live="polite">
-			{#if modifier}<Msg key="exam.qpNextPick">{#snippet value()}<strong>{modifier}</strong>{/snippet}</Msg>{:else}{t('exam.qpPickModifier')}{/if}
+			{#if modifier}<Msg key="exam.qpNextPick">{#snippet value()}<strong><bdi dir="ltr">{modifier}</bdi></strong>{/snippet}</Msg>{:else}{t('exam.qpPickModifier')}{/if}
 		</p>
 	</div>
 
-	<div class="list">
+	<!-- One Tab stop for the whole list (roving tabindex): Up/Down between findings, Left/Right
+	     between OD / OS / OU, Home/End, typing the first letters of a finding jumps to it. -->
+	<div
+		class="list"
+		role="group"
+		aria-label={t('exam.qpFindings')}
+		aria-describedby="qp-keys-{sec.id}"
+		use:roving={{ items: 'button[data-row]', mode: 'grid', key: sec.id, label: (el) => el.dataset.label ?? '' }}
+	>
+		<p class="visually-hidden" id="qp-keys-{sec.id}">{t('exam.qpKeysHint')}</p>
 		{#each groups as g (g.row.id)}
 			<h3>{rowLabel(g.row, t)}</h3>
 			<ul>
 				{#each g.items as p (p.id)}
 					<li>
-						<span class="label" class:clear={p.mode === 'replace' && !p.text}>{p.label}</span>
+						<span class="label" class:clear={p.mode === 'replace' && !p.text}
+							>{#each pieces(shown(p)) as part, i (i)}{#if part.abbr}<Abbr code={part.text} />{:else}{part.text}{/if}{/each}</span
+						>
 						<span class="eyes eye-ltr">
-							<button type="button" class="od" aria-label={t('exam.qpRightEye', { pick: p.label })} onclick={() => pick(p, 'OD')}>OD</button>
-							<button type="button" class="os" aria-label={t('exam.qpLeftEye', { pick: p.label })} onclick={() => pick(p, 'OS')}>OS</button>
-							<button type="button" aria-label={t('exam.qpBothEyes', { pick: p.label })} onclick={() => pick(p, 'OU')}>OU</button>
+							{#each EYES as e (e.eye)}
+								<!-- The name starts with the visible text (WCAG 2.5.3): "OD, ptosis, right eye". -->
+								<button
+									type="button"
+									class={e.cls}
+									data-row={p.id}
+									data-label={shown(p)}
+									aria-label="{e.eye}, {t(e.key, { pick: shown(p) })}"
+									onclick={() => pick(p, e.eye)}>{e.eye}</button
+								>
+							{/each}
 						</span>
 					</li>
 				{/each}
@@ -90,6 +152,10 @@
 		flex-wrap: wrap;
 		gap: 4px;
 		align-items: center;
+	}
+	.toolbar {
+		display: grid;
+		gap: var(--space-1);
 	}
 	.mods-label {
 		font-size: var(--text-xs);

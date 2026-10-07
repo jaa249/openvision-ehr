@@ -131,8 +131,9 @@
 	font-weight: var(--weight-regular);
 }
 .ov-form .check input {
-	width: 20px;
-	height: 20px;
+	/* 24 x 24 target (WCAG 2.5.8) on the control itself, not only through its label. */
+	width: 24px;
+	height: 24px;
 	margin: 0;
 	accent-color: var(--accent);
 }

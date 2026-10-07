@@ -1,6 +1,6 @@
 {
-	"legendCopied": "منسوخ من زيارة سابقة.",
-	"legendDefault": "المظلَّل: لا يزال القيمة «الطبيعية» الافتراضية.",
+	"legendCopied": "شريط متقطع: منسوخ من زيارة سابقة.",
+	"legendDefault": "شريط متصل: لا يزال القيمة «الطبيعية» الافتراضية.",
 	"legendShorthand": "الاختصارات: {codes}.",
 	"labelDefault": "{label} (افتراضي)",
 	"normal": "طبيعي",
@@ -588,5 +588,7 @@
 	"fieldDilationRisks": "نوقشت مخاطر التوسيع",
 	"tgtSourceProviderNamed": "القيمة الافتراضية لـ {name}",
 	"rxTransposeNeedSph": "{source} {eye}: أدخل الكرة (أو PLANO) قبل التحويل.",
-	"rxTransposeNeedAxis": "{source} {eye}: أدخل المحور قبل التحويل."
+	"rxTransposeNeedAxis": "{source} {eye}: أدخل المحور قبل التحويل.",
+	"labelCopied": "{label} (منسوخ من {date})",
+	"labelCopiedNoDate": "{label} (منسوخ)"
 }

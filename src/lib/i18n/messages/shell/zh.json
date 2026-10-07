@@ -19,5 +19,8 @@
 	"legalNav": "法律信息",
 	"legalEnglishOnly": "本文档目前仅有英文版。",
 	"legalBack": "返回 OpenVision",
-	"legalPageTitle": "{title} · OpenVision"
+	"legalPageTitle": "{title} · OpenVision",
+	"dimRoomOn": "暗室已开启",
+	"dimRoomOff": "暗室已关闭",
+	"dimRoomShortcut": "开启或关闭暗室"
 }

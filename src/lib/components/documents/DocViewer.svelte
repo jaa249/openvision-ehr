@@ -3,6 +3,7 @@
 	// tab with the browser's own viewer (pages from this app cannot be framed: X-Frame-Options DENY).
 	import { onMount } from 'svelte';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import { openModal } from '../ui/dialog.ts';
 	import { docUrl, formatBytes, isImage, type DocMeta } from './types.ts';
 
 	let { doc, onclose }: { doc: DocMeta; onclose: () => void } = $props();
@@ -10,7 +11,8 @@
 	let dialog: HTMLDialogElement;
 	let zoom = $state(false);
 
-	onMount(() => dialog.showModal());
+	// Focus goes back to the button that opened the viewer when it closes (ui/dialog.ts).
+	onMount(() => openModal(dialog));
 </script>
 
 <dialog bind:this={dialog} class="viewer" aria-labelledby="doc-viewer-title" {onclose}>

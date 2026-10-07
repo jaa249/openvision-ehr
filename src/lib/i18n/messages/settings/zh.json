@@ -242,5 +242,16 @@
 	"auditActExportFhir": "已导出为 FHIR",
 	"auditActRxPrint": "处方已打印",
 	"auditActDocumentView": "已打开文档",
-	"auditActDocumentDownload": "已下载文档"
+	"auditActDocumentDownload": "已下载文档",
+	"prefTextSize": "文字大小",
+	"textSizeHint": "在 Windows 或浏览器的文字大小基础上，放大所有页面的文字和控件。缩放（Ctrl 和 +）仍然可用。",
+	"textSizePercent": "{size}%",
+	"textSizeStandard": "{size}%（标准）",
+	"prefUndoDuration": "撤销提示的显示时长",
+	"undo10s": "10 秒",
+	"undo30s": "30 秒",
+	"undoUntilDismissed": "直到我关闭",
+	"undoDurationHint": "在“正常”、复制、清空或快速选择之后出现、带“撤销”按钮的提示。鼠标指针或键盘焦点停在提示上时，计时暂停。",
+	"chooseUndoDuration": "请选择撤销提示的显示时长。",
+	"chooseTextSize": "请选择文字大小。"
 }
