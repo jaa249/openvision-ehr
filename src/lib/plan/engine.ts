@@ -280,8 +280,27 @@ function icd11Code(lookup: Icd11Lookup | undefined, query: Icd11Query, sides: (S
 /** Search words for a term: its label when it has one (abbreviations), else the term itself. */
 const termWords = (row: CodingTerm, extra: string[] = []) => [row.label ?? row.term, ...extra];
 
+/**
+ * Chapters searched after the eye chapter (09) finds nothing: neoplasms (naevi), nervous system
+ * (blepharospasm), symptoms (floaters), injuries (corneal abrasion) and "presence of" (intraocular lens).
+ */
+const WIDER_CHAPTERS = ['09', '02', '08', '21', '22', '24'];
+
 function icd11ForRow(input: EngineInput, row: CodingTerm, hits: Hit[], extra: string[] = []): IcdCode[] {
-	return icd11Code(input.icd11, { words: termWords(row, extra), context: [FIELD_DESCRIPTIONS[row.location] ?? ''] }, hits.map((h) => h.side));
+	const context = [FIELD_DESCRIPTIONS[row.location] ?? ''];
+	const sides = hits.map((h) => h.side);
+	// The term in the eye chapter, then in the wider chapters, then our plain words for the broader
+	// condition (words11) in the wider chapters. The first hit wins; WHO's titles always pick the code.
+	const tries: Icd11Query[] = [
+		{ words: termWords(row, extra), context },
+		{ words: termWords(row, extra), context, chapters: WIDER_CHAPTERS },
+		...(row.words11 ?? []).map((w) => ({ words: [w], context, chapters: WIDER_CHAPTERS }))
+	];
+	for (const q of tries) {
+		const codes = icd11Code(input.icd11, q, sides);
+		if (codes.length) return codes;
+	}
+	return [];
 }
 
 /** ICD-11: any active PMH whose title says diabetes, or whose ICD-11 code's WHO title does. */

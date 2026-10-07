@@ -173,6 +173,11 @@ const tokens = (s: string) => s.toLowerCase().match(/[a-z0-9]+(?:-[a-z0-9]+)*/g)
 function wordIn(variants: string[], t: string): boolean {
 	const parts = t.split('-');
 	for (const v of variants) {
+		// A hyphenated query word ("age-related", "after-cataract") matches the same hyphenated title word.
+		if (v.includes('-')) {
+			if (t === v || t.startsWith(`${v}-`)) return true;
+			continue;
+		}
 		if (v.length <= 2) {
 			if (parts.includes(v)) return true;
 			continue;

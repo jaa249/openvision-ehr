@@ -13,6 +13,7 @@
 // label: the item title when the term is an abbreviation (default: the term, capitalised).
 //   With ICD-11 (D44) the label, or else the term, is also what WHO titles are searched for.
 // prefer: extra words that pick among a category's codes (e.g. "initial encounter").
+// words11: plain words for the broader condition, used by ICD-11 when the term finds nothing.
 
 export type TermOption = 'DM' | 'RVO' | 'IOL' | (string & {});
 
@@ -23,6 +24,12 @@ export interface CodingTerm {
 	options?: TermOption[];
 	label?: string;
 	prefer?: string[];
+	/**
+	 * ICD-11 only (D44): our own plain English words for the broader condition, tried in order when the
+	 * term itself finds no WHO title (ICD-11 is less detailed: "nuclear sclerosis" is an "age-related
+	 * cataract"). Words, never codes: the search still picks the WHO code.
+	 */
+	words11?: string[];
 }
 
 /** Plain-language description of each field root, used to narrow and search codes (§10.3 path C FIX). */
@@ -72,7 +79,7 @@ export const CODING_TERMS: CodingTerm[] = [
 	{ term: 'chalazion', location: 'LL', code: 'H00.1' },
 	{ term: 'hordeolum', location: 'UL', code: 'H00.01' },
 	{ term: 'xanthelasma', location: 'UL', code: 'H02.6' },
-	{ term: 'blepharospasm', location: 'UL', code: 'G24.5' },
+	{ term: 'blepharospasm', location: 'UL', code: 'G24.5', words11: ['benign essential blepharospasm'] },
 	{ term: 'nasolacrimal duct obstruction', location: 'MCT', code: 'H04.55' },
 	{ term: 'NLDO', location: 'MCT', code: 'H04.55', label: 'Nasolacrimal duct obstruction' },
 	{ term: 'dacryocystitis', location: 'MCT', code: 'H04.30' },
@@ -89,31 +96,31 @@ export const CODING_TERMS: CodingTerm[] = [
 	{ term: 'corneal abrasion', location: 'CORNEA', code: 'S05.0', prefer: ['initial encounter'] },
 	{ term: 'recurrent erosion', location: 'CORNEA', code: 'H18.83' },
 	{ term: 'corneal ulcer', location: 'CORNEA', code: 'H16.00' },
-	{ term: 'Fuchs dystrophy', location: 'CORNEA', code: 'H18.51' },
-	{ term: 'guttata', location: 'CORNEA', code: 'H18.51', label: 'Corneal guttata' },
+	{ term: 'Fuchs dystrophy', location: 'CORNEA', code: 'H18.51', words11: ['endothelial corneal dystrophy'] },
+	{ term: 'guttata', location: 'CORNEA', code: 'H18.51', label: 'Corneal guttata', words11: ['endothelial corneal dystrophy'] },
 	{ term: 'keratoconus', location: 'CORNEA', code: 'H18.60' },
-	{ term: 'band keratopathy', location: 'CORNEA', code: 'H18.42' },
-	{ term: 'arcus', location: 'CORNEA', code: 'H18.41' },
+	{ term: 'band keratopathy', location: 'CORNEA', code: 'H18.42', words11: ['corneal degeneration'] },
+	{ term: 'arcus', location: 'CORNEA', code: 'H18.41', words11: ['corneal degeneration'] },
 	{ term: 'corneal edema', location: 'CORNEA', code: 'H18.20' },
 	{ term: 'SPK', location: 'CORNEA', code: 'H16.14', label: 'Superficial punctate keratitis' },
 	{ term: 'KCS', location: 'CORNEA', code: 'H16.22', label: 'Keratoconjunctivitis sicca' },
-	{ term: 'dry eye', location: 'CORNEA', code: 'H04.12' },
+	{ term: 'dry eye', location: 'CORNEA', code: 'H04.12', words11: ['keratoconjunctivitis sicca'] },
 	{ term: 'corneal scar', location: 'CORNEA' },
 	{ term: 'hyphema', location: 'AC', code: 'H21.0' },
-	{ term: 'iritis', location: 'AC', code: 'H20.9' },
+	{ term: 'iritis', location: 'AC', code: 'H20.9', words11: ['anterior uveitis'] },
 	{ term: 'narrow angle', location: 'GONIO', code: 'H40.03' },
 	{ term: 'narrow angle', location: 'AC', code: 'H40.03' },
 	{ term: 'rubeosis', location: 'IRIS', code: 'H21.1' },
-	{ term: 'NVI', location: 'IRIS', code: 'H21.1', label: 'Iris neovascularization' },
-	{ term: 'iris nevus', location: 'IRIS', code: 'D31.4' },
-	{ term: 'posterior subcapsular cataract', location: 'LENS', code: 'H25.04' },
-	{ term: 'PSC', location: 'LENS', code: 'H25.04', label: 'Posterior subcapsular cataract' },
-	{ term: 'cortical cataract', location: 'LENS', code: 'H25.01' },
-	{ term: 'nuclear sclerosis', location: 'LENS', code: 'H25.1' },
-	{ term: 'NS', location: 'LENS', code: 'H25.1', label: 'Nuclear sclerosis' },
-	{ term: 'PCO', location: 'LENS', code: 'H26.49', label: 'Posterior capsule opacification' },
-	{ term: 'PCIOL', location: 'LENS', code: 'Z96.1', label: 'Pseudophakia' },
-	{ term: 'pseudophakia', location: 'LENS', code: 'Z96.1' },
+	{ term: 'NVI', location: 'IRIS', code: 'H21.1', label: 'Iris neovascularization', words11: ['rubeosis of iris'] },
+	{ term: 'iris nevus', location: 'IRIS', code: 'D31.4', words11: ['benign neoplasm of iris'] },
+	{ term: 'posterior subcapsular cataract', location: 'LENS', code: 'H25.04', words11: ['age-related cataract'] },
+	{ term: 'PSC', location: 'LENS', code: 'H25.04', label: 'Posterior subcapsular cataract', words11: ['age-related cataract'] },
+	{ term: 'cortical cataract', location: 'LENS', code: 'H25.01', words11: ['age-related cataract'] },
+	{ term: 'nuclear sclerosis', location: 'LENS', code: 'H25.1', words11: ['age-related cataract'] },
+	{ term: 'NS', location: 'LENS', code: 'H25.1', label: 'Nuclear sclerosis', words11: ['age-related cataract'] },
+	{ term: 'PCO', location: 'LENS', code: 'H26.49', label: 'Posterior capsule opacification', words11: ['after-cataract'] },
+	{ term: 'PCIOL', location: 'LENS', code: 'Z96.1', label: 'Pseudophakia', words11: ['presence of intraocular lens'] },
+	{ term: 'pseudophakia', location: 'LENS', code: 'Z96.1', words11: ['presence of intraocular lens'] },
 	{ term: 'aphakia', location: 'LENS', code: 'H27.0' },
 	{ term: 'cataract', location: 'LENS', code: 'H26.9' },
 
@@ -130,42 +137,42 @@ export const CODING_TERMS: CodingTerm[] = [
 	{ term: 'BDR', location: 'VESSELS', options: ['DM'] },
 	{ term: 'BDR', location: 'PERIPH', options: ['DM'] },
 	// Edema after recent cataract surgery in the same eye (IOL rule); otherwise these do not code.
-	{ term: 'CSME', location: 'MACULA', options: ['IOL'], label: 'Post-cataract CME' },
-	{ term: 'CME', location: 'MACULA', options: ['IOL'], label: 'Post-cataract CME' },
-	{ term: 'CME', location: 'MACULA', code: 'H35.35', label: 'Cystoid macular edema' },
-	{ term: 'macular edema', location: 'MACULA', code: 'H35.81' },
-	{ term: 'disc edema', location: 'DISC', code: 'H47.10' },
+	{ term: 'CSME', location: 'MACULA', options: ['IOL'], label: 'Post-cataract CME', words11: ['retinal oedema'] },
+	{ term: 'CME', location: 'MACULA', options: ['IOL'], label: 'Post-cataract CME', words11: ['retinal oedema'] },
+	{ term: 'CME', location: 'MACULA', code: 'H35.35', label: 'Cystoid macular edema', words11: ['retinal oedema'] },
+	{ term: 'macular edema', location: 'MACULA', code: 'H35.81', words11: ['retinal oedema'] },
+	{ term: 'disc edema', location: 'DISC', code: 'H47.10', words11: ['optic disc swelling'] },
 	{ term: 'papilledema', location: 'DISC', code: 'H47.10' },
 	{ term: 'disc drusen', location: 'DISC', code: 'H47.32' },
 	{ term: 'optic atrophy', location: 'DISC', code: 'H47.20' },
-	{ term: 'pallor', location: 'DISC', code: 'H47.20', label: 'Optic disc pallor' },
-	{ term: 'non-exudative AMD', location: 'MACULA', code: 'H35.31', prefer: ['stage unspecified'], label: 'Nonexudative AMD' },
-	{ term: 'wet AMD', location: 'MACULA', code: 'H35.32', prefer: ['stage unspecified'], label: 'Exudative AMD' },
-	{ term: 'CNVM', location: 'MACULA', code: 'H35.32', prefer: ['active choroidal neovascularization'], label: 'Exudative AMD with CNV' },
-	{ term: 'dry AMD', location: 'MACULA', code: 'H35.31', prefer: ['stage unspecified'], label: 'Nonexudative AMD' },
+	{ term: 'pallor', location: 'DISC', code: 'H47.20', label: 'Optic disc pallor', words11: ['optic atrophy'] },
+	{ term: 'non-exudative AMD', location: 'MACULA', code: 'H35.31', prefer: ['stage unspecified'], label: 'Nonexudative AMD', words11: ['age-related macular degeneration'] },
+	{ term: 'wet AMD', location: 'MACULA', code: 'H35.32', prefer: ['stage unspecified'], label: 'Exudative AMD', words11: ['neovascular late-stage age-related macular degeneration'] },
+	{ term: 'CNVM', location: 'MACULA', code: 'H35.32', prefer: ['active choroidal neovascularization'], label: 'Exudative AMD with CNV', words11: ['neovascular late-stage age-related macular degeneration'] },
+	{ term: 'dry AMD', location: 'MACULA', code: 'H35.31', prefer: ['stage unspecified'], label: 'Nonexudative AMD', words11: ['age-related macular degeneration'] },
 	{ term: 'AMD', location: 'MACULA', code: 'H35.30', label: 'Macular degeneration' },
-	{ term: 'drusen', location: 'MACULA', code: 'H35.36' },
-	{ term: 'ERM', location: 'MACULA', code: 'H35.37', label: 'Epiretinal membrane' },
-	{ term: 'epiretinal membrane', location: 'MACULA', code: 'H35.37' },
+	{ term: 'drusen', location: 'MACULA', code: 'H35.36', words11: ['small drusen of the macula'] },
+	{ term: 'ERM', location: 'MACULA', code: 'H35.37', label: 'Epiretinal membrane', words11: ['macular disorders'] },
+	{ term: 'epiretinal membrane', location: 'MACULA', code: 'H35.37', words11: ['macular disorders'] },
 	{ term: 'macular hole', location: 'MACULA', code: 'H35.34' },
 	{ term: 'CSR', location: 'MACULA', code: 'H35.71', label: 'Central serous chorioretinopathy' },
-	{ term: 'CRVO', location: 'VESSELS', code: 'H34.81', options: ['RVO'], label: 'Central retinal vein occlusion' },
-	{ term: 'central retinal vein occlusion', location: 'VESSELS', code: 'H34.81', options: ['RVO'] },
-	{ term: 'BRVO', location: 'VESSELS', code: 'H34.83', options: ['RVO'], label: 'Branch retinal vein occlusion' },
-	{ term: 'branch retinal vein occlusion', location: 'VESSELS', code: 'H34.83', options: ['RVO'] },
-	{ term: 'CRAO', location: 'VESSELS', code: 'H34.1', label: 'Central retinal artery occlusion' },
-	{ term: 'BRAO', location: 'VESSELS', code: 'H34.23', label: 'Branch retinal artery occlusion' },
+	{ term: 'CRVO', location: 'VESSELS', code: 'H34.81', options: ['RVO'], label: 'Central retinal vein occlusion', words11: ['retinal venous occlusions'] },
+	{ term: 'central retinal vein occlusion', location: 'VESSELS', code: 'H34.81', options: ['RVO'], words11: ['retinal venous occlusions'] },
+	{ term: 'BRVO', location: 'VESSELS', code: 'H34.83', options: ['RVO'], label: 'Branch retinal vein occlusion', words11: ['retinal venous occlusions'] },
+	{ term: 'branch retinal vein occlusion', location: 'VESSELS', code: 'H34.83', options: ['RVO'], words11: ['retinal venous occlusions'] },
+	{ term: 'CRAO', location: 'VESSELS', code: 'H34.1', label: 'Central retinal artery occlusion', words11: ['retinal artery occlusions'] },
+	{ term: 'BRAO', location: 'VESSELS', code: 'H34.23', label: 'Branch retinal artery occlusion', words11: ['retinal artery occlusions'] },
 	{ term: 'hypertensive retinopathy', location: 'VESSELS', code: 'H35.03' },
 	{ term: 'vitreous hemorrhage', location: 'VITREOUS', code: 'H43.1' },
 	{ term: 'PVD', location: 'VITREOUS', code: 'H43.81', label: 'Posterior vitreous detachment' },
-	{ term: 'floaters', location: 'VITREOUS', code: 'H43.39' },
-	{ term: 'asteroid hyalosis', location: 'VITREOUS', code: 'H43.2' },
+	{ term: 'floaters', location: 'VITREOUS', code: 'H43.39', words11: ['visual floaters'] },
+	{ term: 'asteroid hyalosis', location: 'VITREOUS', code: 'H43.2', words11: ['vitreous opacities'] },
 	{ term: 'retinal detachment', location: 'PERIPH', code: 'H33.00' },
-	{ term: 'horseshoe tear', location: 'PERIPH', code: 'H33.31' },
-	{ term: 'retinal tear', location: 'PERIPH', code: 'H33.31' },
-	{ term: 'lattice', location: 'PERIPH', code: 'H35.41', label: 'Lattice degeneration' },
+	{ term: 'horseshoe tear', location: 'PERIPH', code: 'H33.31', words11: ['retinal breaks'] },
+	{ term: 'retinal tear', location: 'PERIPH', code: 'H33.31', words11: ['retinal breaks'] },
+	{ term: 'lattice', location: 'PERIPH', code: 'H35.41', label: 'Lattice degeneration', words11: ['peripheral retinal degeneration'] },
 	{ term: 'retinoschisis', location: 'PERIPH', code: 'H33.10' },
 	{ term: 'chorioretinal scar', location: 'PERIPH', code: 'H31.00' },
-	{ term: 'choroidal nevus', location: 'PERIPH', code: 'D31.3' },
-	{ term: 'nevus', location: 'PERIPH', code: 'D31.3', label: 'Choroidal nevus' }
+	{ term: 'choroidal nevus', location: 'PERIPH', code: 'D31.3', words11: ['benign neoplasm of choroid'] },
+	{ term: 'nevus', location: 'PERIPH', code: 'D31.3', label: 'Choroidal nevus', words11: ['benign neoplasm of choroid'] }
 ];

@@ -34,9 +34,15 @@ describe('ICD-11 engine (fixture rows)', () => {
 	});
 
 	it('no good hit = an uncoded row, never a guess', () => {
-		// Two named subtypes tie: no code.
+		// No WHO title for the term and no plain words for it: no code.
+		const r = run({ ODCORNEA: 'SPK' });
+		expect(r).toMatchObject([{ title: 'Superficial punctate keratitis OD', codes: '', codeText: '' }]);
+	});
+
+	it('plain words for the broader condition, when the term finds no title (words11)', () => {
+		// "Nuclear sclerosis" is not a WHO title; its plain words "age-related cataract" are.
 		const r = run({ ODLENS: 'nuclear sclerosis' });
-		expect(r).toMatchObject([{ title: 'Nuclear sclerosis OD', codes: '', codeText: '' }]);
+		expect(r).toMatchObject([{ title: 'Nuclear sclerosis OD', codes: '9B10.0Z&XK9K' }]);
 	});
 
 	it('diabetic retinopathy: needs diabetes in the history (title, or an ICD-11 code whose WHO title says so)', () => {
@@ -102,7 +108,7 @@ describe('ICD-11 hit rate over CODING_TERMS (real file)', () => {
 			);
 		}
 		expect(hits.length + misses.length).toBe(CODING_TERMS.length);
-		expect(hits.length).toBeGreaterThanOrEqual(40);
+		expect(hits.length).toBeGreaterThanOrEqual(105);
 	});
 
 	it('picks the unspecified residual for a generic term and nothing for a tie', () => {
