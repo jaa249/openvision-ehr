@@ -2,8 +2,8 @@
 // electron-builder settings for the Windows installer (D51). `npm run desktop:dist` from the repo root
 // builds the web app first (../build), generates the legal texts (scripts/legal-text.mjs), then this.
 //
-// The version comes from the root package.json, so the app, the installer name
-// (OpenVision-Setup-<version>.exe) and the About box always match the web app.
+// The version comes from the root package.json, so the app, the installer
+// (file properties, latest.yml) and the About box always match the web app.
 //
 // Code signing (needed before a public release, or Windows SmartScreen warns on every install) is
 // configured only through environment variables, never in the repo:
@@ -47,7 +47,9 @@ module.exports = {
 			: {})
 	},
 	nsis: {
-		artifactName: 'OpenVision-Setup-${version}.${ext}',
+		// A fixed name so the README's "Download for Windows" link (releases/latest/download/OpenVision-Setup.exe)
+		// never changes; the version is in the file's properties, the release and latest.yml.
+		artifactName: 'OpenVision-Setup.${ext}',
 		oneClick: false,
 		perMachine: true,
 		allowElevation: true,

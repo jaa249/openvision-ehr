@@ -1,6 +1,6 @@
 # Windows installer (D51). Runs only when a version tag (v*) is pushed: tests, builds the web app and
 # the NSIS installer, and uploads it to a draft GitHub Release (electron-updater reads published
-# releases, so nothing reaches users until a maintainer publishes the draft).
+# releases, so nothing reaches users until a maintainer publishes the draft). It also attaches SHA256SUMS.txt.
 #
 # Code signing (strongly recommended; unsigned installers trigger Windows SmartScreen warnings) is
 # used when these repository secrets exist, and skipped otherwise:
@@ -36,6 +36,15 @@ jobs:
         run: npm run check
       - name: Build web app
         run: npm run build
+      # Create the draft release up front: when electron-builder creates it itself, its parallel uploads can
+      # race and leave two drafts for one tag (seen on v0.1.0).
+      - name: Create the draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "OpenVision $VERSION" --notes "Release notes to follow."
       - name: Build and publish the installer (draft release)
         working-directory: desktop
         run: |
@@ -52,7 +61,18 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      - name: Upload the SHA-256 fingerprint
+        shell: bash
+        working-directory: desktop/dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sha256sum OpenVision-Setup.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt >> "$GITHUB_STEP_SUMMARY"
+          gh release upload "$GITHUB_REF_NAME" SHA256SUMS.txt --clobber
       - uses: actions/upload-artifact@v4
         with:
           name: OpenVision-Setup
-          path: desktop/dist/OpenVision-Setup-*.exe
+          path: |
+            desktop/dist/OpenVision-Setup.exe
+            desktop/dist/SHA256SUMS.txt

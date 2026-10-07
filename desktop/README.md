@@ -5,7 +5,7 @@ The Windows app is the same web app in an Electron window, with its server runni
 
 ## For practices
 
-1. Run `OpenVision-Setup-<version>.exe` as an administrator. Builds are not code-signed yet, so Windows
+1. Run `OpenVision-Setup.exe` as an administrator. Builds are not code-signed yet, so Windows
    SmartScreen says "Windows protected your PC": choose **More info › Run anyway** only for an installer
    downloaded from this project's GitHub Releases.
 2. Read and accept the data safety notice and the Terms of Use.
@@ -38,7 +38,7 @@ Requires Windows, Node.js 24 and the root project's dependencies.
 npm install                      # root (web app)
 npm --prefix desktop install     # Electron, electron-builder, electron-updater
 npm run desktop:dev              # builds the web app, opens it in Electron (data in data\desktop)
-npm run desktop:dist             # builds the web app and desktop\dist\OpenVision-Setup-<version>.exe
+npm run desktop:dist             # builds the web app and desktop\dist\OpenVision-Setup.exe
 npm --prefix desktop run pack    # the unpacked app only: desktop\dist\win-unpacked\OpenVision.exe
 ```
 

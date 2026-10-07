@@ -6,6 +6,12 @@
 
 <p align="center">A free, open-source eye exam and eye-care records app for optometrists and ophthalmologists.</p>
 
+<p align="center">
+  <a href="https://github.com/jaa249/openvision-ehr/releases/latest/download/OpenVision-Setup.exe"><strong>Download for Windows</strong></a> (64-bit, Windows 10 or 11)
+  &nbsp;|&nbsp; <a href="#install-on-windows">How to install</a>
+  &nbsp;|&nbsp; <a href="#a-quick-tour">See screenshots</a>
+</p>
+
 OpenVision is a standalone electronic record for eye clinics: patients, visits, a full eye exam, glasses prescriptions, reports and a glaucoma flow sheet. It is built for small practices: fast enough for a busy clinic, light enough for an old office PC, and usable with a mouse, a keyboard or a tablet and pen. It runs as an offline Windows app (or in a browser on the same computer), speaks 6 languages (English, Spanish, French, Arabic, Chinese and Hindi), and is free and open source under the Apache-2.0 licence. Optional extras (AI drafting, imaging) are planned for practices that have the hardware.
 
 Inspired by the well-regarded OpenEMR Eye Exam form (eye_mag), rebuilt from scratch with a modern, tablet-first design.
@@ -72,9 +78,17 @@ Status: early (0.1.0). Still to come: database encryption at rest, see [`docs/SE
 
 ## Install on Windows
 
-Download `OpenVision-Setup-<version>.exe` from the project's GitHub Releases and run it as an administrator. Builds are not code-signed yet, so Windows SmartScreen warns ("Windows protected your PC": More info > Run anyway). The installer asks you to accept the data safety notice and the [Terms of Use](docs/TERMS.md) (see also the [Privacy Policy](docs/PRIVACY.md)), keeps the data in `C:\ProgramData\OpenVision`, and lets only the Windows group **OpenVision Users** open it; details, adding other Windows users, updates and uninstalling: [`desktop/README.md`](desktop/README.md). Turn on BitLocker: OpenVision does not encrypt its database yet.
+1. **[Download OpenVision-Setup.exe](https://github.com/jaa249/openvision-ehr/releases/latest/download/OpenVision-Setup.exe)** (about 115 MB). This link always gives the newest version. Older versions and release notes are on the [Releases page](https://github.com/jaa249/openvision-ehr/releases).
+2. Double-click the file and allow it to make changes (it installs for everyone on the computer, so it needs an administrator).
+3. The installer is not code-signed yet, so Windows may say **"Windows protected your PC"**. Click **More info**, then **Run anyway**. Only do this for a file downloaded from the link above.
+4. Read and accept the data safety notice and the [Terms of Use](docs/TERMS.md) (see also the [Privacy Policy](docs/PRIVACY.md)).
+5. Open OpenVision from the Start menu. The first screen creates your administrator account, then offers to download your diagnosis codes.
 
-Developers: `npm install`, `npm --prefix desktop install`, then `npm run desktop:dev` (opens the app in Electron, data in `data\desktop`) or `npm run desktop:dist` (builds `desktop\dist\OpenVision-Setup-<version>.exe`).
+Your data stays on this computer in `C:\ProgramData\OpenVision`, and only the Windows group **OpenVision Users** can open it. OpenVision does not encrypt its database yet, so **turn on BitLocker**. Updates arrive automatically, with a backup taken first. Adding other Windows users, updates and uninstalling: [`desktop/README.md`](desktop/README.md).
+
+**Check your download (optional).** Each release lists the file's SHA-256 fingerprint in `SHA256SUMS.txt`. In PowerShell, `Get-FileHash .\OpenVision-Setup.exe` prints the fingerprint of your copy; the two should match.
+
+Developers: `npm install`, `npm --prefix desktop install`, then `npm run desktop:dev` (opens the app in Electron, data in `data\desktop`) or `npm run desktop:dist` (builds `desktop\dist\OpenVision-Setup.exe`).
 
 ## Try it in a browser
 
