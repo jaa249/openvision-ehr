@@ -106,4 +106,4 @@ In the exam: press `Alt+K` for the shorthand bar, then try `das; rc:1+ inj; lk:t
 - Design tokens: [`src/lib/styles/tokens.css`](src/lib/styles/tokens.css)
 - Clickable exam-screen preview: open [`docs/design/preview.html`](docs/design/preview.html) in a browser (all data fictional)
 
-License: [Apache-2.0](LICENSE). This is a clean-room project: OpenEMR eye_mag (GPL-3) is used only as a feature reference. See [`docs/DECISIONS.md`](docs/DECISIONS.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+License: [Apache-2.0](LICENSE). Copyright 2026 Jamal Adrien and OpenVision contributors (see [NOTICE](NOTICE)). This is a clean-room project: OpenEMR eye_mag (GPL-3) is used only as a feature reference. See [`docs/DECISIONS.md`](docs/DECISIONS.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).

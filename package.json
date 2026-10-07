@@ -28,6 +28,7 @@
 	"imports": {
 		"#lib/*": "./src/lib/*"
 	},
+	"author": "Jamal Adrien and OpenVision contributors",
 	"license": "Apache-2.0",
 	"private": true
 }

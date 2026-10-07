@@ -1,0 +1,9 @@
+OpenVision
+Copyright 2026 Jamal Adrien and OpenVision contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Diagnosis code sets are not included. When a practice downloads them, they come
+from their publishers under their own terms: ICD-10-CM from the U.S. Centers for
+Medicare & Medicaid Services (CMS) and the National Center for Health Statistics
+(NCHS); ICD-11 from the World Health Organization (WHO).

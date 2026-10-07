@@ -19,7 +19,7 @@ const azure = process.env.AZURE_SIGN_ENDPOINT && process.env.AZURE_SIGN_ACCOUNT 
 module.exports = {
 	appId: 'org.openvision.desktop',
 	productName: 'OpenVision',
-	copyright: 'Copyright OpenVision contributors. Apache License 2.0.',
+	copyright: 'Copyright 2026 Jamal Adrien and OpenVision contributors. Apache License 2.0.',
 	extraMetadata: { version: root.version },
 	directories: { output: 'dist', buildResources: 'build' },
 	files: ['main.cjs', 'preload.cjs', 'server.cjs', 'lib/**/*.cjs', '!lib/**/*.test.*', 'package.json'],
@@ -28,6 +28,7 @@ module.exports = {
 		{ from: '../build', to: 'web', filter: ['**/*', '!**/*.map'] },
 		{ from: 'web-package.json', to: 'web/package.json' },
 		{ from: '../LICENSE', to: 'LICENSE.txt' },
+		{ from: '../NOTICE', to: 'NOTICE.txt' },
 		{ from: 'build/legal', to: 'legal' }
 	],
 	asar: true,

@@ -3,7 +3,7 @@
 	"productName": "OpenVision",
 	"version": "0.1.0",
 	"description": "OpenVision eye exam records, as a Windows desktop app",
-	"author": "OpenVision contributors",
+	"author": "Jamal Adrien and OpenVision contributors",
 	"license": "Apache-2.0",
 	"private": true,
 	"main": "main.cjs",
