@@ -1,5 +1,6 @@
 // Impression/Plan, orders and coding: types shared by the server, the panels and the report.
 // Spec: docs/spec/BEHAVIOR.md §10 (Imp/Plan builder, orders), §11 (coding).
+import type { CodeSetId } from '#lib/codesets/index.ts';
 
 /** Where an impression item came from (§10.4). */
 export type ImpKind = 'free' | 'finding' | 'issue';
@@ -10,15 +11,19 @@ export interface ImpItem {
 	seq: number;
 	kind: ImpKind;
 	title: string;
-	/** ICD-10-CM codes, ", "-separated ('' = not coded yet). */
+	/** Diagnosis codes of `codeSystem`, ", "-separated ('' = not coded yet). */
 	codes: string;
-	/** "ICD10:H40.1131 (description)" style text, kept in step with `codes` (§10.4 FIX). */
+	/** "ICD10:H40.1131 (description)" / "ICD11:9C61.0Z&XK9J (title; title)" text, kept in step with `codes` (§10.4 FIX). */
 	codeText: string;
+	/** The code set the codes were saved with (D44); an item keeps it when the practice switches. */
+	codeSystem: CodeSetId;
+	/** ICD-11 only: WHO URI of each code part, ", "-separated per code and "&"-joined within one ('' for ICD-10-CM). */
+	codeUris: string;
 	plan: string;
 	/** Back-link: the finding field ids, ","-separated (kind 'finding'), or "issue:<id>" (kind 'issue'). */
 	link: string;
-	/** 'ICD10' whenever `codes` is set (§10.4 FIX: typed codes get a code type, so they can be billed). */
-	codeType: 'ICD10' | '';
+	/** The set's tag whenever `codes` is set (§10.4 FIX: typed codes get a code type, so they can be billed). */
+	codeType: 'ICD10' | 'ICD11' | '';
 }
 
 /** One order checked for this visit (§10.6), copied from the list when saved. */
@@ -82,11 +87,15 @@ export interface PlanData {
 	canEditOrders: boolean;
 	/** Whose list it is, for the hint when someone else's list is shown. */
 	orderListOwner: string;
+	/** The practice's current diagnosis code set (D44): the code finder and New Dx use it. */
+	codeSet: CodeSetId;
+	/** US billing (D45): when off there is no Coding section to point to. */
+	usBilling: boolean;
 }
 
 /** What the printed report needs (§13.2 item 12). */
 export interface PlanReport {
-	items: { title: string; codes: string; codeText: string; plan: string }[];
+	items: { title: string; codes: string; codeText: string; codeSystem?: CodeSetId; plan: string }[];
 	orders: string[];
 	/** Free-text plan / RTC printed under the orders. */
 	orderPlan: string;

@@ -1,4 +1,4 @@
-// Coding lines (spec §11.2-11.4 with FIXes): the ICD-10 list with pointer letters A-L and the CPT
+// Coding lines (spec §11.2-11.4 with FIXes): the diagnosis list with pointer letters A-L and the CPT
 // lines with modifiers and pointers, plus the checks shown under the summary. Pure.
 //
 // Rules:
@@ -11,7 +11,7 @@
 import {
 	CPT_RE,
 	DX_LETTERS,
-	ICD10_RE,
+	isDxCode,
 	MAX_DX,
 	MAX_POINTERS,
 	MODIFIER_RE,
@@ -54,7 +54,7 @@ export function dxList(items: CodingItem[]): { dx: DxLine[]; pointersFor: Map<nu
 	for (const item of items) {
 		const letters: string[] = [];
 		for (const code of splitCodes(item.codes)) {
-			if (!ICD10_RE.test(code)) {
+			if (!isDxCode(code)) {
 				if (!invalid.includes(code)) invalid.push(code);
 				continue;
 			}
@@ -86,10 +86,10 @@ export function buildCoding({ state, suggestedCode, items, sensorimotor }: Build
 	if (uncoded.length) {
 		checks.push({
 			level: 'warning',
-			message: `${uncoded.length} impression item${uncoded.length === 1 ? ' has' : 's have'} no ICD-10 code: ${uncoded.map((i) => i.title || 'untitled').join('; ')}.`
+			message: `${uncoded.length} impression item${uncoded.length === 1 ? ' has' : 's have'} no diagnosis code: ${uncoded.map((i) => i.title || 'untitled').join('; ')}.`
 		});
 	}
-	if (invalid.length) checks.push({ level: 'warning', message: `Not a valid ICD-10-CM code, left out: ${invalid.join(', ')}.` });
+	if (invalid.length) checks.push({ level: 'warning', message: `Not a valid diagnosis code, left out: ${invalid.join(', ')}.` });
 	if (overflow.length) {
 		checks.push({ level: 'error', message: `More than ${MAX_DX} diagnoses; a claim holds ${MAX_DX}. Left out: ${overflow.join(', ')}. Remove or merge impression items.` });
 	}

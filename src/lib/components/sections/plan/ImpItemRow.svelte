@@ -3,11 +3,12 @@
 	// The parent owns the item, its autosave and drag-and-drop; this renders the controls.
 	import { tick } from 'svelte';
 	import CodeFinder from '#lib/components/CodeFinder.svelte';
-	import type { IcdCode } from '#lib/plan/codes.ts';
+	import { CODE_SETS, splitCodeText, type CodeSetId, type DxCode } from '#lib/codesets/index.ts';
 	import type { ImpItem } from '#lib/plan/types.ts';
 
 	let {
 		item,
+		codeSet = 'icd10cm',
 		index,
 		count,
 		error,
@@ -20,6 +21,8 @@
 		ondraghandle
 	}: {
 		item: ImpItem;
+		/** The practice's current code set (the finder searches it); the item shows its own. */
+		codeSet?: CodeSetId;
 		index: number;
 		count: number;
 		/** Last save error for this item (text is kept). */
@@ -36,15 +39,10 @@
 
 	const prefix = $derived(`imp-${item.id}`);
 	const codes = $derived(item.codes ? item.codes.split(/,\s*/) : []);
-	/** Descriptions from the code text ("ICD10:CODE (description); ..."), keyed by code. */
-	const descriptions = $derived.by(() => {
-		const m = new Map<string, string>();
-		for (const part of item.codeText.split('; ')) {
-			const r = /^ICD10:(\S+)(?: \((.*)\))?$/.exec(part);
-			if (r) m.set(r[1], r[2] ?? '');
-		}
-		return m;
-	});
+	/** Descriptions from the code text ("ICD10:CODE (description); ..." or ICD11), keyed by code. */
+	const descriptions = $derived(new Map(splitCodeText(item.codeText).map((c) => [c.code, c.description])));
+	/** An item keeps the code set it was saved with (D44); say so when it differs from the practice's. */
+	const otherSet = $derived(!!item.codes && (item.codeSystem ?? 'icd10cm') !== codeSet);
 
 	let finding = $state(false);
 	let codeButton: HTMLButtonElement | null = $state(null);
@@ -54,7 +52,7 @@
 		await tick();
 		codeButton?.focus();
 	}
-	function pick(c: IcdCode) {
+	function pick(c: DxCode) {
 		if (!codes.includes(c.code)) oncodes([...codes, c.code].join(', '));
 		closeFinder();
 	}
@@ -103,7 +101,7 @@
 			</span>
 		{/each}
 		{#if finding}
-			<div class="finder"><CodeFinder id="{prefix}-finder" label="Find an ICD-10 code for item {index + 1}" onpick={pick} oncancel={closeFinder} /></div>
+			<div class="finder"><CodeFinder id="{prefix}-finder" label="Find a diagnosis code for item {index + 1}" onpick={pick} oncancel={closeFinder} /></div>
 		{:else}
 			<button type="button" class="add-code" bind:this={codeButton} onclick={() => (finding = true)}>
 				{codes.length ? '+ Add code' : 'Code'}<span class="visually-hidden"> for item {index + 1}</span>
@@ -122,7 +120,7 @@
 	></textarea>
 
 	<p class="meta">
-		{KIND_LABEL[item.kind]}{#if item.kind === 'issue'}: renaming here changes this visit only; the past-history entry keeps its name.{/if}
+		{#if otherSet}Coded with {CODE_SETS[item.codeSystem].short}. {/if}{KIND_LABEL[item.kind]}{#if item.kind === 'issue'}: renaming here changes this visit only; the past-history entry keeps its name.{/if}
 	</p>
 	{#if error}
 		<p class="error" role="alert">

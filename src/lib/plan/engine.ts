@@ -1,8 +1,14 @@
 // Findings -> diagnosis engine (spec §10.3 with every FIX; defect list B15).
-// Pure: exam text, the patient's issues and the visit date come in; the ICD-10 lookup is injected
+// Pure: exam text, the patient's issues and the visit date come in; the code-set lookup is injected
 // (the server passes the code-set table, tests pass a fixture). Nothing here does I/O.
+//
+// ICD-10-CM (the default) uses the terms' own ICD-10-CM codes and prefixes. ICD-11 (D44) never does:
+// there is no crosswalk. It searches WHO's ICD-11 titles with the term's words and the field's
+// description (bestIcd11), and puts the eye in a laterality extension code.
 import { EXAM_SECTIONS } from '#lib/exam/catalog.ts';
-import { codeTextFor, displayCode, type CodeLookup, type CodeQuery, type IcdCode } from './codes.ts';
+import { codeTextFor as setCodeText, icd11Normalize, LATERALITY_EXT, withLaterality, type CodeSetId, type LateralitySide } from '#lib/codesets/index.ts';
+import { bestIcd11, resolveIcd11, type Icd11Lookup, type Icd11Query } from '#lib/codesets/icd11.ts';
+import { displayCode, memoryLookup, type CodeLookup, type CodeQuery, type IcdCode } from './codes.ts';
 import { CODING_TERMS, FIELD_DESCRIPTIONS, type CodingTerm } from './terms.ts';
 import type { Candidate } from './types.ts';
 
@@ -16,6 +22,8 @@ export interface EngineIssue {
 	begin: string;
 	comments: string;
 	active: boolean;
+	/** The code set the issue's codes were saved with; absent = ICD-10-CM. */
+	codeSystem?: CodeSetId;
 }
 
 export interface EngineInput {
@@ -24,10 +32,17 @@ export interface EngineInput {
 	issues: EngineIssue[];
 	/** The visit date (YYYY-MM-DD), for the IOL 90-day rule. */
 	visitDate: string;
-	lookup: CodeLookup;
+	/** ICD-10-CM lookup (code set 'icd10cm'). */
+	lookup?: CodeLookup;
+	/** The practice's code set; default 'icd10cm'. */
+	codeSet?: CodeSetId;
+	/** ICD-11 lookup (code set 'icd11'). Without it, ICD-11 rows come out uncoded. */
+	icd11?: Icd11Lookup;
 	/** Defaults to CODING_TERMS. */
 	terms?: CodingTerm[];
 }
+
+const NO_CODES = memoryLookup([]);
 
 type Side = 'R' | 'L';
 interface Hit {
@@ -157,7 +172,7 @@ function resolveTerm(lookup: CodeLookup, row: CodingTerm, hits: Hit[], extraWord
 	);
 }
 
-function candidate(key: string, title: string, codes: IcdCode[], hits: Hit[], extraPlan: string[] = []): Candidate {
+function candidate(set: CodeSetId, key: string, title: string, codes: IcdCode[], hits: Hit[], extraPlan: string[] = []): Candidate {
 	const lines = codes.map((c) => c.description).filter(Boolean);
 	return {
 		key,
@@ -165,7 +180,7 @@ function candidate(key: string, title: string, codes: IcdCode[], hits: Hit[], ex
 		kind: 'finding',
 		title,
 		codes: codes.map((c) => c.code).join(', '),
-		codeText: codeTextFor(codes),
+		codeText: setCodeText(set, codes),
 		description: lines.join('\n'),
 		plan: [...lines, ...extraPlan].join('\n'),
 		link: [...new Set(hits.map((h) => h.field))].join(','),
@@ -177,13 +192,13 @@ function candidate(key: string, title: string, codes: IcdCode[], hits: Hit[], ex
 
 type DmType = 'Type 1 diabetes mellitus' | 'Type 2 diabetes mellitus' | 'Other specified diabetes mellitus';
 
-/** Diabetes type from the patient's active PMH titles and codes; null = no diabetes recorded. */
+/** Diabetes type from the patient's active PMH titles and ICD-10-CM codes; null = no diabetes recorded. */
 export function diabetesType(issues: EngineIssue[]): DmType | null {
 	let found: DmType | null = null;
 	const rank: Record<DmType, number> = { 'Type 1 diabetes mellitus': 3, 'Type 2 diabetes mellitus': 2, 'Other specified diabetes mellitus': 1 };
 	for (const i of issues) {
 		if (i.type !== 'PMH' || !i.active) continue;
-		const codes = i.codes.toUpperCase();
+		const codes = (i.codeSystem ?? 'icd10cm') === 'icd10cm' ? i.codes.toUpperCase() : '';
 		const t = i.title;
 		let ty: DmType | null = null;
 		if (/(^|[^A-Z0-9])E10/.test(codes) || /\b(type\s*(1|I)\b|T1DM|IDDM|juvenile diabetes)/i.test(t)) ty = 'Type 1 diabetes mellitus';
@@ -218,7 +233,7 @@ function hasCsme(findings: Record<string, string>, side: Side): boolean {
 	return hasTerm(m, 'CSME') && !hasTerm(m, 'flat');
 }
 
-function runDm(input: EngineInput, sides: Set<Side>): Candidate | null {
+function runDm(input: EngineInput & { lookup: CodeLookup }, sides: Set<Side>): Candidate | null {
 	const type = diabetesType(input.issues);
 	if (!type) return null;
 	const per = new Map<Side, { tier: Tier; edema: string }>();
@@ -244,12 +259,69 @@ function runDm(input: EngineInput, sides: Set<Side>): Candidate | null {
 	}
 	const hits: Hit[] = (['R', 'L'] as const).filter((s) => per.has(s)).map((s) => ({ side: s, field: s === 'R' ? 'ODMACULA' : 'OSMACULA', text: '' }));
 	const title = `Diabetic retinopathy ${eyeLabel(new Set(per.keys()))}`.trim();
-	return candidate('finding:DM', title, codes, hits);
+	return candidate('icd10cm', 'finding:DM', title, codes, hits);
+}
+
+// ---------- ICD-11 (D44): WHO titles + laterality extension, never the terms' ICD-10-CM codes ----------
+
+const sideKey = (sides: (Side | null)[]): LateralitySide | null =>
+	sides.includes('R') && sides.includes('L') ? 'B' : sides.includes('R') ? 'R' : sides.includes('L') ? 'L' : null;
+
+/** The best ICD-11 code for these words, with the eye(s) as a laterality extension when the set has it. */
+function icd11Code(lookup: Icd11Lookup | undefined, query: Icd11Query, sides: (Side | null)[]): IcdCode[] {
+	const hit = lookup ? bestIcd11(lookup, query) : null;
+	if (!lookup || !hit) return [];
+	const side = sideKey(sides);
+	const ext = side ? lookup.get(LATERALITY_EXT[side]) : null;
+	if (!side || !ext || ext.chapter !== 'X') return [{ code: hit.code, description: hit.title, billable: true }];
+	return [{ code: withLaterality(hit.code, side), description: `${hit.title}; ${ext.title}`, billable: true }];
+}
+
+/** Search words for a term: its label when it has one (abbreviations), else the term itself. */
+const termWords = (row: CodingTerm, extra: string[] = []) => [row.label ?? row.term, ...extra];
+
+function icd11ForRow(input: EngineInput, row: CodingTerm, hits: Hit[], extra: string[] = []): IcdCode[] {
+	return icd11Code(input.icd11, { words: termWords(row, extra), context: [FIELD_DESCRIPTIONS[row.location] ?? ''] }, hits.map((h) => h.side));
+}
+
+/** ICD-11: any active PMH whose title says diabetes, or whose ICD-11 code's WHO title does. */
+function hasDiabetes11(issues: EngineIssue[], lookup: Icd11Lookup | undefined): boolean {
+	if (diabetesType(issues.map((i) => ({ ...i, codeSystem: 'icd11' as const })))) return true;
+	if (!lookup) return false;
+	return issues.some(
+		(i) =>
+			i.type === 'PMH' &&
+			i.active &&
+			i.codeSystem === 'icd11' &&
+			i.codes.split(/[;,\s]+/).some((t) => {
+				const n = t ? icd11Normalize(t) : null;
+				return !!n && /diabetes mellitus/i.test(lookup.get(n.split('&')[0])?.title ?? '');
+			})
+	);
+}
+
+/** Diabetic retinopathy for ICD-11: proliferative or not, per eye; one code when both eyes agree. */
+function runDm11(input: EngineInput, sides: Set<Side>): Candidate | null {
+	if (!hasDiabetes11(input.issues, input.icd11)) return null;
+	const per = new Map<Side, string>();
+	for (const s of sides) {
+		const tier = dmTier(input.findings, s);
+		if (tier) per.set(s, tier === 'proliferative' ? 'proliferative diabetic retinopathy' : 'nonproliferative diabetic retinopathy');
+	}
+	if (!per.size) return null;
+	const r = per.get('R');
+	const l = per.get('L');
+	const codes: IcdCode[] =
+		r && l && r === l
+			? icd11Code(input.icd11, { words: [r] }, ['R', 'L'])
+			: (['R', 'L'] as const).flatMap((s) => (per.get(s) ? icd11Code(input.icd11, { words: [per.get(s)!] }, [s]) : []));
+	const hits: Hit[] = (['R', 'L'] as const).filter((s) => per.has(s)).map((s) => ({ side: s, field: s === 'R' ? 'ODMACULA' : 'OSMACULA', text: '' }));
+	return candidate('icd11', 'finding:DM', `Diabetic retinopathy ${eyeLabel(new Set(per.keys()))}`.trim(), codes, hits);
 }
 
 // ---------- RVO (FIX: + H35.81 retinal edema when CSME is present) ----------
 
-function runRvo(input: EngineInput, row: CodingTerm, hits: Hit[]): IcdCode[] {
+function runRvo(input: EngineInput & { lookup: CodeLookup }, row: CodingTerm, hits: Hit[]): IcdCode[] {
 	const sides = hits.map((h) => h.side);
 	const edemaSides = new Set(sides.filter((s): s is Side => !!s && hasCsme(input.findings, s)));
 	const variant = (side: Side | 'B' | null) =>
@@ -306,6 +378,9 @@ export function recentIolSurgery(issues: EngineIssue[], side: Side, visitDate: s
  */
 export function runEngine(input: EngineInput): Map<string, Candidate[]> {
 	const terms = input.terms ?? CODING_TERMS;
+	const set: CodeSetId = input.codeSet ?? 'icd10cm';
+	const icd11 = set === 'icd11';
+	const lookup = input.lookup ?? NO_CODES;
 	const out = new Map<string, Candidate[]>();
 	const hitsByField = new Map<string, string[]>();
 	const dmSides = new Set<Side>();
@@ -343,29 +418,29 @@ export function runEngine(input: EngineInput): Map<string, Candidate[]> {
 			}
 			if (!matched.length) continue; // no qualifying surgery: later rows may still code this text
 			const mh = matched.map((m) => m.hit);
-			const codes = resolveSides(input.lookup, mh.map((h) => h.side), (side) =>
-				lateral(input.lookup, { prefix: 'H59.03' }, side)
-			);
+			const codes = icd11
+				? icd11ForRow(input, row, mh)
+				: resolveSides(lookup, mh.map((h) => h.side), (side) => lateral(lookup, { prefix: 'H59.03' }, side));
 			const notes = matched.map((m) => `After ${m.surgery.title}${m.surgery.begin ? ` on ${m.surgery.begin}` : ''}`);
-			push(key, candidate(`finding:${row.term}:IOL`, title(mh.map((h) => h.side)), codes, mh, [...new Set(notes)]));
+			push(key, candidate(set, `finding:${row.term}:IOL`, title(mh.map((h) => h.side)), codes, mh, [...new Set(notes)]));
 			record(mh, row.term);
 			continue;
 		}
 		if (options.includes('RVO')) {
-			const codes = runRvo(input, row, hits);
-			push(key, candidate(`finding:${row.term}`, title(hits.map((h) => h.side)), codes, hits));
+			const codes = icd11 ? icd11ForRow(input, row, hits) : runRvo({ ...input, lookup }, row, hits);
+			push(key, candidate(set, `finding:${row.term}`, title(hits.map((h) => h.side)), codes, hits));
 			record(hits, row.term);
 			continue;
 		}
 		// Any other option word joins the search (path B, generic); otherwise path A or C.
 		const extra = options.filter((o) => o !== 'DM' && o !== 'RVO' && o !== 'IOL');
-		const codes = resolveTerm(input.lookup, extra.length ? { ...row, code: undefined } : row, hits, extra);
-		push(key, candidate(`finding:${row.location}:${row.term}`, title(hits.map((h) => h.side)), codes, hits));
+		const codes = icd11 ? icd11ForRow(input, row, hits, extra) : resolveTerm(lookup, extra.length ? { ...row, code: undefined } : row, hits, extra);
+		push(key, candidate(set, `finding:${row.location}:${row.term}`, title(hits.map((h) => h.side)), codes, hits));
 		record(hits, row.term);
 	}
 
 	if (dmKey) {
-		const dm = runDm(input, dmSides);
+		const dm = icd11 ? runDm11(input, dmSides) : runDm({ ...input, lookup }, dmSides);
 		if (dm) out.set(dmKey, [dm]);
 		else out.delete(dmKey);
 	}
@@ -400,17 +475,38 @@ export function issueCodes(lookup: CodeLookup, raw: string): IcdCode[] {
 	return out;
 }
 
-/** Builder rows from the patient's issues: POH + POS (eye) and PMH (general), active only (surgeries always). */
-export function issueCandidates(lookup: CodeLookup, issues: EngineIssue[]): { poh: Candidate[]; pmh: Candidate[] } {
+/** An issue's ICD-11 codes that the code set accepts, with WHO titles (others are left out). */
+export function issueCodes11(lookup: Icd11Lookup, raw: string): IcdCode[] {
+	const out: IcdCode[] = [];
+	for (const part of raw.replace(/\s*&\s*/g, '&').split(/[;,\s]+/)) {
+		const r = part ? resolveIcd11(lookup.get, part) : null;
+		if (!r || 'error' in r || out.some((o) => o.code === r.code)) continue;
+		out.push({ code: r.code, description: r.description, billable: true });
+	}
+	return out;
+}
+
+/**
+ * Builder rows from the patient's issues: POH + POS (eye) and PMH (general), active only (surgeries always).
+ * An issue's codes come along only when they are in the practice's current code set (no crosswalk):
+ * an issue coded in the other set becomes an uncoded row with its title.
+ */
+export function issueCandidates(
+	lookup: CodeLookup | undefined,
+	issues: EngineIssue[],
+	opts: { codeSet?: CodeSetId; icd11?: Icd11Lookup } = {}
+): { poh: Candidate[]; pmh: Candidate[] } {
+	const set = opts.codeSet ?? 'icd10cm';
 	const make = (i: EngineIssue, source: 'poh' | 'pmh'): Candidate => {
-		const codes = issueCodes(lookup, i.codes);
+		const same = (i.codeSystem ?? 'icd10cm') === set;
+		const codes = !same ? [] : set === 'icd11' ? (opts.icd11 ? issueCodes11(opts.icd11, i.codes) : []) : issueCodes(lookup ?? NO_CODES, i.codes);
 		return {
 			key: `issue:${i.id}`,
 			source,
 			kind: 'issue',
 			title: i.title,
 			codes: codes.map((c) => c.code).join(', '),
-			codeText: codeTextFor(codes),
+			codeText: setCodeText(set, codes),
 			description: codes.map((c) => c.description).filter(Boolean).join('\n'),
 			plan: i.comments, // §10.2: an issue item's plan starts as the issue's comments
 			link: `issue:${i.id}`,

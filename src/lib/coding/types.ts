@@ -41,7 +41,7 @@ export const EMPTY_CODING_STATE: CodingState = {
 	include92060: false
 };
 
-/** Diagnosis line of the summary: pointer letter A-L and its ICD-10-CM code. */
+/** Diagnosis line of the summary: pointer letter A-L and its diagnosis code (ICD-10-CM or ICD-11, D44). */
 export interface DxLine {
 	letter: string;
 	code: string;

@@ -79,5 +79,10 @@ export const DX_LETTERS = 'ABCDEFGHIJKL'.split('');
 export const CPT_RE = /^(\d{4}[0-9A-Z]|[A-Z]\d{4})$/;
 /** ICD-10-CM shape: letter, digit, letter-or-digit, then optional "." and up to four more. */
 export const ICD10_RE = /^[A-Z]\d[0-9A-Z](\.[0-9A-Z]{1,4})?$/;
+/**
+ * A diagnosis code of either code set (D44): ICD-10-CM, or ICD-11 with optional "&" extensions.
+ * Justifiers only point at impression items, so coding works with whichever set the items use.
+ */
+export { isDxCode } from '#lib/codesets/index.ts';
 /** Two-character modifier, e.g. 59, RT, LT, XS. */
 export const MODIFIER_RE = /^[0-9A-Z]{2}$/;

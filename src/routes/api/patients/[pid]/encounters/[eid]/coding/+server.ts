@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { getDb } from '#lib/server/db.ts';
 import { getEncounter } from '#lib/server/exam.ts';
 import { assertEditable, EncounterLockedError } from '#lib/server/signing.ts';
+import { usBillingOn } from '#lib/server/settings.ts';
 import {
 	canEditCoding,
 	CodingValidationError,
@@ -15,8 +16,12 @@ import {
 } from '#lib/server/coding.ts';
 import type { RequestHandler } from './$types';
 
-/** Coding is always reached through its own patient: a wrong pair is a 404, never another chart. */
+/**
+ * Coding is always reached through its own patient: a wrong pair is a 404, never another chart.
+ * With US billing off (D45) there is no coding at all: 404 for every method, nothing is deleted.
+ */
 function scope(params: { pid: string; eid: string }) {
+	if (!usBillingOn(getDb())) error(404, 'Not found');
 	const pid = Number(params.pid);
 	const eid = Number(params.eid);
 	if (!Number.isSafeInteger(pid) || !Number.isSafeInteger(eid)) error(404, 'Not found');

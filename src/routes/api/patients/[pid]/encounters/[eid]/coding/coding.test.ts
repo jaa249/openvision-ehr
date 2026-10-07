@@ -105,4 +105,42 @@ describe('coding API', () => {
 			lock.locked = false;
 		}
 	});
+
+	it('accepts ICD-11 diagnosis codes on the lines (justifiers only point at items)', async () => {
+		const lines = {
+			action: 'saveLines',
+			dx: [{ letter: 'A', code: '9C61.0Z&XK9J', title: 'POAG' }],
+			cpt: [{ kind: 'visit', code: '92014', description: 'Eye exam', modifiers: [], pointers: ['A'], units: 1 }]
+		};
+		const ok = await call(POST, event(1, 1, { method: 'POST', body: lines }));
+		expect(ok.status).toBe(200);
+	});
+
+	it('US billing off (D45): every method is 404, the superbill too; nothing is deleted', async () => {
+		const { getDb } = await import('#lib/server/db.ts');
+		const { updateCodeSettings } = await import('#lib/server/settings.ts');
+		const { load } = await import('../../../../../../patients/[pid]/encounters/[eid]/superbill/+page.server.ts');
+		const superbill = () => (load as unknown as (e: unknown) => unknown)({ params: { pid: '1', eid: '1' } });
+		const status = async (fn: () => unknown) => {
+			try {
+				await fn();
+				return 200;
+			} catch (e) {
+				return (e as { status?: number }).status ?? 500;
+			}
+		};
+		expect(await status(superbill)).toBe(200);
+		updateCodeSettings(getDb(), { usBilling: false }, 1);
+		try {
+			expect((await call(GET, event(1, 1))).status).toBe(404);
+			expect((await call(PUT, event(1, 1, { method: 'PUT', body: { state: STATE } }))).status).toBe(404);
+			expect((await call(POST, event(1, 1, { method: 'POST', body: { action: 'status', status: 'checked_out' } }))).status).toBe(404);
+			expect(await status(superbill)).toBe(404);
+		} finally {
+			updateCodeSettings(getDb(), { usBilling: true }, 1);
+		}
+		const back = await call(GET, event(1, 1));
+		expect(back.status).toBe(200);
+		expect((back.body as { lines: { dx: unknown[] } }).lines.dx.length).toBeGreaterThan(0);
+	});
 });

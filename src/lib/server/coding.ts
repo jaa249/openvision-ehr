@@ -7,7 +7,7 @@ import { getPlanForReport } from './plan.ts';
 import {
 	CPT_RE,
 	DX_LETTERS,
-	ICD10_RE,
+	isDxCode,
 	MAX_DX,
 	MAX_POINTERS,
 	MODIFIER_RE,
@@ -95,8 +95,8 @@ export function validateLines(input: unknown): { dx: DxLine[]; cpt: CptLine[] } 
 	if (input.dx.length > MAX_DX) throw new CodingValidationError(`At most ${MAX_DX} diagnoses`);
 	const dx: DxLine[] = input.dx.map((d, i) => {
 		if (!isObj(d)) throw new CodingValidationError('Each diagnosis must be an object');
-		const code = text(d.code, 'Diagnosis code', 8).toUpperCase();
-		if (!ICD10_RE.test(code)) throw new CodingValidationError(`Invalid ICD-10-CM code ${code}`);
+		const code = text(d.code, 'Diagnosis code', 60).toUpperCase();
+		if (!isDxCode(code)) throw new CodingValidationError(`Invalid diagnosis code ${code}`);
 		if (d.letter !== DX_LETTERS[i]) throw new CodingValidationError('Diagnosis letters must run A, B, C… in order');
 		return { letter: DX_LETTERS[i], code, title: text(d.title ?? '', 'Diagnosis title', 300) };
 	});

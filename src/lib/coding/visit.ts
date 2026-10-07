@@ -86,7 +86,7 @@ export function recordedSections(findings: Findings): Set<SectionId> {
 
 const filled = (f: Findings, id: string) => !!f[id]?.value?.trim();
 
-/** Impression items with at least one real ICD-10 code ("Code" placeholders and blanks do not count). */
+/** Impression items with at least one real diagnosis code ("Code" placeholders and blanks do not count). */
 export function codedItems<T extends { codes: string }>(items: T[]): T[] {
 	return items.filter((i) => splitCodes(i.codes).length > 0);
 }
@@ -95,7 +95,7 @@ export function codedItems<T extends { codes: string }>(items: T[]): T[] {
 export function splitCodes(codes: string): string[] {
 	return codes
 		.split(/[,;\s]+/)
-		.map((c) => c.trim().toUpperCase().replace(/^ICD10:/, ''))
+		.map((c) => c.trim().toUpperCase().replace(/^ICD1[01]:/, ''))
 		.filter((c) => c && c !== 'CODE');
 }
 
@@ -145,7 +145,7 @@ export function levelEvidence({ findings, items, orders }: EvidenceInput): Evide
 		},
 		{
 			id: 'diagnoses',
-			label: 'Condition evaluated (impression items with ICD-10 codes)',
+			label: 'Condition evaluated (impression items with diagnosis codes)',
 			detail: `${plural(coded, 'coded item')} of ${items.length} in the impression.`,
 			met: coded > 0,
 			supports: 'any'

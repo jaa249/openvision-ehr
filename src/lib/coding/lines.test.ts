@@ -41,7 +41,7 @@ describe('coding lines', () => {
 	});
 	it('warns about uncoded impression items', () => {
 		const w = build().checks.filter((c) => c.level === 'warning').map((c) => c.message);
-		expect(w.some((m) => m.includes('1 impression item has no ICD-10 code: Dry eye'))).toBe(true);
+		expect(w.some((m) => m.includes('1 impression item has no diagnosis code: Dry eye'))).toBe(true);
 	});
 	it('errors when a line has more than 4 pointers, and clears when a justifier is turned off', () => {
 		const five = [...items, { id: 15, title: 'Blepharitis', codes: 'H01.003' }];

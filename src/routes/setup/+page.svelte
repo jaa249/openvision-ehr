@@ -2,12 +2,16 @@
 	import { enhance } from '$app/forms';
 	import '#lib/components/settings/forms.css';
 	import { PASSWORD_HINT } from '#lib/components/settings/rules.ts';
+	import { CODE_SETS, CODE_SET_IDS, ICD11_CITATION, ICD11_LICENCE } from '#lib/codesets/index.ts';
 	import type { FullAutoFill } from 'svelte/elements';
 	import type { PageProps } from './$types';
 
 	let { form }: PageProps = $props();
 	const errors = $derived<Record<string, string>>(form?.errors ?? {});
 	let busy = $state(false);
+	// Default ICD-10-CM; after a refused submit the earlier choice comes back from the form values.
+	let picked = $state<string | null>(null);
+	const codeSet = $derived(picked ?? (form?.values?.codeSet === 'icd11' ? 'icd11' : 'icd10cm'));
 </script>
 
 <svelte:head><title>First-run setup · OpenVision</title></svelte:head>
@@ -52,6 +56,20 @@
 			{@render field('displayName', 'Display name', 'text', 'name', form?.values?.displayName ?? '', 'Shown in the header and on records, e.g. "Office Manager".')}
 			{@render field('password', 'Password', 'password', 'new-password', '', PASSWORD_HINT)}
 			{@render field('confirm', 'Confirm password', 'password', 'new-password', '')}
+		</fieldset>
+		<fieldset>
+			<legend>Diagnosis codes</legend>
+			<fieldset class="radios" aria-describedby="codeset-hint">
+				<legend class="label">Code set</legend>
+				{#each CODE_SET_IDS as id (id)}
+					<label class="check"><input type="radio" name="codeSet" value={id} checked={codeSet === id} onchange={() => (picked = id)} /> {CODE_SETS[id].label}</label>
+				{/each}
+			</fieldset>
+			<p class="hint" id="codeset-hint">
+				ICD-10-CM turns on US billing (CPT coding and superbill); ICD-11 leaves it off. Both can be changed later in Settings → Practice.
+			</p>
+			{#if errors.codeSet}<p class="err">{errors.codeSet}</p>{/if}
+			{#if codeSet === 'icd11'}<p class="hint">{ICD11_CITATION}. Licence: {ICD11_LICENCE}.</p>{/if}
 			<div class="actions">
 				<button type="submit" class="primary" disabled={busy}>{busy ? 'Creating…' : 'Create admin and sign in'}</button>
 			</div>

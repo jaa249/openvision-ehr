@@ -1,9 +1,12 @@
 <script lang="ts">
-	// ICD-10-CM code finder (spec §10.4): a combobox over GET /api/codes/icd10?q=.
+	// Diagnosis code finder (spec §10.4, D44): a combobox over GET /api/codes/dx?q=, which searches the
+	// practice's code set (ICD-10-CM or WHO ICD-11) and says which one it is.
 	// Keyboard: type to search, Up/Down to move, Enter to pick, Escape closes the list (a second Escape cancels).
 	// The parent shows it in place of its "Code" button and puts focus back there on pick or cancel.
+	// ICD-11: OD / OS / OU append the eye as a laterality extension code; a category (not a leaf) cannot
+	// be saved, so picking one lists the codes under it instead. WHO's citation is shown under the box.
 	import { onMount } from 'svelte';
-	import type { IcdCode } from '#lib/plan/codes.ts';
+	import { CODE_SETS, ICD11_CITATION, withLaterality, type CodeSetId, type DxCode, type DxSearchResult, type LateralitySide } from '#lib/codesets/index.ts';
 
 	let {
 		id,
@@ -14,13 +17,15 @@
 	}: {
 		id: string;
 		label: string;
-		onpick: (code: IcdCode) => void;
+		onpick: (code: DxCode) => void;
 		oncancel: () => void;
 		autofocus?: boolean;
 	} = $props();
 
 	let query = $state('');
-	let results = $state<IcdCode[]>([]);
+	let results = $state<DxCode[]>([]);
+	let system = $state<CodeSetId | null>(null);
+	let eye = $state<LateralitySide | null>(null);
 	let active = $state(-1);
 	let open = $state(false);
 	let searching = $state(false);
@@ -28,12 +33,25 @@
 	let input: HTMLInputElement | null = $state(null);
 	const listId = $derived(`${id}-list`);
 	const optId = (i: number) => `${id}-opt-${i}`;
+	const icd11 = $derived(system === 'icd11');
+	const EYES: { side: LateralitySide; label: string; name: string }[] = [
+		{ side: 'R', label: 'OD', name: 'right eye' },
+		{ side: 'L', label: 'OS', name: 'left eye' },
+		{ side: 'B', label: 'OU', name: 'both eyes' }
+	];
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let requestId = 0;
 
 	onMount(() => {
 		if (autofocus) input?.focus();
+		// Learn which code set is active before the first search (labels, eye buttons, citation).
+		fetch('/api/codes/dx?q=')
+			.then((r) => (r.ok ? (r.json() as Promise<DxSearchResult>) : null))
+			.then((d) => {
+				if (d && !system) system = d.system;
+			})
+			.catch(() => {});
 		return () => clearTimeout(timer);
 	});
 
@@ -49,12 +67,13 @@
 		timer = setTimeout(async () => {
 			const rid = ++requestId;
 			try {
-				const res = await fetch(`/api/codes/icd10?q=${encodeURIComponent(q.trim())}`);
+				const res = await fetch(`/api/codes/dx?q=${encodeURIComponent(q.trim())}`);
 				if (!res.ok) throw new Error(String(res.status));
-				const list = (await res.json()) as IcdCode[];
+				const data = (await res.json()) as DxSearchResult;
 				if (rid !== requestId) return;
-				results = list;
-				active = list.length ? 0 : -1;
+				system = data.system;
+				results = data.codes;
+				active = data.codes.length ? 0 : -1;
 				open = true;
 				failed = false;
 			} catch {
@@ -69,9 +88,16 @@
 		}, 200);
 	}
 
-	function pick(c: IcdCode) {
+	function pick(c: DxCode) {
+		if (!c.leaf) {
+			// A category: show the codes under it (search by its code).
+			query = c.code;
+			search(query);
+			input?.focus();
+			return;
+		}
 		open = false;
-		onpick(c);
+		onpick(icd11 && eye ? { ...c, code: withLaterality(c.code, eye) } : c);
 	}
 
 	function keydown(e: KeyboardEvent) {
@@ -118,14 +144,34 @@
 		aria-describedby="{id}-help"
 		autocomplete="off"
 		spellcheck="false"
-		placeholder="Search code or words, e.g. H40.11 or nuclear cataract"
+		placeholder={icd11 ? 'Search code or words, e.g. 9C61 or glaucoma' : 'Search code or words, e.g. H40.11 or nuclear cataract'}
 		bind:value={query}
 		oninput={() => search(query)}
 		onkeydown={keydown}
 		onblur={() => (open = false)}
 	/>
 	<button type="button" class="cancel" onclick={oncancel} aria-label="Close code search">Cancel</button>
-	<p class="help" id="{id}-help">Arrows choose, Enter picks, Esc closes. Billable ICD-10-CM 2027 codes only.</p>
+	{#if icd11}
+		<div class="eyes" role="group" aria-label="Eye added to the code">
+			<span class="eyes-label" aria-hidden="true">Eye:</span>
+			{#each EYES as x (x.side)}
+				<button
+					type="button"
+					class="eye"
+					aria-pressed={eye === x.side}
+					aria-label="{x.label}, {x.name}"
+					onpointerdown={(e) => e.preventDefault()}
+					onclick={() => (eye = eye === x.side ? null : x.side)}>{x.label}</button
+				>
+			{/each}
+		</div>
+	{/if}
+	<p class="help" id="{id}-help">
+		Arrows choose, Enter picks, Esc closes.
+		{#if system === 'icd10cm'}Billable {CODE_SETS.icd10cm.short} 2027 codes only.{:else if icd11}{CODE_SETS.icd11.label}, 2026-01 release.
+			{eye ? `The ${EYES.find((x) => x.side === eye)?.name} is added to the code.` : 'Choose OD, OS or OU to add the eye.'}{/if}
+	</p>
+	{#if icd11}<p class="cite">{ICD11_CITATION}. Licence: CC BY-ND 3.0 IGO.</p>{/if}
 	<p class="visually-hidden" role="status">
 		{#if open && !searching}{failed ? 'Search failed.' : `${results.length} code${results.length === 1 ? '' : 's'} found.`}{/if}
 	</p>
@@ -144,10 +190,12 @@
 					onpointerenter={() => (active = i)}
 				>
 					<span class="code">{c.code}</span>
-					<span class="desc">{c.description}</span>
+					<span class="desc">{c.description}{#if !c.leaf}<span class="cat"> · category: pick to see the codes under it</span>{/if}</span>
 				</li>
 			{:else}
-				<li class="empty" role="presentation">{failed ? 'Search failed: check the connection.' : 'No billable code matches. Try other words.'}</li>
+				<li class="empty" role="presentation">
+					{failed ? 'Search failed: check the connection.' : icd11 ? 'No ICD-11 code matches. Try other words.' : 'No billable code matches. Try other words.'}
+				</li>
 			{/each}
 		</ul>
 	{/if}
@@ -182,7 +230,29 @@
 	.cancel {
 		min-height: max(var(--target-min), 40px);
 	}
-	.help {
+	.eyes {
+		grid-column: 1 / -1;
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+	}
+	.eyes-label {
+		font-size: var(--text-xs);
+		color: var(--text-3);
+	}
+	.eye {
+		min-width: 48px;
+		min-height: 40px;
+		font-family: var(--font-mono);
+	}
+	.eye[aria-pressed='true'] {
+		background: var(--accent-soft);
+		border-color: var(--accent);
+		color: var(--text-1);
+		font-weight: var(--weight-semibold);
+	}
+	.help,
+	.cite {
 		grid-column: 1 / -1;
 		margin: 0;
 		font-size: var(--text-xs);
@@ -223,6 +293,10 @@
 	}
 	.desc {
 		color: var(--text-2);
+	}
+	.cat {
+		color: var(--text-3);
+		font-size: var(--text-xs);
 	}
 	li.empty {
 		display: block;

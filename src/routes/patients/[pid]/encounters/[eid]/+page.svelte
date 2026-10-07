@@ -207,7 +207,9 @@
 	const when = (iso: string) =>
 		new Date(iso).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
-	const current = $derived(SECTIONS.find((s) => s.id === section)!);
+	/** Sections offered: Coding (key 0) only with US billing on (D45). */
+	const sections = $derived(data.usBilling ? SECTIONS : SECTIONS.filter((s) => s.id !== 'CODING'));
+	const current = $derived(sections.find((s) => s.id === section) ?? sections[0]);
 	const sec = $derived(SECTION_DEF.get(section));
 	const picks = $derived(data.quickPicks.filter((p) => p.zone === section));
 	/** Sections drawn as their own panel component instead of OD/OS rows. */
@@ -459,7 +461,7 @@
 			}
 			return;
 		}
-		const s = SECTIONS.find((s) => s.key === e.key);
+		const s = sections.find((s) => s.key === e.key);
 		if (s) section = s.id;
 	}
 
@@ -564,7 +566,7 @@
 		{/if}
 	</div>
 	<div class="body">
-		<SectionRail current={section} {findings} onselect={(id) => (section = id)} />
+		<SectionRail {sections} current={section} {findings} onselect={(id) => (section = id)} />
 		<main id="exam" tabindex="-1">
 			{#if sec || custom}
 				<div class="modes" role="group" aria-label="Helper panel">

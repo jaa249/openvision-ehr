@@ -4,11 +4,14 @@
 //
 // location: an exam field root (catalog row id). The engine reads both eyes' fields for it
 //   (OD/OS for globe sections, R/L for External) and takes laterality from the field prefix.
-// code: an ICD-10-CM code. A billable code is used as is; a category ("H25.1") is narrowed to
+// code: an ICD-10-CM code, used only when the practice codes with ICD-10-CM. ICD-11 never reads it
+//   (no crosswalk): it searches WHO titles with the term's words and the field description.
+// code (ICD-10-CM): a billable code is used as is; a category ("H25.1") is narrowed to
 //   the right / left / bilateral code using the field description below (e.g. "upper eyelid").
 // options: special rules (DM, RVO, IOL); any other word is added to the code search.
 // No code and no options: the engine searches the code set (path C).
 // label: the item title when the term is an abbreviation (default: the term, capitalised).
+//   With ICD-11 (D44) the label, or else the term, is also what WHO titles are searched for.
 // prefer: extra words that pick among a category's codes (e.g. "initial encounter").
 
 export type TermOption = 'DM' | 'RVO' | 'IOL' | (string & {});

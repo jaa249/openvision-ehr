@@ -1,6 +1,7 @@
 // Patient-level history (PMSFH): issues, allergy status, family and social history.
 // Shared by the server (src/lib/server/history.ts), PmsfhPanel, the banner and the report.
 // Spec: docs/spec/BEHAVIOR.md §1.3 (summary), §2.4 (shorthand issues), §7.2 (editor), §7.5-7.7.
+import type { CodeSetId } from '#lib/codesets/index.ts';
 
 /** Issue list types, in the editor's order (§7.2). */
 export type IssueType = 'POH' | 'POS' | 'EYEMED' | 'PMH' | 'MED' | 'SURG' | 'ALLERGY';
@@ -13,6 +14,8 @@ export interface Issue {
 	title: string;
 	/** Diagnosis codes, ";"-separated (e.g. ICD-10). */
 	codes: string;
+	/** The code set the codes were saved with (D44); absent = ICD-10-CM. */
+	codeSystem?: CodeSetId;
 	/** YYYY-MM-DD or ''. */
 	begin: string;
 	end: string;

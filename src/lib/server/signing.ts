@@ -294,6 +294,14 @@ function planTables(db: DB): string[] {
 		.filter((name) => (db.prepare(`PRAGMA table_info("${name}")`).all() as { name: string }[]).some((c) => c.name === 'encounter_id'));
 }
 
+/**
+ * Columns added to plan tables after exams were already signed, with their default. A row holding the
+ * default hashes as if the column did not exist, so an exam signed before the column existed still
+ * hashes the same; a row that uses the column (an ICD-11 item, D44) hashes it.
+ */
+const LATER_COLUMN_DEFAULTS: Record<string, unknown> = { code_system: 'icd10cm', code_uris: '' };
+const isLaterDefault = (k: string, v: unknown) => k in LATER_COLUMN_DEFAULTS && LATER_COLUMN_DEFAULTS[k] === v;
+
 function canonical(v: unknown): unknown {
 	if (v instanceof Uint8Array) return Buffer.from(v).toString('hex');
 	if (typeof v === 'bigint') return v.toString();
@@ -329,7 +337,7 @@ export function examContentHash(db: DB, encounterId: number): string {
 		const rows = db
 			.prepare(`SELECT * FROM "${table}" WHERE encounter_id = ? ORDER BY rowid`)
 			.all(encounterId)
-			.map((row) => canonical(Object.fromEntries(Object.entries(row).filter(([k]) => !/_(at|by)$/.test(k)))));
+			.map((row) => canonical(Object.fromEntries(Object.entries(row).filter(([k, v]) => !/_(at|by)$/.test(k) && !isLaterDefault(k, v)))));
 		// Only tables with rows count, so the hash does not change when an empty table is added.
 		if (rows.length) plan[table] = rows;
 	}

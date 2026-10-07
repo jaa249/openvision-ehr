@@ -243,7 +243,7 @@
 					{/if}
 					{#if items.length > coded.length}
 						<p class="note pad warn-text">
-							Not coded: {items.filter((i) => !coded.includes(i)).map((i) => i.title || 'untitled').join('; ')}. Add ICD-10 codes in Imp / Plan.
+							Not coded: {items.filter((i) => !coded.includes(i)).map((i) => i.title || 'untitled').join('; ')}. Add diagnosis codes in Imp / Plan.
 						</p>
 					{/if}
 				</div>

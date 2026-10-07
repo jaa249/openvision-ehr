@@ -4,7 +4,8 @@ import { searchIcd10 } from '#lib/server/icd10.ts';
 import type { RequestHandler } from './$types';
 
 /**
- * Code finder: GET /api/codes/icd10?q=... -> IcdCode[] (top 25 billable ICD-10-CM codes by code prefix,
+ * ICD-10-CM search, kept for older clients (the code finder now uses /api/codes/dx, which follows the
+ * practice's code set). GET /api/codes/icd10?q=... -> IcdCode[] (top 25 billable ICD-10-CM codes by code prefix,
  * then by every word in the description, case-insensitive). The code set is public, not patient data.
  */
 export const GET: RequestHandler = ({ url }) => {

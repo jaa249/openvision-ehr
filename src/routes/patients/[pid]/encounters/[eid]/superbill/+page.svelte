@@ -1,6 +1,7 @@
 <script lang="ts">
 	// Printable superbill: the coding lines saved from the Coding panel (spec §11.4 FIX, decision D7).
 	import { VISIT_STATUSES } from '#lib/coding/types.ts';
+	import { codeSetsShort } from '#lib/codesets/index.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -65,7 +66,7 @@
 		<p class="empty">No coding lines saved for this visit yet. Open the Coding panel and choose "Save coding lines".</p>
 	{:else}
 		<section>
-			<h2>Diagnoses (ICD-10-CM)</h2>
+			<h2>Diagnoses ({dx.length ? codeSetsShort(dx.map((d) => d.code)) : 'ICD-10-CM'})</h2>
 			{#if dx.length}
 				<table>
 					<thead>

@@ -2,6 +2,7 @@
 	// Coding lines summary (spec §11.4 FIX: "Save coding lines" replaces "Populate fee sheet").
 	import type { CodingSummary } from '#lib/coding/lines.ts';
 	import type { SavedLines } from '#lib/coding/types.ts';
+	import { codeSetsShort } from '#lib/codesets/index.ts';
 
 	let {
 		summary,
@@ -48,7 +49,7 @@
 			<h4>Diagnoses <span class="count">{summary.dx.length} of 12</span></h4>
 			{#if summary.dx.length}
 				<table>
-					<thead><tr><th scope="col" class="ptr">Ptr</th><th scope="col" class="code">ICD-10</th><th scope="col">Impression</th></tr></thead>
+					<thead><tr><th scope="col" class="ptr">Ptr</th><th scope="col" class="code">{codeSetsShort(summary.dx.map((d) => d.code))}</th><th scope="col">Impression</th></tr></thead>
 					<tbody>
 						{#each summary.dx as d (d.letter)}
 							<tr><td class="ptr">{d.letter}</td><td class="code">{d.code}</td><td>{d.title}</td></tr>

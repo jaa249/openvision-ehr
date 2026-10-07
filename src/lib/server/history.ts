@@ -14,6 +14,9 @@ import {
 	type FieldErrors
 } from './patients.ts';
 import { getEncounter } from './exam.ts';
+import { currentCodeSet } from './settings.ts';
+import { icd11Loaded, resolveIcd11Code } from './icd11.ts';
+import { codeTextFor, isCodeSetId, type CodeSetId } from '#lib/codesets/index.ts';
 import {
 	BUILTIN_TITLES,
 	FH_KEYS,
@@ -60,6 +63,7 @@ type IssueRow = {
 	outcome: string;
 	provider: string;
 	comments: string;
+	code_system: string;
 };
 
 /** An issue is active while its end date is blank or still in the future. */
@@ -69,6 +73,7 @@ function toIssue(r: IssueRow, today: string): Issue {
 		type: r.type,
 		title: r.title,
 		codes: r.codes,
+		codeSystem: isCodeSetId(r.code_system) ? r.code_system : 'icd10cm',
 		begin: r.begin_date,
 		end: r.end_date,
 		occurrence: r.occurrence,
@@ -83,7 +88,7 @@ function toIssue(r: IssueRow, today: string): Issue {
 export function listIssues(db: DB, patientId: number, today = localToday()): Issue[] {
 	const rows = db
 		.prepare(
-			`SELECT id, type, title, codes, begin_date, end_date, occurrence, reaction, outcome, provider, comments
+			`SELECT id, type, title, codes, begin_date, end_date, occurrence, reaction, outcome, provider, comments, code_system
 			   FROM issues WHERE patient_id = ? ORDER BY title COLLATE NOCASE, id`
 		)
 		.all(patientId) as IssueRow[];
@@ -181,6 +186,25 @@ export function validateIssue(input: unknown): CleanIssue {
 	return { id, type, title, codes, begin, end, occurrence, reaction, outcome, provider, comments };
 }
 
+/**
+ * The code set and WHO data stored with an issue's codes (D44). ICD-10-CM: as typed, as before.
+ * ICD-11 (lenient, like ICD-10 history codes): the typed text is kept; each code the ICD-11 set accepts
+ * is stored normalised with its WHO title (code_text) and URIs (WHO licence: code, title and URI together).
+ */
+function issueCodeData(db: DB, codes: string, set: CodeSetId): { codes: string; codeSystem: CodeSetId; codeUris: string; codeText: string } {
+	if (set !== 'icd11' || !codes || !icd11Loaded(db)) return { codes, codeSystem: set, codeUris: '', codeText: '' };
+	const parts = codes.replace(/\s*&\s*/g, '&').split(/([;,\s]+)/);
+	const found: { code: string; description: string; uris: string }[] = [];
+	const out = parts.map((part) => {
+		if (!part || /^[;,\s]+$/.test(part)) return part;
+		const r = resolveIcd11Code(db, part);
+		if ('error' in r) return part;
+		if (!found.some((f) => f.code === r.code)) found.push({ code: r.code, description: r.description, uris: r.uris });
+		return r.code;
+	});
+	return { codes: out.join(''), codeSystem: 'icd11', codeUris: found.map((f) => f.uris).join(', '), codeText: codeTextFor('icd11', found) };
+}
+
 function findDuplicate(db: DB, patientId: number, type: IssueType, title: string, exceptId: number | null): number | null {
 	const hit = db
 		.prepare('SELECT id FROM issues WHERE patient_id = ? AND type = ? AND title = ? COLLATE NOCASE AND id IS NOT ? ORDER BY id LIMIT 1')
@@ -221,22 +245,33 @@ export function saveIssue(
 		const visit = opts.encounterId ? getEncounter(db, patientId, opts.encounterId) : null;
 		c.begin = c.type === 'MED' && visit ? visit.date : localToday(now);
 	}
+	// Unchanged codes keep the set they were saved with; new or edited codes use the practice's set (D44).
+	const old = created
+		? undefined
+		: (db.prepare('SELECT codes, code_system, code_uris, code_text FROM issues WHERE id = ?').get(id) as
+				| { codes: string; code_system: string; code_uris: string; code_text: string }
+				| undefined);
+	const cd =
+		old && old.codes === c.codes && isCodeSetId(old.code_system)
+			? { codes: old.codes, codeSystem: old.code_system, codeUris: old.code_uris, codeText: old.code_text }
+			: issueCodeData(db, c.codes, currentCodeSet(db));
 	if (created) {
 		const { lastInsertRowid } = db
 			.prepare(
-				`INSERT INTO issues (patient_id, type, title, codes, begin_date, end_date, occurrence, reaction, outcome, provider,
-				                     comments, encounter_id, created_at, created_by, updated_at, updated_by)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+				`INSERT INTO issues (patient_id, type, title, codes, code_system, code_uris, code_text, begin_date, end_date, occurrence,
+				                     reaction, outcome, provider, comments, encounter_id, created_at, created_by, updated_at, updated_by)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			)
-			.run(patientId, c.type, c.title, c.codes, c.begin, c.end, c.occurrence, c.reaction, c.outcome, c.provider, c.comments,
-				opts.encounterId ?? null, at, userId, at, userId);
+			.run(patientId, c.type, c.title, cd.codes, cd.codeSystem, cd.codeUris, cd.codeText, c.begin, c.end, c.occurrence, c.reaction,
+				c.outcome, c.provider, c.comments, opts.encounterId ?? null, at, userId, at, userId);
 		id = Number(lastInsertRowid);
 	} else {
 		db.prepare(
-			`UPDATE issues SET type = ?, title = ?, codes = ?, begin_date = ?, end_date = ?, occurrence = ?, reaction = ?,
-			                   outcome = ?, provider = ?, comments = ?, updated_at = ?, updated_by = ?
+			`UPDATE issues SET type = ?, title = ?, codes = ?, code_system = ?, code_uris = ?, code_text = ?, begin_date = ?, end_date = ?,
+			                   occurrence = ?, reaction = ?, outcome = ?, provider = ?, comments = ?, updated_at = ?, updated_by = ?
 			  WHERE id = ? AND patient_id = ?`
-		).run(c.type, c.title, c.codes, c.begin, c.end, c.occurrence, c.reaction, c.outcome, c.provider, c.comments, at, userId, id, patientId);
+		).run(c.type, c.title, cd.codes, cd.codeSystem, cd.codeUris, cd.codeText, c.begin, c.end, c.occurrence, c.reaction, c.outcome,
+			c.provider, c.comments, at, userId, id, patientId);
 	}
 	if (c.type === 'ALLERGY' && (!c.end || c.end > localToday(now))) clearNoKnownAllergies(db, patientId);
 	return { id: id!, created };
@@ -384,16 +419,20 @@ function daysBefore(day: string, n: number): string {
  * (top 20 for PMH, top 10 otherwise); fewer than 4 falls back to the built-in list.
  */
 export function quickPickTitles(db: DB, providerId: number, today = localToday()): Record<IssueType, TitlePick[]> {
+	// Codes only of the practice's current set (D44): an ICD-11 practice never gets an ICD-10-CM code here.
+	const set = currentCodeSet(db);
 	const q = db.prepare(
-		`SELECT MIN(i.title) AS title, MAX(i.codes) AS codes, COUNT(*) AS n FROM issues i
+		`SELECT MIN(i.title) AS title, COALESCE(MAX(CASE WHEN i.code_system = ? THEN i.codes END), '') AS codes, COUNT(*) AS n FROM issues i
 		  WHERE i.type = ? AND i.patient_id IN (SELECT e.patient_id FROM encounters e WHERE e.provider_id = ? AND e.date >= ? AND e.date <= ?)
 		  GROUP BY i.title COLLATE NOCASE ORDER BY n DESC, MIN(i.title) COLLATE NOCASE LIMIT ?`
 	);
 	const since = daysBefore(today, 30);
 	const out = {} as Record<IssueType, TitlePick[]>;
 	for (const type of ISSUE_TYPES) {
-		const rows = q.all(type, providerId, since, today, type === 'PMH' ? 20 : 10) as { title: string; codes: string }[];
-		out[type] = rows.length >= 4 ? rows.map((r) => ({ title: r.title, codes: r.codes })) : BUILTIN_TITLES[type];
+		const rows = q.all(set, type, providerId, since, today, type === 'PMH' ? 20 : 10) as { title: string; codes: string }[];
+		// The built-in list's codes are ICD-10-CM: an ICD-11 practice gets the titles only.
+		const builtin = set === 'icd10cm' ? BUILTIN_TITLES[type] : BUILTIN_TITLES[type].map((t) => ({ title: t.title, codes: '' }));
+		out[type] = rows.length >= 4 ? rows.map((r) => ({ title: r.title, codes: r.codes })) : builtin;
 	}
 	return out;
 }

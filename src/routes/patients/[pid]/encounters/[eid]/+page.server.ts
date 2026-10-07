@@ -4,6 +4,7 @@ import { getEncounter, getFindings, getPatientHeader, getPriors, getUserDefaults
 import { activeProviders, activeTechnicians } from '#lib/server/patients.ts';
 import { getQuickPicks } from '#lib/server/quickpicks.ts';
 import { getLockState } from '#lib/server/signing.ts';
+import { getCodeSettings } from '#lib/server/settings.ts';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals }) => {
@@ -29,6 +30,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		lockState: getLockState(db, eid, locals.userId, null),
 		// Choices for the visit staff dialog (D43).
 		staffOptions: { providers: activeProviders(db), technicians: activeTechnicians(db) },
+		// Coding (key 0) is offered only with US billing on (D45).
+		usBilling: getCodeSettings(db).usBilling,
 		user: locals.user
 	};
 };

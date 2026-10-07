@@ -16,10 +16,14 @@ export const actions: Actions = {
 	default: async ({ request, cookies, url }) => {
 		const db = getDb();
 		const f = await request.formData();
-		const values = { username: str(f.get('username')).slice(0, 64), displayName: str(f.get('displayName')).slice(0, 200) };
+		const values = {
+			username: str(f.get('username')).slice(0, 64),
+			displayName: str(f.get('displayName')).slice(0, 200),
+			codeSet: str(f.get('codeSet')).slice(0, 10)
+		};
 		let id: number;
 		try {
-			id = await setupFirstAdmin(db, { ...values, password: str(f.get('password')), confirm: str(f.get('confirm')) });
+			id = await setupFirstAdmin(db, { ...values, password: str(f.get('password')), confirm: str(f.get('confirm')), codeSet: str(f.get('codeSet')) });
 		} catch (e) {
 			if (e instanceof UserError) {
 				if (e.errors.form && !needsSetup(db)) redirect(303, '/login');

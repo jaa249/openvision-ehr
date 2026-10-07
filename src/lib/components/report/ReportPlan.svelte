@@ -3,9 +3,10 @@
 	// title, the code text (or the code when there is no code text), the plan with its line breaks;
 	// "Orders/Next visit:" only when there are orders. Paper colours, like the rest of ExamReport.
 	import type { PlanReport } from '#lib/plan/types.ts';
+	import { stripCodeTags } from '#lib/codesets/index.ts';
 	let { plan }: { plan: PlanReport | null | undefined } = $props();
-	/** The stored code text keeps its "ICD10:" tags; paper shows just "H40.1131 (description)". */
-	const paperCodes = (s: string) => s.replace(/ICD-?10(?:-CM)?:\s*/gi, '');
+	/** The stored code text keeps its "ICD10:" / "ICD11:" tags; paper shows just "H40.1131 (description)". */
+	const paperCodes = stripCodeTags;
 </script>
 
 {#if plan && (plan.items.length || plan.orders.length || plan.orderPlan)}

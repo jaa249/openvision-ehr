@@ -1,9 +1,13 @@
 <script lang="ts">
-	import { SECTIONS, FIELDS, type SectionId } from '#lib/exam/catalog.ts';
+	import { SECTIONS, FIELDS, type Section, type SectionId } from '#lib/exam/catalog.ts';
 	import type { Findings } from '#lib/shorthand/parse.ts';
 
-	let { current, findings, onselect }: { current: SectionId; findings: Findings; onselect: (id: SectionId) => void } =
-		$props();
+	let {
+		sections = SECTIONS,
+		current,
+		findings,
+		onselect
+	}: { sections?: Section[]; current: SectionId; findings: Findings; onselect: (id: SectionId) => void } = $props();
 
 	function state(id: SectionId): 'empty' | 'started' {
 		return FIELDS.some((f) => f.section === id && findings[f.id]?.value) ? 'started' : 'empty';
@@ -11,7 +15,7 @@
 </script>
 
 <nav class="rail" aria-label="Exam sections">
-	{#each SECTIONS as s (s.id)}
+	{#each sections as s (s.id)}
 		<button
 			type="button"
 			aria-current={current === s.id ? 'true' : undefined}

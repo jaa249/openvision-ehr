@@ -3,6 +3,7 @@
 import type { DB } from './db.ts';
 import { securityAudit } from './security_audit.ts';
 import { EXAM_SECTIONS, FIELDS, FIELD_BY_ID, SECTIONS, SECTION_DEF, SEED_DEFAULTS, type SectionId } from '#lib/exam/catalog.ts';
+import { isCodeSetId, type CodeSetId } from '#lib/codesets/index.ts';
 
 export type FieldErrors = Record<string, string>;
 
@@ -51,6 +52,49 @@ export function updatePractice(db: DB, input: Partial<Record<keyof Practice, unk
 	securityAudit(db, { action: 'settings.practice', userId: actorId, detail: { before, after: out } });
 	db.prepare('UPDATE practice SET name = ?, address = ?, phone = ?, fax = ? WHERE id = 1').run(out.name, out.address, out.phone, out.fax);
 	return out;
+}
+
+// ---------------------------------------------------------------- diagnosis codes and US billing (D44, D45)
+
+export interface CodeSettings {
+	/** The set new diagnosis codes come from; coded items keep the set they were saved with. */
+	codeSet: CodeSetId;
+	/** CPT coding (exam section 0), the coding API and the superbill. */
+	usBilling: boolean;
+}
+
+/** US billing starts on with ICD-10-CM and off with ICD-11 (at setup; afterwards the two are independent). */
+export const defaultUsBilling = (codeSet: CodeSetId) => codeSet === 'icd10cm';
+
+export function getCodeSettings(db: DB): CodeSettings {
+	const r = db.prepare('SELECT diagnosis_code_set, us_billing FROM practice WHERE id = 1').get() as
+		| { diagnosis_code_set: string; us_billing: number }
+		| undefined;
+	return { codeSet: isCodeSetId(r?.diagnosis_code_set) ? r.diagnosis_code_set : 'icd10cm', usBilling: (r?.us_billing ?? 1) === 1 };
+}
+
+/** The practice's current diagnosis code set (search, New Dx, builder and validation use it). */
+export const currentCodeSet = (db: DB): CodeSetId => getCodeSettings(db).codeSet;
+export const usBillingOn = (db: DB): boolean => getCodeSettings(db).usBilling;
+
+/**
+ * Changes the code set and/or US billing; audited with the old and new values. Nothing already saved
+ * changes: coded items keep their own code set, and turning billing off deletes no coding data.
+ * `actorId` null = first-run setup (no signed-in user yet; the setup itself is audited).
+ */
+export function updateCodeSettings(db: DB, input: { codeSet?: unknown; usBilling?: unknown }, actorId: number | null): CodeSettings {
+	const before = getCodeSettings(db);
+	const errors: FieldErrors = {};
+	const codeSet = input.codeSet === undefined ? before.codeSet : input.codeSet;
+	if (!isCodeSetId(codeSet)) errors.codeSet = 'Choose ICD-10-CM or ICD-11.';
+	const usBilling = input.usBilling === undefined ? before.usBilling : input.usBilling;
+	if (typeof usBilling !== 'boolean') errors.usBilling = 'US billing must be on or off.';
+	if (Object.keys(errors).length) throw new SettingsError(errors);
+	const after: CodeSettings = { codeSet: codeSet as CodeSetId, usBilling: usBilling as boolean };
+	if (after.codeSet === before.codeSet && after.usBilling === before.usBilling) return after;
+	if (actorId !== null) securityAudit(db, { action: 'settings.coding', userId: actorId, detail: { before, after } });
+	db.prepare('UPDATE practice SET diagnosis_code_set = ?, us_billing = ? WHERE id = 1').run(after.codeSet, after.usBilling ? 1 : 0);
+	return after;
 }
 
 // ---------------------------------------------------------------- normal values (user_defaults)

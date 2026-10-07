@@ -16,6 +16,8 @@
 	const url = $derived(`/api/patients/${context.patientId}/encounters/${context.encounterId}/plan`);
 
 	let data = $state<PlanData | null>(null);
+	/** The practice's diagnosis code set (D44), for the code finder and the New Dx hint. */
+	const codeSet = $derived(data?.codeSet ?? 'icd10cm');
 	let items = $state<ImpItem[]>([]);
 	let loadError = $state('');
 	/** Per-item save problems (the typed text stays). */
@@ -108,6 +110,8 @@
 				cur.codes = r.data.item.codes;
 				cur.codeText = r.data.item.codeText;
 				cur.codeType = r.data.item.codeType;
+				cur.codeSystem = r.data.item.codeSystem;
+				cur.codeUris = r.data.item.codeUris;
 			}
 		} else {
 			errors[id] = { message: r.message, duplicate: r.status === 409 && 'duplicateOf' in r.body };
@@ -121,6 +125,8 @@
 			cur.codes = r.data.item.codes;
 			cur.codeText = r.data.item.codeText;
 			cur.codeType = r.data.item.codeType;
+			cur.codeSystem = r.data.item.codeSystem;
+			cur.codeUris = r.data.item.codeUris;
 			delete errors[id];
 			announce = codes ? `Codes for ${cur.title}: ${r.data.item.codes}` : `Codes removed from ${cur.title}`;
 		} else if (!r.ok) {
@@ -409,6 +415,7 @@
 								>
 									<ImpItemRow
 										item={it}
+										{codeSet}
 										index={i}
 										count={items.length}
 										error={errors[it.id]?.message ?? ''}
@@ -459,7 +466,9 @@
 							id="imp-newdx"
 							rows="2"
 							maxlength="4200"
-							placeholder={'Glaucoma suspect OU H40.003\nOCT RNFL in 6 months'}
+							placeholder={codeSet === 'icd11'
+								? 'Primary open-angle glaucoma 9C61.0Z&XK9J\nOCT RNFL in 6 months'
+								: 'Glaucoma suspect OU H40.003\nOCT RNFL in 6 months'}
 							aria-describedby="imp-newdx-help"
 							bind:value={newDx}
 							onblur={() => commitNewDx()}
@@ -476,7 +485,7 @@
 							<button type="button" onclick={() => commitNewDx()} disabled={newDx.trim().length < 2}>Add to list</button>
 						</div>
 						<p class="help" id="imp-newdx-help">
-							Tab or "Add to list" creates the entry. First line: the diagnosis, optionally ending with an ICD-10 code. Next lines: the plan.
+							Tab or "Add to list" creates the entry. First line: the diagnosis, optionally ending with {codeSet === 'icd11' ? 'an ICD-11 code (e.g. 9C61.0Z&XK9J)' : 'an ICD-10 code'}. Next lines: the plan.
 						</p>
 						{#if newDxError}
 							<p class="err" role="alert">
@@ -539,7 +548,7 @@
 						</div>
 					{/if}
 				</div>
-				<p class="help">Visit codes, modifiers and tests performed are in the Coding section (key 0).</p>
+				{#if data?.usBilling !== false}<p class="help">Visit codes, modifiers and tests performed are in the Coding section (key 0).</p>{/if}
 			</div>
 		</div>
 	{/if}
