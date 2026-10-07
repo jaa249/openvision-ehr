@@ -1,0 +1,13 @@
+OpenVision - before you install
+
+OpenVision stores patient health information on this computer. Your practice is responsible for keeping it safe.
+
+- Follow the patient data privacy and health record laws that apply where you practise (for example HIPAA in the United States, GDPR in the European Union, PIPEDA in Canada, or your country's equivalent), including how long records must be kept.
+- Turn on full-disk encryption on this computer (BitLocker on Windows). OpenVision's database is not encrypted by OpenVision itself.
+- Give every person their own Windows account and their own OpenVision account. Never share sign-ins. Lock the screen when you step away.
+- Make regular backups, keep them encrypted and away from this computer, and test restoring them.
+- Keep Windows updated and protected against malware.
+
+OpenVision is free, open-source software provided under the Apache License 2.0, "AS IS", WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND. To the extent permitted by law, the authors and contributors are not liable for any loss of data, interruption, or other damages arising from its use (Apache License 2.0, sections 7 and 8). You are responsible for deciding whether OpenVision is suitable for your practice and for complying with the laws that govern you.
+
+By installing you accept the OpenVision Terms of Use and acknowledge the Privacy Policy.

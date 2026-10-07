@@ -12,5 +12,12 @@
 	"sessionWarnAnnounce": "Vous serez déconnecté dans environ une minute pour cause d'inactivité.",
 	"sessionWarnCountdown": "Vous serez déconnecté dans {seconds} s pour cause d'inactivité.",
 	"staySignedIn": "Rester connecté",
-	"signingOut": "Déconnexion…"
+	"signingOut": "Déconnexion…",
+	"legalTerms": "Conditions d'utilisation",
+	"legalPrivacy": "Politique de confidentialité",
+	"legalNotice": "Avis sur la sécurité des données",
+	"legalNav": "Informations juridiques",
+	"legalEnglishOnly": "Pour l'instant, ce document n'existe qu'en anglais.",
+	"legalBack": "Retour à OpenVision",
+	"legalPageTitle": "{title} · OpenVision"
 }

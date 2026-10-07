@@ -20,6 +20,8 @@ export default defineConfig({
 		})
 	],
 	test: {
-		include: ['src/**/*.test.ts']
+		// desktop/: the Windows app's pure helpers and build scripts (D51).
+		include: ['src/**/*.test.ts', 'desktop/**/*.test.ts'],
+		exclude: ['**/node_modules/**', 'desktop/dist/**']
 	}
 });

@@ -22,6 +22,17 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	/** Present only inside the Windows desktop app (desktop/preload.cjs, D51); undefined in a browser. */
+	interface Window {
+		openvisionDesktop?: {
+			readonly isDesktop: true;
+			readonly version: string;
+			/** Renders the print view of these visits to PDF and asks where to save it. */
+			savePdf(ids: number[], suggestedName?: string): Promise<{ saved: boolean; canceled?: boolean; error?: string }>;
+			checkForUpdates(): Promise<void>;
+		};
+	}
 }
 
 export {};

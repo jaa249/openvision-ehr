@@ -37,5 +37,10 @@
 	"createAdmin": "Create admin and sign in",
 	"language": "Language",
 	"changeLanguage": "Change",
-	"codeSetDownloadNote": "Diagnosis codes are not part of OpenVision. After setup, the next page offers to download the chosen code set (a few seconds); a computer without internet can import the official file in Settings › Code sets."
+	"codeSetDownloadNote": "Diagnosis codes are not part of OpenVision. After setup, the next page offers to download the chosen code set (a few seconds); a computer without internet can import the official file in Settings › Code sets.",
+	"setupNoticeHeading": "Before you start: data safety",
+	"setupNoticeInEnglish": "The notice is in English for now.",
+	"setupAcceptTerms": "I have read and accept the {terms} and the {notice}",
+	"setupNoticeLink": "data safety notice",
+	"setupTermsRequired": "Read and accept the Terms of Use and the data safety notice to continue."
 }

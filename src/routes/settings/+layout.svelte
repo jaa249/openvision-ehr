@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import '#lib/components/settings/forms.css';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import LegalLinks from '#lib/components/LegalLinks.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
@@ -31,7 +32,17 @@
 			{/each}
 		</ul>
 	</nav>
-	<main>{@render children()}</main>
+	<main>
+		{#if data.disk === 'off' || data.disk === 'unknown'}
+			<!-- Desktop app, admins only (D51): persistent until the drive is encrypted. -->
+			<div class="disk" data-state={data.disk} role={data.disk === 'off' ? 'alert' : 'note'}>
+				<p>{data.disk === 'off' ? t('settings.diskNotEncrypted') : t('settings.diskEncryptionUnknown')}</p>
+				<a href={data.bitlockerHelpUrl} target="_blank" rel="noopener noreferrer">{t('settings.diskBitLockerHelp')}</a>
+			</div>
+		{/if}
+		{@render children()}
+		<LegalLinks />
+	</main>
 </div>
 
 <style>
@@ -76,6 +87,30 @@
 	}
 	main {
 		min-width: 0;
+	}
+	.disk {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-1) var(--space-4);
+		padding: var(--space-3);
+		margin: 0 0 var(--space-4);
+		border-radius: var(--radius-2, 8px);
+		border: 1px solid var(--warn);
+		background: var(--warn-soft, var(--surface-2));
+	}
+	.disk[data-state='unknown'] {
+		border-color: var(--hairline);
+		background: var(--surface-2);
+	}
+	.disk p {
+		margin: 0;
+		flex: 1 1 20rem;
+	}
+	.disk a {
+		min-height: var(--target-min);
+		display: inline-flex;
+		align-items: center;
 	}
 	main :global(h2) {
 		font-size: var(--text-xl);

@@ -147,8 +147,19 @@ export async function createUser(
 /** First run only (no one can sign in yet): creates the first admin. Throws UserError when setup is already done. */
 export async function setupFirstAdmin(
 	db: DB,
-	input: { username: string; displayName: string; password: string; confirm: string; codeSet?: unknown; locale?: unknown },
-	now = new Date()
+	input: {
+		username: string;
+		displayName: string;
+		password: string;
+		confirm: string;
+		codeSet?: unknown;
+		locale?: unknown;
+		/** The Terms of Use and data safety notice were accepted on the setup page (D51); recorded with the version. */
+		termsAccepted?: { version: string };
+	},
+	now = new Date(),
+	/** dryRun: only validate (throws UserError like a real run); returns 0 and changes nothing. */
+	{ dryRun = false }: { dryRun?: boolean } = {}
 ): Promise<number> {
 	if (!needsSetup(db)) throw new UserError({ form: 'Setup is already complete. Sign in instead.' });
 	const errors: FieldErrors = {};
@@ -161,6 +172,7 @@ export async function setupFirstAdmin(
 	if (!isLocale(locale)) errors.locale = 'Choose a language.';
 	checkPre(db, input, errors);
 	if (Object.keys(errors).length) throw new UserError(errors);
+	if (dryRun) return 0;
 	const hash = await hashPassword(input.password);
 	db.exec('BEGIN');
 	try {
@@ -175,6 +187,7 @@ export async function setupFirstAdmin(
 		if (isCodeSetId(codeSet)) updateCodeSettings(db, { codeSet, usBilling: defaultUsBilling(codeSet) }, null);
 		setDefaultLocale(db, locale, null);
 		securityAudit(db, { action: 'auth.setup_admin', userId: id, detail: { username: input.username.trim(), codeSet, locale } }, now);
+		if (input.termsAccepted) securityAudit(db, { action: 'setup.terms_accepted', userId: id, detail: { version: input.termsAccepted.version } }, now);
 		db.exec('COMMIT');
 		return id;
 	} catch (e) {

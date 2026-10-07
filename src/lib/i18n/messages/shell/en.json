@@ -12,5 +12,12 @@
 	"sessionWarnAnnounce": "You will be signed out in about a minute because of inactivity.",
 	"sessionWarnCountdown": "You'll be signed out in {seconds} s because of inactivity.",
 	"staySignedIn": "Stay signed in",
-	"signingOut": "Signing out…"
+	"signingOut": "Signing out…",
+	"legalTerms": "Terms of Use",
+	"legalPrivacy": "Privacy Policy",
+	"legalNotice": "Data safety notice",
+	"legalNav": "Legal",
+	"legalEnglishOnly": "This document is in English only for now.",
+	"legalBack": "Back to OpenVision",
+	"legalPageTitle": "{title} · OpenVision"
 }

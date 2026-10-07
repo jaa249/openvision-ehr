@@ -10,7 +10,9 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
-		"codes:fetch": "node scripts/fetch-codes.mjs"
+		"codes:fetch": "node scripts/fetch-codes.mjs",
+		"desktop:dev": "npm run build && npm --prefix desktop start",
+		"desktop:dist": "npm run build && npm --prefix desktop run dist"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-node": "^6.0.0",

@@ -37,5 +37,10 @@
 	"createAdmin": "Créer l'administrateur et se connecter",
 	"language": "Langue",
 	"changeLanguage": "Changer",
-	"codeSetDownloadNote": "Les codes diagnostiques ne font pas partie d'OpenVision. Après la configuration, la page suivante propose de télécharger la nomenclature choisie (quelques secondes) ; un ordinateur sans internet peut importer le fichier officiel dans Paramètres › Nomenclatures."
+	"codeSetDownloadNote": "Les codes diagnostiques ne font pas partie d'OpenVision. Après la configuration, la page suivante propose de télécharger la nomenclature choisie (quelques secondes) ; un ordinateur sans internet peut importer le fichier officiel dans Paramètres › Nomenclatures.",
+	"setupNoticeHeading": "Avant de commencer : sécurité des données",
+	"setupNoticeInEnglish": "Pour l'instant, l'avis n'existe qu'en anglais.",
+	"setupAcceptTerms": "J'ai lu et j'accepte les {terms} et l'{notice}",
+	"setupNoticeLink": "avis sur la sécurité des données",
+	"setupTermsRequired": "Lisez et acceptez les Conditions d'utilisation et l'avis sur la sécurité des données pour continuer."
 }

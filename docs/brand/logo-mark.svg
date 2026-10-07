@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="55%" r="65%"><stop offset="0" stop-color="#fff8e6"/><stop offset="1" stop-color="#ffd98a"/></radialGradient>
+    <radialGradient id="iris" cx="50%" cy="50%" r="50%"><stop offset="0.42" stop-color="#c08a2e"/><stop offset="0.7" stop-color="#6e8a3a"/><stop offset="1" stop-color="#3d5222"/></radialGradient>
+  </defs>
+  
+  <path d="M78 212 V100 a50 50 0 0 1 100 0 V212 Z" fill="url(#glow)"/>
+  <path d="M78 212 V100 a50 50 0 0 1 100 0 V212" fill="none" stroke="#c9d3df" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M78 212 L78 100 Q78 44 37 44 L37 222 Z" fill="none" stroke="#c9d3df" stroke-width="7" stroke-linejoin="round"/>
+  <line x1="69.8" y1="61.1" x2="69.8" y2="214.0" stroke="#c9d3df" stroke-width="4.3" stroke-linecap="round"/>
+  <line x1="61.6" y1="51.6" x2="61.6" y2="216.0" stroke="#c9d3df" stroke-width="4.6" stroke-linecap="round"/>
+  <line x1="53.4" y1="46.8" x2="53.4" y2="218.0" stroke="#c9d3df" stroke-width="4.9" stroke-linecap="round"/>
+  <line x1="45.2" y1="44.6" x2="45.2" y2="220.0" stroke="#c9d3df" stroke-width="5.2" stroke-linecap="round"/>
+  <line x1="78" y1="158.2" x2="37" y2="136.6" stroke="#c9d3df" stroke-width="5" stroke-linecap="round"/>
+  <line x1="78" y1="194.1" x2="37" y2="193.5" stroke="#c9d3df" stroke-width="5" stroke-linecap="round"/>
+  <line x1="39" y1="52" x2="39" y2="216" stroke="#ffffff" stroke-opacity=".6" stroke-width="2"/>
+  <path d="M178 212 L178 100 Q178 44 219 44 L219 222 Z" fill="none" stroke="#c9d3df" stroke-width="7" stroke-linejoin="round"/>
+  <line x1="186.2" y1="61.1" x2="186.2" y2="214.0" stroke="#c9d3df" stroke-width="4.3" stroke-linecap="round"/>
+  <line x1="194.4" y1="51.6" x2="194.4" y2="216.0" stroke="#c9d3df" stroke-width="4.6" stroke-linecap="round"/>
+  <line x1="202.6" y1="46.8" x2="202.6" y2="218.0" stroke="#c9d3df" stroke-width="4.9" stroke-linecap="round"/>
+  <line x1="210.8" y1="44.6" x2="210.8" y2="220.0" stroke="#c9d3df" stroke-width="5.2" stroke-linecap="round"/>
+  <line x1="178" y1="158.2" x2="219" y2="136.6" stroke="#c9d3df" stroke-width="5" stroke-linecap="round"/>
+  <line x1="178" y1="194.1" x2="219" y2="193.5" stroke="#c9d3df" stroke-width="5" stroke-linecap="round"/>
+  <line x1="217" y1="52" x2="217" y2="216" stroke="#ffffff" stroke-opacity=".6" stroke-width="2"/>
+  <path d="M88 152 Q128 108 168 152 Q128 196 88 152 Z" fill="#ffffff" stroke="#0e2240" stroke-width="5" stroke-linejoin="round"/>
+  <circle cx="128" cy="152" r="21" fill="url(#iris)"/>
+  <circle cx="128" cy="152" r="21" fill="none" stroke="#3d5222" stroke-width="2"/>
+  <circle cx="128" cy="152" r="9" fill="#0b1626"/>
+  <circle cx="135" cy="145" r="4.2" fill="#ffffff"/>
+</svg>

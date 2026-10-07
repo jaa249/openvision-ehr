@@ -12,5 +12,12 @@
 	"sessionWarnAnnounce": "Su sesión se cerrará en aproximadamente un minuto por inactividad.",
 	"sessionWarnCountdown": "Su sesión se cerrará en {seconds} s por inactividad.",
 	"staySignedIn": "Mantener la sesión",
-	"signingOut": "Cerrando sesión…"
+	"signingOut": "Cerrando sesión…",
+	"legalTerms": "Condiciones de uso",
+	"legalPrivacy": "Política de privacidad",
+	"legalNotice": "Aviso de seguridad de los datos",
+	"legalNav": "Información legal",
+	"legalEnglishOnly": "Por ahora, este documento solo está disponible en inglés.",
+	"legalBack": "Volver a OpenVision",
+	"legalPageTitle": "{title} · OpenVision"
 }

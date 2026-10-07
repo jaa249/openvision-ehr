@@ -208,12 +208,17 @@
 	"codeSetsLangTitlesOnly": "Le fichier de l'OMS dans cette langue ne contient que les titres.",
 	"codeSetsLangSource": "Fichier de l'OMS, version {release}. Licence : {licence}. Citation : {citation}",
 	"codeSetsLangLoaded_one": "{count} titre, chargé le {date}",
+	"codeSetsLangLoaded_many": "{count} titres, chargés le {date}",
 	"codeSetsLangLoaded_other": "{count} titres, chargés le {date}",
 	"codeSetsLangDone_one": "Terminé : {count} titre chargé.",
+	"codeSetsLangDone_many": "Terminé : {count} titres chargés.",
 	"codeSetsLangDone_other": "Terminé : {count} titres chargés.",
 	"codeSetsLangRemoveConfirm": "Supprimer les titres de l'OMS en {language} de cet ordinateur ? Les diagnostics déjà enregistrés gardent leurs titres.",
 	"codeSetsLangImportLabel": "Importer le fichier de l'OMS en {language}",
 	"codeSetsLangOffline": "Hors ligne : téléchargez {link} sur un autre ordinateur et importez-le ici sans modification.",
 	"codeSetsLangOfficialFile": "le fichier de l'OMS en {language}",
-	"codeSetsLangNoHindi": "L'OMS ne publie pas de fichier CIM-11 en hindi : les utilisateurs en hindi voient les titres en anglais."
+	"codeSetsLangNoHindi": "L'OMS ne publie pas de fichier CIM-11 en hindi : les utilisateurs en hindi voient les titres en anglais.",
+	"diskNotEncrypted": "Le disque de cet ordinateur n'est pas chiffré. Activez BitLocker pour protéger les données des patients en cas de perte ou de vol de l'ordinateur.",
+	"diskEncryptionUnknown": "OpenVision n'a pas pu vérifier si le disque de cet ordinateur est chiffré. Assurez-vous que BitLocker est activé, pour protéger les données des patients en cas de perte ou de vol de l'ordinateur.",
+	"diskBitLockerHelp": "Comment activer BitLocker (Microsoft)"
 }

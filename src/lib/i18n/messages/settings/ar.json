@@ -238,5 +238,8 @@
 	"codeSetsLangImportLabel": "استيراد ملف المنظمة باللغة {language}",
 	"codeSetsLangOffline": "دون إنترنت: نزّل {link} على حاسوب آخر واستورده هنا دون تعديل.",
 	"codeSetsLangOfficialFile": "ملف المنظمة باللغة {language}",
-	"codeSetsLangNoHindi": "لا تنشر منظمة الصحة العالمية ملف ICD-11 بالهندية، لذلك يرى مستخدمو الهندية العناوين بالإنجليزية."
+	"codeSetsLangNoHindi": "لا تنشر منظمة الصحة العالمية ملف ICD-11 بالهندية، لذلك يرى مستخدمو الهندية العناوين بالإنجليزية.",
+	"diskNotEncrypted": "قرص هذا الحاسوب غير مُشفَّر. فعِّل BitLocker لحماية بيانات المرضى في حال فقدان الحاسوب أو سرقته.",
+	"diskEncryptionUnknown": "تعذّر على OpenVision التحقق من تشفير قرص هذا الحاسوب. تأكّد من تفعيل BitLocker لحماية بيانات المرضى في حال فقدان الحاسوب أو سرقته.",
+	"diskBitLockerHelp": "كيفية تفعيل BitLocker (Microsoft)"
 }

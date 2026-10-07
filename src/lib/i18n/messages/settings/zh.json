@@ -203,5 +203,8 @@
 	"codeSetsLangImportLabel": "导入世卫组织的{language}文件",
 	"codeSetsLangOffline": "无法上网：请在另一台电脑上下载{link}，然后原样导入到这里。",
 	"codeSetsLangOfficialFile": "世卫组织的{language}文件",
-	"codeSetsLangNoHindi": "世卫组织没有发布印地语 ICD-11 文件，因此印地语用户看到的是英文标题。"
+	"codeSetsLangNoHindi": "世卫组织没有发布印地语 ICD-11 文件，因此印地语用户看到的是英文标题。",
+	"diskNotEncrypted": "这台计算机的硬盘未加密。请开启 BitLocker，以便在计算机丢失或被盗时保护患者数据。",
+	"diskEncryptionUnknown": "OpenVision 无法检查这台计算机的硬盘是否已加密。请确认 BitLocker 已开启，以便在计算机丢失或被盗时保护患者数据。",
+	"diskBitLockerHelp": "如何开启 BitLocker（Microsoft）"
 }

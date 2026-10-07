@@ -364,7 +364,7 @@ const under = (path: string, base: string) => path === base || path.startsWith(`
 
 /** public: sign-in pages and static files; api: JSON/file endpoints (401); page: everything else (redirect). */
 export function routeKind(pathname: string): RouteKind {
-	if (under(pathname, '/login') || under(pathname, '/setup') || under(pathname, '/logout')) return 'public';
+	if (under(pathname, '/login') || under(pathname, '/setup') || under(pathname, '/logout') || under(pathname, '/legal')) return 'public';
 	if (pathname.startsWith('/_app/') || pathname === '/robots.txt' || pathname === '/favicon.ico') return 'public';
 	if (under(pathname, '/api') || under(pathname, '/export')) return 'api';
 	return 'page';

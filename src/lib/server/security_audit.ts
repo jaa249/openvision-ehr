@@ -16,6 +16,7 @@ export const SECURITY_ACTIONS = [
 	'auth.password_reset',
 	'auth.emergency_reset',
 	'auth.setup_admin',
+	'setup.terms_accepted',
 	'user.created',
 	'user.deactivated',
 	'user.reactivated',

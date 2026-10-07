@@ -210,5 +210,8 @@
 	"codeSetsLangImportLabel": "Import WHO's {language} file",
 	"codeSetsLangOffline": "Offline: download {link} on another computer and import it here unchanged.",
 	"codeSetsLangOfficialFile": "WHO's {language} file",
-	"codeSetsLangNoHindi": "WHO publishes no Hindi ICD-11 file, so Hindi users see the English titles."
+	"codeSetsLangNoHindi": "WHO publishes no Hindi ICD-11 file, so Hindi users see the English titles.",
+	"diskNotEncrypted": "This computer's drive is not encrypted. Turn on BitLocker to protect patient data if the computer is lost or stolen.",
+	"diskEncryptionUnknown": "OpenVision could not check whether this computer's drive is encrypted. Make sure BitLocker is on, to protect patient data if the computer is lost or stolen.",
+	"diskBitLockerHelp": "How to turn on BitLocker (Microsoft)"
 }

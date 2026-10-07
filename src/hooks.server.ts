@@ -3,6 +3,7 @@ import type { Handle } from '@sveltejs/kit/hooks';
 import { getDb } from '#lib/server/db.ts';
 import { SESSION_COOKIE, isBackgroundRequest, needsSetup, resolveSession, routeKind } from '#lib/server/auth.ts';
 import { securityAudit } from '#lib/server/security_audit.ts';
+import { SHELL_HEADER, SHELL_REFUSED, shellTokenOk } from '#lib/server/shell.ts';
 import { LANG_COOKIE, resolveLocale } from '#lib/server/i18n.ts';
 import { localeDir, localeTag } from '#lib/i18n/locales.ts';
 
@@ -33,6 +34,11 @@ function secure(response: Response, signedIn: boolean): Response {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+	// Desktop app (D51): only the app's own window may use its local port. A no-op unless OPENVISION_SHELL_TOKEN is set.
+	if (!shellTokenOk(event.request.headers.get(SHELL_HEADER))) {
+		return new Response(SHELL_REFUSED, { status: 403, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+	}
+
 	// SvelteKit's built-in origin check only covers form posts. Our API takes JSON,
 	// so every state-changing request must come from this app's own origin.
 	if (MUTATING.has(event.request.method)) {

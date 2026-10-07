@@ -37,5 +37,10 @@
 	"createAdmin": "创建管理员并登录",
 	"language": "语言",
 	"changeLanguage": "切换",
-	"codeSetDownloadNote": "诊断编码不包含在 OpenVision 中。设置完成后，下一页会提供下载所选编码体系（只需几秒）；没有互联网的电脑可在“设置 › 编码体系”中导入官方文件。"
+	"codeSetDownloadNote": "诊断编码不包含在 OpenVision 中。设置完成后，下一页会提供下载所选编码体系（只需几秒）；没有互联网的电脑可在“设置 › 编码体系”中导入官方文件。",
+	"setupNoticeHeading": "开始之前：数据安全",
+	"setupNoticeInEnglish": "该须知目前仅有英文版。",
+	"setupAcceptTerms": "我已阅读并接受{terms}和{notice}",
+	"setupNoticeLink": "数据安全须知",
+	"setupTermsRequired": "请阅读并接受使用条款和数据安全须知后继续。"
 }

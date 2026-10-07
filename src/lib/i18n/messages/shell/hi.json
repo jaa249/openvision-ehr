@@ -12,5 +12,12 @@
 	"sessionWarnAnnounce": "निष्क्रियता के कारण लगभग एक मिनट में आप साइन आउट हो जाएँगे।",
 	"sessionWarnCountdown": "निष्क्रियता के कारण {seconds} सेकंड में आप साइन आउट हो जाएँगे।",
 	"staySignedIn": "साइन इन रहें",
-	"signingOut": "साइन आउट हो रहा है…"
+	"signingOut": "साइन आउट हो रहा है…",
+	"legalTerms": "उपयोग की शर्तें",
+	"legalPrivacy": "गोपनीयता नीति",
+	"legalNotice": "डेटा सुरक्षा सूचना",
+	"legalNav": "कानूनी जानकारी",
+	"legalEnglishOnly": "यह दस्तावेज़ अभी केवल अंग्रेज़ी में है।",
+	"legalBack": "OpenVision पर वापस जाएँ",
+	"legalPageTitle": "{title} · OpenVision"
 }

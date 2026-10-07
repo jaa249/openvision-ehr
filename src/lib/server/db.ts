@@ -338,3 +338,31 @@ export function getDb(): DB {
 	}
 	return instance;
 }
+
+/**
+ * Writes a consistent copy of the whole database to `path` (VACUUM INTO; the file must not exist yet).
+ * Documents and drawings are stored in the database, so this one file is the complete record.
+ */
+export function backupDatabase(path: string): void {
+	getDb().prepare('VACUUM INTO ?').run(path);
+}
+
+/** Folds the write-ahead log back into the database file and closes it (the desktop app on exit). */
+export function closeDb(): void {
+	if (!instance) return;
+	const db = instance;
+	instance = null;
+	try {
+		db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+	} finally {
+		db.close();
+	}
+}
+
+// The desktop app (desktop/server.cjs, D51) runs the built server in its own process but cannot import
+// its bundled modules, so it reaches the open database through this well-known global instead.
+(globalThis as Record<symbol, unknown>)[Symbol.for('openvision.db')] = {
+	open: () => void getDb(), // at start, so a migration error shows as a dialog instead of a broken first page
+	backup: backupDatabase,
+	close: closeDb
+};

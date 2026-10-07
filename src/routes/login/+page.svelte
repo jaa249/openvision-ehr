@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LegalLinks from '#lib/components/LegalLinks.svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import '#lib/components/settings/forms.css';
@@ -121,6 +122,7 @@
 			<p class="warn">{t('auth.demoWarn')}</p>
 		</section>
 	{/if}
+	<LegalLinks />
 </main>
 
 <style>

@@ -12,5 +12,12 @@
 	"sessionWarnAnnounce": "سيتم تسجيل خروجك بعد دقيقة تقريبًا بسبب عدم النشاط.",
 	"sessionWarnCountdown": "سيتم تسجيل خروجك بعد {seconds} ث بسبب عدم النشاط.",
 	"staySignedIn": "البقاء متصلًا",
-	"signingOut": "جارٍ تسجيل الخروج…"
+	"signingOut": "جارٍ تسجيل الخروج…",
+	"legalTerms": "شروط الاستخدام",
+	"legalPrivacy": "سياسة الخصوصية",
+	"legalNotice": "إشعار أمان البيانات",
+	"legalNav": "معلومات قانونية",
+	"legalEnglishOnly": "هذا المستند متوفر بالإنجليزية فقط حاليًا.",
+	"legalBack": "العودة إلى OpenVision",
+	"legalPageTitle": "{title} · OpenVision"
 }

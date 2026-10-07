@@ -1,0 +1,24 @@
+{
+	"name": "openvision-desktop",
+	"productName": "OpenVision",
+	"version": "0.1.0",
+	"description": "OpenVision eye exam records, as a Windows desktop app",
+	"author": "OpenVision contributors",
+	"license": "Apache-2.0",
+	"private": true,
+	"main": "main.cjs",
+	"homepage": "https://github.com/jaa249/openvision-ehr",
+	"scripts": {
+		"start": "npm run prepare-build && electron .",
+		"prepare-build": "electron scripts/make-icon.cjs && node scripts/legal-text.mjs",
+		"dist": "npm run prepare-build && electron-builder --win nsis --config builder.config.cjs --publish never",
+		"pack": "npm run prepare-build && electron-builder --win dir --config builder.config.cjs --publish never"
+	},
+	"dependencies": {
+		"electron-updater": "6.8.9"
+	},
+	"devDependencies": {
+		"electron": "44.6.0",
+		"electron-builder": "26.15.3"
+	}
+}

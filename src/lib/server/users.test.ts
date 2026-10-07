@@ -129,4 +129,15 @@ describe('first-run setup', () => {
 		expect(listUsers(fresh)).toHaveLength(1);
 		expect(searchAudit(fresh, { action: 'auth.setup_admin' }).total).toBe(1);
 	});
+
+	it('dry run only validates; accepted terms are audited with the version (D51)', async () => {
+		const fresh = openDatabase(':memory:');
+		expect(await setupFirstAdmin(fresh, { username: 'boss', displayName: 'Boss', password: PW, confirm: PW }, new Date(), { dryRun: true })).toBe(0);
+		expect(needsSetup(fresh)).toBe(true);
+		expect((await errorsOf(() => setupFirstAdmin(fresh, { username: '', displayName: 'Boss', password: PW, confirm: PW }, new Date(), { dryRun: true })))?.username).toBeTruthy();
+		const id = await setupFirstAdmin(fresh, { username: 'boss', displayName: 'Boss', password: PW, confirm: PW, termsAccepted: { version: '0.1.0' } });
+		const row = searchAudit(fresh, { action: 'setup.terms_accepted' }).rows[0];
+		expect(row).toMatchObject({ userId: id });
+		expect(JSON.stringify(row)).toContain('0.1.0');
+	});
 });

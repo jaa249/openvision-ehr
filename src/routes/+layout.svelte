@@ -29,7 +29,8 @@
 			id.startsWith('/print') ||
 			id.includes('/rx') ||
 			id.startsWith('/login') ||
-			id.startsWith('/setup')
+			id.startsWith('/setup') ||
+			id.startsWith('/legal')
 		);
 	}
 	const showHeader = $derived(!!data.user && !bare(page.route.id));

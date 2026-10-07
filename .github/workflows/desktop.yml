@@ -1,0 +1,58 @@
+# Windows installer (D51). Runs only when a version tag (v*) is pushed: tests, builds the web app and
+# the NSIS installer, and uploads it to a draft GitHub Release (electron-updater reads published
+# releases, so nothing reaches users until a maintainer publishes the draft).
+#
+# Code signing (strongly recommended; unsigned installers trigger Windows SmartScreen warnings) is
+# used when these repository secrets exist, and skipped otherwise:
+#   CSC_LINK + CSC_KEY_PASSWORD                       a .pfx certificate (base64 or URL)
+#   AZURE_SIGN_ENDPOINT, AZURE_SIGN_ACCOUNT,          Azure Trusted Signing
+#   AZURE_SIGN_PROFILE, AZURE_SIGN_PUBLISHER,
+#   AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
+name: Desktop installer
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install
+        run: |
+          npm ci
+          npm --prefix desktop ci
+      - name: Test
+        run: npm test
+      - name: Check
+        run: npm run check
+      - name: Build web app
+        run: npm run build
+      - name: Build and publish the installer (draft release)
+        working-directory: desktop
+        run: |
+          npm run prepare-build
+          npx electron-builder --win nsis --config builder.config.cjs --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          AZURE_SIGN_ENDPOINT: ${{ secrets.AZURE_SIGN_ENDPOINT }}
+          AZURE_SIGN_ACCOUNT: ${{ secrets.AZURE_SIGN_ACCOUNT }}
+          AZURE_SIGN_PROFILE: ${{ secrets.AZURE_SIGN_PROFILE }}
+          AZURE_SIGN_PUBLISHER: ${{ secrets.AZURE_SIGN_PUBLISHER }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenVision-Setup
+          path: desktop/dist/OpenVision-Setup-*.exe

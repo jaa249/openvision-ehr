@@ -4,7 +4,12 @@ OpenVision is meant to run as an offline desktop app on one practice computer (s
 
 ## Current release
 
-This is a pre-release. The database is **not encrypted yet** and the app runs as a local web server. Use fictional data only, keep the server bound to `127.0.0.1`, and do not open its port to the network.
+Version 0.1.0 is a pre-release: not for real patient data until a practising eye-care professional has reviewed it. It comes two ways:
+
+- **Windows desktop app** (installer, see [DECISIONS.md](DECISIONS.md) D51). The app runs its own server inside its window, on `127.0.0.1` only, and refuses any request that does not come from its own window (a random token per launch), so other programs and browsers on the computer cannot use it. Data lives in `C:\ProgramData\OpenVision`, which the installer makes readable only by Administrators, SYSTEM and the local **OpenVision Users** group. Closing the app signs the user out. Updates come only from this project's GitHub Releases and a backup of the database is taken before each update is installed. Installers are **not code-signed yet**, so Windows SmartScreen shows a warning.
+- **Browser build** (`node build`, for development and evaluation): keep it bound to `127.0.0.1` and do not open its port to the network.
+
+**The database is not encrypted by OpenVision** (encryption at rest, D42, is postponed). Turn on **BitLocker** (full-disk encryption) on the computer: the desktop app checks the system drive and shows admins a warning in Settings when it is not encrypted. The installer and first-run setup ask the practice to accept the [Terms of Use](TERMS.md) and a short data safety notice; see also the [Privacy Policy](PRIVACY.md).
 
 ## What OpenVision does
 
@@ -19,16 +24,16 @@ This is a pre-release. The database is **not encrypted yet** and the app runs as
 | Emergency access | `node scripts/reset-admin.mjs <admin>` gives an admin a temporary password from the computer itself, and is logged. |
 | Uploads | Documents are checked by their contents (PNG, JPEG or PDF only) and limited to 15 MB. |
 
-Planned for the desktop installer:
+Planned:
 
-- Database encrypted at rest; key protected by Windows (DPAPI) and kept in `C:\ProgramData\OpenVision`, readable only by a local "OpenVision Users" Windows group.
+- Database encrypted at rest; key protected by Windows (DPAPI) and kept in `C:\ProgramData\OpenVision` (D42, postponed).
 - A printed **recovery key**, needed to restore a backup on a different computer.
-- Scheduled encrypted backups.
-- Updates only from this project's GitHub Releases, signature-checked, with a backup taken before installing.
+- Scheduled encrypted backups (today: a backup before every update, in `C:\ProgramData\OpenVision\backups`).
+- Code-signed installers.
 
 ## What the practice is responsible for
 
-- **One Windows account per person.** Never share a Windows sign-in. Anyone signed in to Windows as a member of "OpenVision Users" can reach the encrypted database file; the app's own sign-in is what separates users inside it.
+- **One Windows account per person.** Never share a Windows sign-in. Anyone signed in to Windows as a member of "OpenVision Users" (or as an administrator) can open the database file; the app's own sign-in is what separates users inside it. Add people with `net localgroup "OpenVision Users" <user name> /add` (or Computer Management › Local Users and Groups); they sign out of Windows and back in once.
 - **Lock the screen** when stepping away (Windows key + L), and set Windows to lock after a few minutes idle.
 - **Turn on BitLocker** (or equivalent full-disk encryption) so a stolen computer or drive is unreadable.
 - **Keep Windows updated** and run its antivirus. Don't install unrelated software on the exam computer.

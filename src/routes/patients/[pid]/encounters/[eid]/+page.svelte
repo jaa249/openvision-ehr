@@ -244,6 +244,17 @@
 	let notice = $state<string | null>(null);
 	/** Saves first so the report matches the screen, then opens it in a new tab (spec §13). */
 	async function printExam(pdf = false) {
+		// Desktop app (D51): Download › PDF writes a real PDF file through a Save dialog; Print still opens the print view.
+		const desktop = window.openvisionDesktop;
+		if (pdf && desktop) {
+			const saved = await saver.settle();
+			const r = saved ? await desktop.savePdf([data.encounter.id], `openvision-${data.patient.mrn}-${data.encounter.date}`).catch(() => null) : null;
+			if (!r || r.error) {
+				notice = t('exam.noticeNotDownloaded');
+				setTimeout(() => (notice = null), 8000);
+			}
+			return;
+		}
 		const tab = window.open('about:blank', '_blank'); // opened now, while the click still counts
 		if (!(await saver.settle())) {
 			tab?.close();

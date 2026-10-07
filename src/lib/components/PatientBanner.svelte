@@ -196,6 +196,10 @@
 	{/if}
 	<ThemeToggle />
 	<a class="close" href="/">{t('exam.bannerPatients')}</a>
+	<!-- The exam has no top bar, so signing out is offered here too (a POST, like the top bar's). -->
+	<form class="signout" method="POST" action="/logout">
+		<button type="submit">{t('shell.signOut')}</button>
+	</form>
 </header>
 
 <style>
@@ -301,6 +305,12 @@
 		color: var(--warn);
 		font-weight: var(--weight-semibold);
 	}
+	.signout {
+		margin: 0;
+	}
+	.signout button {
+		min-height: var(--target-min);
+	}
 	.close {
 		min-height: var(--target-min);
 		display: inline-flex;
@@ -350,7 +360,8 @@
 		color: var(--text-3);
 	}
 	@media print {
-		.download {
+		.download,
+		.signout {
 			display: none;
 		}
 	}

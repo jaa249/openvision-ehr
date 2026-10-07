@@ -5,11 +5,13 @@
 	import { CODE_SET_IDS, ICD11_CITATION, ICD11_LICENCE, type CodeSetId } from '#lib/codesets/index.ts';
 	import LanguageSelect from '#lib/components/settings/LanguageSelect.svelte';
 	import { useI18n } from '#lib/i18n/context.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
 	import type { FullAutoFill } from 'svelte/elements';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
-	const { t } = useI18n();
+	const i18n = useI18n();
+	const { t } = i18n;
 	const codeSetLabel = (id: CodeSetId) => (id === 'icd11' ? t('codes.setIcd11') : t('codes.setIcd10cm'));
 	const errors = $derived<Record<string, string>>(form?.errors ?? {});
 	let busy = $state(false);
@@ -23,6 +25,13 @@
 <main>
 	<h1>{t('auth.setupWelcome')}</h1>
 	<p class="sub">{t('auth.setupIntro')}</p>
+
+	<!-- D51: the data safety notice (desktop/NOTICE-INSTALL.txt, the installer's text). Open until read; English for now. -->
+	<details class="notice" open>
+		<summary>{t('auth.setupNoticeHeading')}</summary>
+		{#if i18n.locale !== 'en'}<p class="lang">{t('auth.setupNoticeInEnglish')}</p>{/if}
+		<div class="body" lang="en" dir="ltr">{@html data.noticeHtml}</div>
+	</details>
 
 	<form
 		class="ov-form"
@@ -79,6 +88,25 @@
 			<p class="hint" id="codeset-hint">{t('auth.codeSetHint')} {t('auth.codeSetDownloadNote')}</p>
 			{#if errors.codeSet}<p class="err">{errors.codeSet}</p>{/if}
 			{#if codeSet === 'icd11'}<p class="hint">{t('auth.icd11Licence', { citation: ICD11_CITATION, licence: ICD11_LICENCE })}</p>{/if}
+			<div class="field accept">
+				<label class="check">
+					<input
+						type="checkbox"
+						name="acceptTerms"
+						value="yes"
+						required
+						aria-invalid={errors.acceptTerms ? 'true' : undefined}
+						aria-describedby={errors.acceptTerms ? 'acceptTerms-err' : undefined}
+					/>
+					<span>
+						<Msg key="auth.setupAcceptTerms">
+							{#snippet terms()}<a href="/legal/terms" target="_blank">{t('shell.legalTerms')}</a>{/snippet}
+							{#snippet notice()}<a href="/legal/notice" target="_blank">{t('auth.setupNoticeLink')}</a>{/snippet}
+						</Msg>
+					</span>
+				</label>
+				{#if errors.acceptTerms}<p class="err" id="acceptTerms-err">{errors.acceptTerms}</p>{/if}
+			</div>
 			<div class="actions">
 				<button type="submit" class="primary" disabled={busy}>{busy ? t('auth.creating') : t('auth.createAdmin')}</button>
 			</div>
@@ -100,5 +128,34 @@
 	.sub {
 		color: var(--text-2);
 		margin: 0 0 var(--space-4);
+	}
+	.notice {
+		border: 1px solid var(--hairline);
+		border-radius: var(--radius-2, 8px);
+		background: var(--surface-1);
+		padding: var(--space-2) var(--space-3);
+		margin: 0 0 var(--space-4);
+	}
+	.notice summary {
+		min-height: var(--target-min);
+		display: flex;
+		align-items: center;
+		font-weight: var(--weight-semibold);
+		cursor: pointer;
+	}
+	.notice .lang {
+		color: var(--text-2);
+		margin: var(--space-1) 0;
+	}
+	.notice .body :global(p),
+	.notice .body :global(li) {
+		margin: var(--space-2) 0;
+		line-height: 1.5;
+	}
+	.notice .body :global(ul) {
+		padding-inline-start: var(--space-4);
+	}
+	.accept .check {
+		align-items: flex-start;
 	}
 </style>

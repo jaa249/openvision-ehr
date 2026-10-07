@@ -208,12 +208,17 @@
 	"codeSetsLangTitlesOnly": "El archivo de la OMS en este idioma solo tiene títulos.",
 	"codeSetsLangSource": "Archivo de la OMS, versión {release}. Licencia: {licence}. Cita: {citation}",
 	"codeSetsLangLoaded_one": "{count} título, cargado el {date}",
+	"codeSetsLangLoaded_many": "{count} títulos, cargados el {date}",
 	"codeSetsLangLoaded_other": "{count} títulos, cargados el {date}",
 	"codeSetsLangDone_one": "Listo: {count} título cargado.",
+	"codeSetsLangDone_many": "Listo: {count} títulos cargados.",
 	"codeSetsLangDone_other": "Listo: {count} títulos cargados.",
 	"codeSetsLangRemoveConfirm": "¿Quitar los títulos de la OMS en {language} de esta computadora? Los diagnósticos ya guardados conservan sus títulos.",
 	"codeSetsLangImportLabel": "Importar el archivo de la OMS en {language}",
 	"codeSetsLangOffline": "Sin internet: descargue {link} en otra computadora e impórtelo aquí sin cambios.",
 	"codeSetsLangOfficialFile": "el archivo de la OMS en {language}",
-	"codeSetsLangNoHindi": "La OMS no publica un archivo de la CIE-11 en hindi, así que los usuarios en hindi ven los títulos en inglés."
+	"codeSetsLangNoHindi": "La OMS no publica un archivo de la CIE-11 en hindi, así que los usuarios en hindi ven los títulos en inglés.",
+	"diskNotEncrypted": "La unidad de este equipo no está cifrada. Active BitLocker para proteger los datos de los pacientes si el equipo se pierde o se lo roban.",
+	"diskEncryptionUnknown": "OpenVision no pudo comprobar si la unidad de este equipo está cifrada. Asegúrese de que BitLocker esté activado para proteger los datos de los pacientes si el equipo se pierde o se lo roban.",
+	"diskBitLockerHelp": "Cómo activar BitLocker (Microsoft)"
 }

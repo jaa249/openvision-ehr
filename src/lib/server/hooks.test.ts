@@ -6,6 +6,7 @@ import { isHttpError, isRedirect } from '@sveltejs/kit';
 import { getDb } from './db.ts';
 import { createSession, SESSION_COOKIE, touchSession } from './auth.ts';
 import { searchAudit } from './security_audit.ts';
+import { SHELL_HEADER, shellTokenOk } from './shell.ts';
 import { handle } from '../../hooks.server.ts';
 import { actions as usersActions, load as usersLoad } from '../../routes/settings/users/+page.server.ts';
 import { load as practiceLoad, actions as practiceActions } from '../../routes/settings/practice/+page.server.ts';
@@ -180,5 +181,55 @@ describe('settings routes check roles on the server', () => {
 			expect(await status(() => call(load, as(1, 'provider')))).toBe(200);
 		}
 		expect(await status(() => call(meLoad, as(2, 'tech')))).toBe(200);
+	});
+});
+
+describe('desktop shell token (D51)', () => {
+	const TOKEN = 'k3Y-0f_this-launch_only_aaaaaaaaaaaaaaaaaaaa';
+	const withToken = async <T>(fn: () => Promise<T>): Promise<T> => {
+		const before = process.env.OPENVISION_SHELL_TOKEN;
+		process.env.OPENVISION_SHELL_TOKEN = TOKEN;
+		try {
+			return await fn();
+		} finally {
+			if (before === undefined) delete process.env.OPENVISION_SHELL_TOKEN;
+			else process.env.OPENVISION_SHELL_TOKEN = before;
+		}
+	};
+
+	it('unset: requests pass exactly as before (development, tests, node build)', async () => {
+		expect((await run('/login')).res?.status).toBe(200);
+		expect(shellTokenOk(null, undefined)).toBe(true);
+		expect(shellTokenOk(null, '')).toBe(true);
+	});
+
+	it('set: a request without the header, or with a wrong one, gets 403 plain text before anything else', async () => {
+		await withToken(async () => {
+			for (const headers of [{} as Record<string, string>, { [SHELL_HEADER]: 'wrong' }, { [SHELL_HEADER]: TOKEN + 'x' }, { [SHELL_HEADER]: '' }]) {
+				const r = await run('/login', { headers });
+				expect(r.res?.status).toBe(403);
+				expect(r.res?.headers.get('content-type')).toMatch(/^text\/plain/);
+				expect(await r.res?.text()).toBe('Open OpenVision from its desktop app.');
+			}
+			// Even signed-in API calls and public routes are refused without it.
+			const token = createSession(getDb(), 1);
+			expect((await run('/api/prefs', { token })).res?.status).toBe(403);
+			expect((await run('/setup')).res?.status).toBe(403);
+		});
+	});
+
+	it('set: the right header passes through to the normal gate', async () => {
+		await withToken(async () => {
+			expect((await run('/login', { headers: { [SHELL_HEADER]: TOKEN } })).res?.status).toBe(200);
+			const r = await run('/patients/1', { headers: { [SHELL_HEADER]: TOKEN } });
+			expect(r.redirect).toBe('/login?next=%2Fpatients%2F1');
+		});
+	});
+
+	it('compares in constant time over equal-length digests (any length is safe)', () => {
+		expect(shellTokenOk(TOKEN, TOKEN)).toBe(true);
+		expect(shellTokenOk('a', TOKEN)).toBe(false);
+		expect(shellTokenOk('x'.repeat(10_000), TOKEN)).toBe(false);
+		expect(shellTokenOk(undefined, TOKEN)).toBe(false);
 	});
 });

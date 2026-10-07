@@ -12,5 +12,12 @@
 	"sessionWarnAnnounce": "由于长时间未操作，您将在约一分钟后被退出登录。",
 	"sessionWarnCountdown": "由于长时间未操作，您将在 {seconds} 秒后被退出登录。",
 	"staySignedIn": "保持登录",
-	"signingOut": "正在退出…"
+	"signingOut": "正在退出…",
+	"legalTerms": "使用条款",
+	"legalPrivacy": "隐私政策",
+	"legalNotice": "数据安全须知",
+	"legalNav": "法律信息",
+	"legalEnglishOnly": "本文档目前仅有英文版。",
+	"legalBack": "返回 OpenVision",
+	"legalPageTitle": "{title} · OpenVision"
 }

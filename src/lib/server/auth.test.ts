@@ -193,6 +193,8 @@ describe('route gate and helpers', () => {
 	it('classifies routes', () => {
 		expect(routeKind('/login')).toBe('public');
 		expect(routeKind('/setup')).toBe('public');
+		expect(routeKind('/legal/terms')).toBe('public'); // Terms, Privacy, notice: readable before sign-in (D51)
+		expect(routeKind('/legalese')).toBe('page');
 		expect(routeKind('/logout')).toBe('public');
 		expect(routeKind('/_app/immutable/x.js')).toBe('public');
 		expect(routeKind('/loginx')).toBe('page');
