@@ -1,47 +1,18 @@
 <script lang="ts">
-	// Coding lines summary (spec §11.4 FIX: "Save coding lines" replaces "Populate fee sheet").
+	// Code summary (spec §11.4 FIX): the diagnoses with pointer letters, the CPT lines and the checks.
+	// A billing aid only (D46): nothing is saved as billing lines; the provider copies these codes into
+	// the practice's billing system, and the chosen ones print on the exam report.
 	import type { CodingSummary } from '#lib/coding/lines.ts';
-	import type { SavedLines } from '#lib/coding/types.ts';
 	import { codeSetsShort } from '#lib/codesets/index.ts';
 
-	let {
-		summary,
-		saved,
-		canEdit,
-		busy = false,
-		message = null,
-		failed = false,
-		onsave,
-		onprint
-	}: {
-		summary: CodingSummary;
-		saved: SavedLines;
-		canEdit: boolean;
-		busy?: boolean;
-		message?: string | null;
-		failed?: boolean;
-		onsave: () => void;
-		onprint: () => void;
-	} = $props();
+	let { summary }: { summary: CodingSummary } = $props();
 
-	const same = $derived(
-		JSON.stringify({ dx: summary.dx, cpt: summary.cpt.map(({ kind, code, modifiers, pointers, units }) => ({ kind, code, modifiers, pointers, units })) }) ===
-			JSON.stringify({ dx: saved.dx, cpt: saved.cpt.map(({ kind, code, modifiers, pointers, units }) => ({ kind, code, modifiers, pointers, units })) })
-	);
-	const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 	const LEVEL = { error: 'Fix', warning: 'Check', suggestion: 'Consider' } as const;
 </script>
 
 <div class="panel wide" role="group" aria-labelledby="summary-title">
 	<div class="card-head">
-		<h3 id="summary-title">Coding lines</h3>
-		<span class="saved-state" aria-live="polite">
-			{#if saved.savedAt}
-				{same ? 'Saved' : 'Changed since saved'} · {when(saved.savedAt)}{saved.savedBy ? ` by ${saved.savedBy}` : ''}
-			{:else}
-				Not saved yet
-			{/if}
-		</span>
+		<h3 id="summary-title">Code summary</h3>
 	</div>
 
 	<div class="tables">
@@ -88,27 +59,10 @@
 		</ul>
 	{/if}
 
-	<div class="actions">
-		<button type="button" class="primary" disabled={!canEdit || !summary.ok || busy} onclick={onsave}>Save coding lines</button>
-		<button type="button" disabled={busy} onclick={onprint}>Print superbill</button>
-		<p class="help">
-			{#if !canEdit}
-				Only a provider or admin can save coding lines. Print shows the last saved lines.
-			{:else if !summary.ok}
-				Fix the items marked "Fix" to save.
-			{:else}
-				Saves this exam's lines for billing (only this exam's lines are changed). Print saves first, then opens the superbill in a new tab.
-			{/if}
-		</p>
-		{#if message}<p class="msg" class:failed role={failed ? 'alert' : 'status'}>{message}</p>{/if}
-	</div>
+	<p class="help">Copy these codes into your billing system. Chosen codes also print on the exam report. OpenVision does not create bills.</p>
 </div>
 
 <style>
-	.saved-state {
-		font-size: var(--text-xs);
-		color: var(--text-3);
-	}
 	.tables {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
@@ -189,44 +143,12 @@
 	.suggestion .lvl {
 		color: var(--accent);
 	}
-	.actions {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--space-2);
+	.help {
+		margin: 0;
 		padding: var(--space-2) var(--space-3);
 		border-top: 1px solid var(--hairline);
 		background: var(--surface-2);
-	}
-	.actions button {
-		min-height: max(var(--target-min), 40px);
-	}
-	.primary {
-		background: var(--accent);
-		color: var(--accent-text);
-		border-color: var(--accent);
-		font-weight: var(--weight-semibold);
-	}
-	.primary:hover:not(:disabled) {
-		background: var(--accent);
-		filter: brightness(1.08);
-	}
-	.primary:disabled {
-		background: var(--surface-1);
-		border-color: var(--hairline);
-		color: var(--text-3);
-	}
-	.help,
-	.msg {
-		flex: 1 1 100%;
-		margin: 0;
 		font-size: var(--text-xs);
 		color: var(--text-3);
-	}
-	.msg {
-		color: var(--ok);
-	}
-	.msg.failed {
-		color: var(--danger);
 	}
 </style>

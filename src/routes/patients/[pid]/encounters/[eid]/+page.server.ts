@@ -30,7 +30,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		lockState: getLockState(db, eid, locals.userId, null),
 		// Choices for the visit staff dialog (D43).
 		staffOptions: { providers: activeProviders(db), technicians: activeTechnicians(db) },
-		// Coding (key 0) is offered only with US billing on (D45).
+		// Codes (key 0) is offered only with US code suggestions on (D45).
 		usBilling: getCodeSettings(db).usBilling,
 		user: locals.user
 	};

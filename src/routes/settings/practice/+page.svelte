@@ -83,7 +83,7 @@
 >
 	<input type="hidden" name="form" value="codes" />
 	<fieldset>
-		<legend>Diagnosis codes and billing</legend>
+		<legend>Diagnosis and visit codes</legend>
 		<fieldset class="radios" aria-describedby="codeset-hint">
 			<legend class="label">Diagnosis code set</legend>
 			{#each CODE_SET_IDS as id (id)}
@@ -102,10 +102,11 @@
 		{/if}
 		<label class="check">
 			<input type="checkbox" name="usBilling" checked={data.codes.usBilling} aria-describedby="usbilling-hint" />
-			US billing (CPT coding and superbill)
+			US code suggestions (CPT)
 		</label>
 		<p class="hint" id="usbilling-hint">
-			Off: the Coding section (key 0) and the superbill are not offered. Nothing already saved is deleted; switching it back on shows it again.
+			Suggests visit and test codes to copy into your billing system. OpenVision does not create bills. Off: the Codes section (key 0)
+			is not offered and no codes print on the report. Nothing already saved is deleted; switching it back on shows it again.
 		</p>
 		{#if codesErrors.usBilling}<p class="err">{codesErrors.usBilling}</p>{/if}
 		<div class="actions">

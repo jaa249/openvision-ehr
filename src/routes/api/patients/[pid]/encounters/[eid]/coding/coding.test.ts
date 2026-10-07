@@ -52,95 +52,67 @@ describe('coding API', () => {
 	it('GET returns state, suggestion and canEdit; techs can view', async () => {
 		const r = await call(GET, event(1, 1, { role: 'tech' }));
 		expect(r.status).toBe(200);
-		expect(r.body).toMatchObject({ canEdit: false, status: 'in_progress', state: { family: 'eye' } });
+		expect(r.body).toMatchObject({ canEdit: false, state: { family: 'eye' } });
+		expect(r.body).not.toHaveProperty('status'); // no visit status workflow (D46)
+		expect(r.body).not.toHaveProperty('lines'); // no saved billing lines (D46)
 		expect((r.body as { suggestion: { code: string } }).suggestion.code).toMatch(/^920(02|04|12|14)$/);
 	});
 
 	it('is scoped: the wrong patient for an encounter is 404 for every method', async () => {
 		expect((await call(GET, event(2, 1))).status).toBe(404);
 		expect((await call(PUT, event(2, 1, { method: 'PUT', body: { state: STATE } }))).status).toBe(404);
-		expect((await call(POST, event(2, 1, { method: 'POST', body: { action: 'status', status: 'checked_out' } }))).status).toBe(404);
+		expect((await call(POST, event(2, 1, { method: 'POST', body: { action: 'status' } }))).status).toBe(404);
 		expect((await call(GET, event(1, 9999))).status).toBe(404);
 	});
 
-	it('techs cannot save coding state or lines (403); providers and admins can', async () => {
+	it('techs cannot save the coding state (403); providers and admins can', async () => {
 		expect((await call(PUT, event(1, 1, { role: 'tech', method: 'PUT', body: { state: STATE } }))).status).toBe(403);
-		expect((await call(POST, event(1, 1, { role: 'tech', method: 'POST', body: { action: 'saveLines', dx: [], cpt: [] } }))).status).toBe(403);
 		const ok = await call(PUT, event(1, 1, { method: 'PUT', body: { state: STATE } }));
 		expect(ok.status).toBe(200);
 		expect((ok.body as { state: { visitCode: string } }).state.visitCode).toBe('92014');
 		expect((await call(PUT, event(1, 1, { role: 'admin', method: 'PUT', body: { state: STATE } }))).status).toBe(200);
 	});
 
-	it('techs can still change the visit status, recorded under their name', async () => {
-		const r = await call(POST, event(1, 1, { role: 'tech', method: 'POST', body: { action: 'status', status: 'checked_out' } }));
-		expect(r.status).toBe(200);
-		expect(r.body).toMatchObject({ status: 'checked_out', history: [{ status: 'checked_out', changedBy: 'Dr. Example' }] });
+	it('has no visit status or saveLines action any more (D46): 400 for every role', async () => {
+		const lines = { dx: [{ letter: 'A', code: 'H40.003', title: 'Glaucoma suspect' }], cpt: [] };
+		for (const role of ['tech', 'provider', 'admin'] as const) {
+			for (const body of [{ action: 'status', status: 'checked_out' }, { action: 'saveLines', ...lines }]) {
+				const r = await call(POST, event(1, 1, { role, method: 'POST', body }));
+				expect(r.status).toBe(400);
+				expect((r.body as { message: string }).message).toBe('Unknown action');
+			}
+		}
 	});
 
 	it('validation errors are 400', async () => {
 		expect((await call(PUT, event(1, 1, { method: 'PUT', body: { state: { ...STATE, visitCode: '99013' } } }))).status).toBe(400);
-		expect((await call(POST, event(1, 1, { method: 'POST', body: { action: 'saveLines', dx: [], cpt: [{ kind: 'visit', code: '92014', modifiers: [], pointers: ['A'], units: 1 }] } }))).status).toBe(400);
 		expect((await call(POST, event(1, 1, { method: 'POST', body: { action: 'nope' } }))).status).toBe(400);
 	});
 
-	it('saves lines, and a signed exam refuses changes with 423', async () => {
-		const lines = {
-			action: 'saveLines',
-			dx: [{ letter: 'A', code: 'H40.003', title: 'Glaucoma suspect' }],
-			cpt: [{ kind: 'visit', code: '92014', description: 'Eye exam', modifiers: ['25'], pointers: ['A'], units: 1 }]
-		};
-		const ok = await call(POST, event(1, 1, { method: 'POST', body: lines }));
-		expect(ok.status).toBe(200);
-		expect(ok.body).toMatchObject({ lines: { dx: [{ code: 'H40.003' }], cpt: [{ code: '92014', modifiers: ['25'] }] } });
+	it('a signed exam refuses changes with 423', async () => {
 		lock.locked = true;
 		try {
-			expect((await call(PUT, event(1, 1, { method: 'PUT', body: { state: STATE } }))).status).toBe(423);
-			const r = await call(POST, event(1, 1, { method: 'POST', body: lines }));
+			const r = await call(PUT, event(1, 1, { method: 'PUT', body: { state: STATE } }));
 			expect(r.status).toBe(423);
 			expect((r.body as { message: string }).message).toBe('This exam is signed.');
-			// Status is workflow, not exam content: still allowed after signing.
-			expect((await call(POST, event(1, 1, { method: 'POST', body: { action: 'status', status: 'send_notes' } }))).status).toBe(200);
 		} finally {
 			lock.locked = false;
 		}
 	});
 
-	it('accepts ICD-11 diagnosis codes on the lines (justifiers only point at items)', async () => {
-		const lines = {
-			action: 'saveLines',
-			dx: [{ letter: 'A', code: '9C61.0Z&XK9J', title: 'POAG' }],
-			cpt: [{ kind: 'visit', code: '92014', description: 'Eye exam', modifiers: [], pointers: ['A'], units: 1 }]
-		};
-		const ok = await call(POST, event(1, 1, { method: 'POST', body: lines }));
-		expect(ok.status).toBe(200);
-	});
-
-	it('US billing off (D45): every method is 404, the superbill too; nothing is deleted', async () => {
+	it('US code suggestions off (D45): every method is 404; nothing is deleted', async () => {
 		const { getDb } = await import('#lib/server/db.ts');
 		const { updateCodeSettings } = await import('#lib/server/settings.ts');
-		const { load } = await import('../../../../../../patients/[pid]/encounters/[eid]/superbill/+page.server.ts');
-		const superbill = () => (load as unknown as (e: unknown) => unknown)({ params: { pid: '1', eid: '1' } });
-		const status = async (fn: () => unknown) => {
-			try {
-				await fn();
-				return 200;
-			} catch (e) {
-				return (e as { status?: number }).status ?? 500;
-			}
-		};
-		expect(await status(superbill)).toBe(200);
 		updateCodeSettings(getDb(), { usBilling: false }, 1);
 		try {
 			expect((await call(GET, event(1, 1))).status).toBe(404);
 			expect((await call(PUT, event(1, 1, { method: 'PUT', body: { state: STATE } }))).status).toBe(404);
-			expect((await call(POST, event(1, 1, { method: 'POST', body: { action: 'status', status: 'checked_out' } }))).status).toBe(404);
-			expect(await status(superbill)).toBe(404);
+			expect((await call(POST, event(1, 1, { method: 'POST', body: { action: 'status' } }))).status).toBe(404);
 		} finally {
 			updateCodeSettings(getDb(), { usBilling: true }, 1);
 		}
 		const back = await call(GET, event(1, 1));
 		expect(back.status).toBe(200);
-		expect((back.body as { lines: { dx: unknown[] } }).lines.dx.length).toBeGreaterThan(0);
+		expect((back.body as { state: { visitCode: string } }).state.visitCode).toBe('92014'); // the chosen code was kept
 	});
 });

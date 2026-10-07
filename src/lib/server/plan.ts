@@ -564,7 +564,14 @@ export function getCandidates(db: DB, patientId: number, encounterId: number, fi
 
 /** The plan as printed; null when nothing is recorded. */
 export function getPlanForReport(db: DB, encounterId: number): PlanReport | null {
-	const items = itemRows(db, encounterId).map((r) => ({ title: r.title, codes: r.codes, codeText: r.code_text, codeSystem: systemOf(r), plan: r.plan }));
+	const items = itemRows(db, encounterId).map((r) => ({
+		title: r.title,
+		codes: r.codes,
+		codeText: r.code_text,
+		codeSystem: systemOf(r),
+		codeUris: r.code_uris,
+		plan: r.plan
+	}));
 	const orders = visitOrders(db, encounterId).map((o) => o.label);
 	const plan = orderPlan(db, encounterId);
 	if (!items.length && !orders.length && !plan) return null;

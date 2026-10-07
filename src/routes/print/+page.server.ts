@@ -14,6 +14,8 @@ export const load: PageServerLoad = ({ url }) => {
 		items,
 		practice: getPractice(db),
 		auto: url.searchParams.get('auto') === '1',
+		/** Opened from the exam's Download → PDF: say how to save it (no PDF engine, D17). */
+		pdf: url.searchParams.get('pdf') === '1',
 		missing: ids.length - items.length
 	};
 };

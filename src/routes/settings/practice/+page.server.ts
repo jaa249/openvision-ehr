@@ -5,7 +5,7 @@ import { getCodeSettings, getPractice, SettingsError, updateCodeSettings, update
 import type { Actions, PageServerLoad } from './$types';
 
 // Admin only: the header printed on reports and spectacle / contact lens Rx, and the diagnosis code
-// set and US billing switch (D44, D45).
+// set and US code suggestions switch (D44, D45).
 export const load: PageServerLoad = ({ locals, url }) => {
 	requireRole(locals, 'admin');
 	const db = getDb();
@@ -19,7 +19,7 @@ export const actions: Actions = {
 		requireRole(locals, 'admin');
 		const f = await request.formData();
 		if (f.get('form') === 'codes') {
-			// Its own form on the page: code set and US billing.
+			// Its own form on the page: code set and US code suggestions.
 			try {
 				updateCodeSettings(getDb(), { codeSet: str(f.get('codeSet')), usBilling: f.get('usBilling') === 'on' }, locals.userId);
 			} catch (e) {

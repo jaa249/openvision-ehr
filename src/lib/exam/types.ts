@@ -1,5 +1,6 @@
 // Shapes shared by server loaders and client components.
 import type { PlanReport, Signature } from '#lib/plan/types.ts';
+import type { ChosenCodes } from '#lib/coding/types.ts';
 import type { AllergyStatus, Pmsfh } from '#lib/history/types.ts';
 
 export interface PatientHeader {
@@ -54,4 +55,6 @@ export interface PrintableEncounter {
 	plan?: PlanReport | null;
 	/** null = not signed. */
 	signature?: Signature | null;
+	/** Codes the provider chose, printed as "Codes for your billing system" (D46); null/absent = none chosen or suggestions off. */
+	codes?: ChosenCodes | null;
 }

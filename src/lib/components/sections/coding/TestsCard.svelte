@@ -72,7 +72,7 @@
 	{/if}
 
 	{#if rows.length === 0}
-		<p class="empty">No coded tests in the orders list yet. Add CPT codes to orders in Imp / Plan to bill them here.</p>
+		<p class="empty">No coded tests in the orders list yet. Add CPT codes to orders in Imp / Plan to list them here.</p>
 	{:else}
 		<ul class="tests">
 			{#each rows as r (r.cpt)}

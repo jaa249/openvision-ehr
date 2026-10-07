@@ -548,7 +548,7 @@
 						</div>
 					{/if}
 				</div>
-				{#if data?.usBilling !== false}<p class="help">Visit codes, modifiers and tests performed are in the Coding section (key 0).</p>{/if}
+				{#if data?.usBilling !== false}<p class="help">Visit codes, modifiers and tests performed are in the Codes section (key 0).</p>{/if}
 			</div>
 		</div>
 	{/if}

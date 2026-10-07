@@ -54,16 +54,19 @@ export function updatePractice(db: DB, input: Partial<Record<keyof Practice, unk
 	return out;
 }
 
-// ---------------------------------------------------------------- diagnosis codes and US billing (D44, D45)
+// ---------------------------------------------------------------- diagnosis codes and US code suggestions (D44, D45)
 
 export interface CodeSettings {
 	/** The set new diagnosis codes come from; coded items keep the set they were saved with. */
 	codeSet: CodeSetId;
-	/** CPT coding (exam section 0), the coding API and the superbill. */
+	/**
+	 * "US code suggestions (CPT)": the Codes section (key 0), the coding API and the codes on the report.
+	 * A billing aid only (D46). The key keeps its historical name.
+	 */
 	usBilling: boolean;
 }
 
-/** US billing starts on with ICD-10-CM and off with ICD-11 (at setup; afterwards the two are independent). */
+/** US code suggestions start on with ICD-10-CM and off with ICD-11 (at setup; afterwards the two are independent). */
 export const defaultUsBilling = (codeSet: CodeSetId) => codeSet === 'icd10cm';
 
 export function getCodeSettings(db: DB): CodeSettings {
@@ -78,8 +81,8 @@ export const currentCodeSet = (db: DB): CodeSetId => getCodeSettings(db).codeSet
 export const usBillingOn = (db: DB): boolean => getCodeSettings(db).usBilling;
 
 /**
- * Changes the code set and/or US billing; audited with the old and new values. Nothing already saved
- * changes: coded items keep their own code set, and turning billing off deletes no coding data.
+ * Changes the code set and/or US code suggestions; audited with the old and new values. Nothing already
+ * saved changes: coded items keep their own code set, and turning suggestions off deletes no coding data.
  * `actorId` null = first-run setup (no signed-in user yet; the setup itself is audited).
  */
 export function updateCodeSettings(db: DB, input: { codeSet?: unknown; usBilling?: unknown }, actorId: number | null): CodeSettings {
@@ -88,7 +91,7 @@ export function updateCodeSettings(db: DB, input: { codeSet?: unknown; usBilling
 	const codeSet = input.codeSet === undefined ? before.codeSet : input.codeSet;
 	if (!isCodeSetId(codeSet)) errors.codeSet = 'Choose ICD-10-CM or ICD-11.';
 	const usBilling = input.usBilling === undefined ? before.usBilling : input.usBilling;
-	if (typeof usBilling !== 'boolean') errors.usBilling = 'US billing must be on or off.';
+	if (typeof usBilling !== 'boolean') errors.usBilling = 'US code suggestions must be on or off.';
 	if (Object.keys(errors).length) throw new SettingsError(errors);
 	const after: CodeSettings = { codeSet: codeSet as CodeSetId, usBilling: usBilling as boolean };
 	if (after.codeSet === before.codeSet && after.usBilling === before.usBilling) return after;

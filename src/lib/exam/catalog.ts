@@ -38,7 +38,7 @@ export const SECTIONS: Section[] = [
 	{ id: 'RETINA', key: '7', label: 'Fundus', available: true },
 	{ id: 'NEURO', key: '8', label: 'Neuro', available: true },
 	{ id: 'IMPPLAN', key: '9', label: 'Imp / Plan', available: true },
-	{ id: 'CODING', key: '0', label: 'Coding', available: true }
+	{ id: 'CODING', key: '0', label: 'Codes', available: true }
 ];
 
 export interface Row {

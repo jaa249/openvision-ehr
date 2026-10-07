@@ -3,6 +3,7 @@
 	import type { PrintableEncounter, Practice } from '#lib/exam/types.ts';
 	import { historyReport } from '#lib/exam/sections/history.ts';
 	import ReportPlan from './report/ReportPlan.svelte';
+	import ReportCodes from './report/ReportCodes.svelte';
 	import ReportSignature from './report/ReportSignature.svelte';
 	import { allergyStatusText, issueLine, summarizeFamily, summarizeSocial, visibleIssues } from '#lib/history/summary.ts';
 
@@ -172,6 +173,7 @@
 			{@render drawing('IMPPLAN')}
 		</section>
 	{/if}
+	<ReportCodes codes={item.codes} />
 
 	<footer>
 		<ReportSignature provider={e.provider} signature={item.signature} />

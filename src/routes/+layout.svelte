@@ -16,7 +16,6 @@
 			id === '/patients/[pid]/encounters/[eid]' ||
 			id.startsWith('/print') ||
 			id.includes('/rx') ||
-			id.includes('/superbill') ||
 			id.startsWith('/login') ||
 			id.startsWith('/setup')
 		);

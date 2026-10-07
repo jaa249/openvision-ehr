@@ -1,33 +1,21 @@
-// Coding panel storage (spec §11): the provider's choices per exam, the coding lines this exam owns,
-// and the visit status history. Every read and write is scoped by patient id AND encounter id.
+// Codes section storage (spec §11, a billing aid only: D46): the provider's choices per exam
+// (coding_state). Nothing is saved as billing lines. Every read and write is scoped by patient id AND
+// encounter id.
 import type { DB } from './db.ts';
-import { getEncounter, getFindings, getPatientHeader } from './exam.ts';
-import { getPractice, type Practice } from './report.ts';
-import { getPlanForReport } from './plan.ts';
-import {
-	CPT_RE,
-	DX_LETTERS,
-	isDxCode,
-	MAX_DX,
-	MAX_POINTERS,
-	MODIFIER_RE,
-	SENSORIMOTOR,
-	VISIT_CODE_BY_CODE,
-	VISIT_MODIFIER_CODES
-} from '#lib/coding/codes.ts';
+import { getEncounter, getFindings } from './exam.ts';
+import { getPlanForReport, listItems } from './plan.ts';
+import { usBillingOn } from './settings.ts';
+import { CPT_RE, MAX_POINTERS, VISIT_CODE_BY_CODE, VISIT_MODIFIER_CODES } from '#lib/coding/codes.ts';
+import { buildCoding } from '#lib/coding/lines.ts';
 import { patientStatus, suggestVisit, type VisitRef } from '#lib/coding/visit.ts';
+import { sensorimotorSuggested } from '#lib/exam/sections/neuro.ts';
 import {
 	EMPTY_CODING_STATE,
-	VISIT_STATUSES,
+	type ChosenCodes,
 	type CodingResponse,
 	type CodingState,
-	type CptLine,
-	type DxLine,
 	type PatientStatusResult,
-	type SavedLines,
-	type StatusChange,
-	type TestPerformed,
-	type VisitStatusId
+	type TestPerformed
 } from '#lib/coding/types.ts';
 
 export class CodingValidationError extends Error {}
@@ -79,7 +67,7 @@ export function validateCodingState(input: unknown): CodingState {
 		if (!CPT_RE.test(cpt)) throw new CodingValidationError(`Invalid test code ${cpt}`);
 		if (seen.has(cpt)) throw new CodingValidationError(`Test ${cpt} is listed twice`);
 		seen.add(cpt);
-		// The modifier box autosaves while typing, so 0-2 characters are accepted here; the lines check wants exactly 2.
+		// The modifier box autosaves while typing, so 0-2 characters are accepted here; the summary check wants exactly 2.
 		const modifier = text(t.modifier ?? '', `Test ${cpt} modifier`, 2).toUpperCase();
 		if (!/^[0-9A-Z]{0,2}$/.test(modifier)) throw new CodingValidationError(`Test ${cpt}: modifier must be letters or digits`);
 		const justifiers = idList(t.justifiers, `Test ${cpt} justifiers`, MAX_POINTERS);
@@ -89,45 +77,7 @@ export function validateCodingState(input: unknown): CodingState {
 	return { family, visitCode, modifiers, justifiersOff, tests, include92060: input.include92060 };
 }
 
-/** The summary lines sent by "Save coding lines". Structure is checked here; the panel shows the clinical checks. */
-export function validateLines(input: unknown): { dx: DxLine[]; cpt: CptLine[] } {
-	if (!isObj(input) || !Array.isArray(input.dx) || !Array.isArray(input.cpt)) throw new CodingValidationError('Expected { dx: [...], cpt: [...] }');
-	if (input.dx.length > MAX_DX) throw new CodingValidationError(`At most ${MAX_DX} diagnoses`);
-	const dx: DxLine[] = input.dx.map((d, i) => {
-		if (!isObj(d)) throw new CodingValidationError('Each diagnosis must be an object');
-		const code = text(d.code, 'Diagnosis code', 60).toUpperCase();
-		if (!isDxCode(code)) throw new CodingValidationError(`Invalid diagnosis code ${code}`);
-		if (d.letter !== DX_LETTERS[i]) throw new CodingValidationError('Diagnosis letters must run A, B, C… in order');
-		return { letter: DX_LETTERS[i], code, title: text(d.title ?? '', 'Diagnosis title', 300) };
-	});
-	if (new Set(dx.map((d) => d.code)).size !== dx.length) throw new CodingValidationError('A diagnosis is listed twice');
-	const letters = new Set(dx.map((d) => d.letter));
-	if (input.cpt.length > 40) throw new CodingValidationError('Too many procedure lines');
-	const cpt: CptLine[] = input.cpt.map((l) => {
-		if (!isObj(l)) throw new CodingValidationError('Each procedure line must be an object');
-		const code = text(l.code, 'Procedure code', 5).toUpperCase();
-		if (!CPT_RE.test(code)) throw new CodingValidationError(`Invalid procedure code ${code}`);
-		const kind = l.kind;
-		if (kind !== 'visit' && kind !== 'sensorimotor' && kind !== 'test') throw new CodingValidationError('Unknown line kind');
-		if (kind === 'visit' && !VISIT_CODE_BY_CODE.has(code)) throw new CodingValidationError(`${code} is not a visit code`);
-		if (kind === 'sensorimotor' && code !== SENSORIMOTOR.code) throw new CodingValidationError('Sensorimotor line must be 92060');
-		if (!Array.isArray(l.modifiers) || l.modifiers.length > 4 || !l.modifiers.every((m) => typeof m === 'string' && MODIFIER_RE.test(m))) {
-			throw new CodingValidationError(`${code}: up to 4 two-character modifiers`);
-		}
-		if (!Array.isArray(l.pointers) || l.pointers.length > MAX_POINTERS) throw new CodingValidationError(`${code}: at most ${MAX_POINTERS} diagnosis pointers`);
-		for (const p of l.pointers) if (typeof p !== 'string' || !letters.has(p)) throw new CodingValidationError(`${code}: pointer ${String(p)} has no diagnosis`);
-		const units = l.units ?? 1;
-		if (typeof units !== 'number' || !Number.isInteger(units) || units < 1 || units > 99) throw new CodingValidationError(`${code}: units 1-99`);
-		return { kind, code, description: text(l.description ?? '', `${code} description`, 300), modifiers: l.modifiers as string[], pointers: l.pointers as string[], units };
-	});
-	if (cpt.filter((l) => l.kind === 'visit').length > 1) throw new CodingValidationError('Only one visit code per exam');
-	return { dx, cpt };
-}
-
 // ---------- state ----------
-
-const userName = (db: DB, userId: number) =>
-	(db.prepare('SELECT display_name FROM users WHERE id = ?').get(userId) as { display_name: string } | undefined)?.display_name ?? `User ${userId}`;
 
 export function getCodingState(db: DB, patientId: number, encounterId: number): CodingState | null {
 	if (!getEncounter(db, patientId, encounterId)) return null;
@@ -194,137 +144,6 @@ export function getPatientStatus(db: DB, patientId: number, encounterId: number)
 	return patientStatus({ date: e.date, providerId: e.providerId }, otherVisits(db, patientId, encounterId));
 }
 
-// ---------- coding lines (§11.4 FIX) ----------
-
-interface LineRow {
-	id: number;
-	kind: 'dx' | 'visit' | 'sensorimotor' | 'test';
-	seq: number;
-	code: string;
-	description: string;
-	modifiers: string;
-	pointers: string;
-	units: number;
-	billed_at: string | null;
-	updated_at: string;
-	updated_by: number;
-}
-
-const lineKey = (kind: string, code: string, modifiers: string) => (kind === 'dx' ? `dx|${code}` : `cpt|${code}|${modifiers}`);
-
-export function getCodingLines(db: DB, patientId: number, encounterId: number): SavedLines | null {
-	if (!getEncounter(db, patientId, encounterId)) return null;
-	const rows = db
-		.prepare("SELECT * FROM coding_lines WHERE encounter_id = ? AND source = 'exam' ORDER BY kind = 'dx' DESC, seq, id")
-		.all(encounterId) as unknown as LineRow[];
-	const dx = rows.filter((r) => r.kind === 'dx').map((r) => ({ letter: r.pointers, code: r.code, title: r.description }));
-	const cpt: CptLine[] = rows
-		.filter((r) => r.kind !== 'dx')
-		.map((r) => ({
-			kind: r.kind as CptLine['kind'],
-			code: r.code,
-			description: r.description,
-			modifiers: r.modifiers ? r.modifiers.split(':') : [],
-			pointers: r.pointers ? r.pointers.split('') : [],
-			units: r.units
-		}));
-	const latest = rows.reduce<LineRow | null>((a, r) => (!a || r.updated_at > a.updated_at ? r : a), null);
-	return { dx, cpt, savedAt: latest?.updated_at ?? null, savedBy: latest ? userName(db, latest.updated_by) : null };
-}
-
-/**
- * "Save coding lines": adds or updates only this exam's unbilled lines and removes its unbilled lines
- * that are no longer wanted. Billed lines and lines from any other source are never touched; a wanted
- * line that is already billed is not added again. Returns the saved lines, or null for a wrong patient.
- */
-export function saveCodingLines(
-	db: DB,
-	patientId: number,
-	encounterId: number,
-	userId: number,
-	lines: { dx: DxLine[]; cpt: CptLine[] },
-	now = new Date()
-): SavedLines | null {
-	if (!getEncounter(db, patientId, encounterId)) return null;
-	const at = now.toISOString();
-	const existing = db.prepare("SELECT * FROM coding_lines WHERE encounter_id = ? AND source = 'exam'").all(encounterId) as unknown as LineRow[];
-	const billed = new Set(existing.filter((r) => r.billed_at).map((r) => lineKey(r.kind, r.code, r.modifiers)));
-	const open = new Map<string, LineRow[]>();
-	for (const r of existing.filter((x) => !x.billed_at)) {
-		const key = lineKey(r.kind, r.code, r.modifiers);
-		open.set(key, [...(open.get(key) ?? []), r]);
-	}
-	const wanted = [
-		...lines.dx.map((d, i) => ({ kind: 'dx' as const, seq: i, code: d.code, description: d.title, modifiers: '', pointers: d.letter, units: 1 })),
-		...lines.cpt.map((l, i) => ({ kind: l.kind, seq: i, code: l.code, description: l.description, modifiers: l.modifiers.join(':'), pointers: l.pointers.join(''), units: l.units }))
-	];
-	const insert = db.prepare(
-		`INSERT INTO coding_lines (encounter_id, source, kind, seq, code, description, modifiers, pointers, units, created_at, created_by, updated_at, updated_by)
-		 VALUES (?, 'exam', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	);
-	const update = db.prepare(
-		'UPDATE coding_lines SET kind = ?, seq = ?, description = ?, pointers = ?, units = ?, updated_at = ?, updated_by = ? WHERE id = ? AND billed_at IS NULL'
-	);
-	const remove = db.prepare('DELETE FROM coding_lines WHERE id = ? AND billed_at IS NULL');
-	db.exec('BEGIN');
-	try {
-		const kept = new Set<number>();
-		for (const w of wanted) {
-			const key = lineKey(w.kind, w.code, w.modifiers);
-			if (billed.has(key)) continue;
-			const row = open.get(key)?.find((r) => !kept.has(r.id));
-			if (row) {
-				kept.add(row.id);
-				update.run(w.kind, w.seq, w.description, w.pointers, w.units, at, userId, row.id);
-			} else {
-				insert.run(encounterId, w.kind, w.seq, w.code, w.description, w.modifiers, w.pointers, w.units, at, userId, at, userId);
-			}
-		}
-		for (const rows of open.values()) for (const row of rows) if (!kept.has(row.id)) remove.run(row.id);
-		db.exec('COMMIT');
-	} catch (e) {
-		db.exec('ROLLBACK');
-		throw e;
-	}
-	return getCodingLines(db, patientId, encounterId);
-}
-
-// ---------- visit status (§11.5 adapted) ----------
-
-export const STATUS_IDS: VisitStatusId[] = VISIT_STATUSES.map((s) => s.id);
-
-export function getVisitStatus(db: DB, patientId: number, encounterId: number): { status: VisitStatusId; history: StatusChange[] } | null {
-	if (!getEncounter(db, patientId, encounterId)) return null;
-	const rows = db
-		.prepare('SELECT status, changed_at, changed_by_name FROM visit_status WHERE encounter_id = ? ORDER BY id DESC LIMIT 50')
-		.all(encounterId) as { status: VisitStatusId; changed_at: string; changed_by_name: string }[];
-	const history = rows.map((r) => ({ status: r.status, changedAt: r.changed_at, changedBy: r.changed_by_name }));
-	return { status: history[0]?.status ?? 'in_progress', history };
-}
-
-/** Records a status change (nothing when it is already the current status). Null for a wrong patient. */
-export function setVisitStatus(
-	db: DB,
-	patientId: number,
-	encounterId: number,
-	userId: number,
-	status: unknown,
-	now = new Date()
-): { status: VisitStatusId; history: StatusChange[] } | null {
-	if (typeof status !== 'string' || !STATUS_IDS.includes(status as VisitStatusId)) throw new CodingValidationError('Unknown visit status');
-	const current = getVisitStatus(db, patientId, encounterId);
-	if (!current) return null;
-	if (current.status === status && current.history.length) return current;
-	db.prepare('INSERT INTO visit_status (encounter_id, status, changed_at, changed_by, changed_by_name) VALUES (?, ?, ?, ?, ?)').run(
-		encounterId,
-		status,
-		now.toISOString(),
-		userId,
-		userName(db, userId)
-	);
-	return getVisitStatus(db, patientId, encounterId);
-}
-
 // ---------- the panel's GET ----------
 
 export function getCodingResponse(db: DB, patientId: number, encounterId: number, role: Role | undefined): CodingResponse | null {
@@ -338,38 +157,29 @@ export function getCodingResponse(db: DB, patientId: number, encounterId: number
 		orders: plan?.orders ?? [],
 		patient
 	});
-	const status = getVisitStatus(db, patientId, encounterId)!;
 	return {
 		state,
 		suggestion,
 		patient,
-		lines: getCodingLines(db, patientId, encounterId)!,
-		status: status.status,
-		statusHistory: status.history,
 		canEdit: canEditCoding(role)
 	};
 }
 
-// ---------- superbill ----------
+// ---------- the printed report's code block (D46) ----------
 
-export interface Superbill {
-	patient: NonNullable<ReturnType<typeof getPatientHeader>>;
-	encounter: NonNullable<ReturnType<typeof getEncounter>>;
-	practice: Practice;
-	lines: SavedLines;
-	status: VisitStatusId;
-}
-
-/** Everything the printable superbill shows, only through the visit's own patient. Null = not found. */
-export function getSuperbill(db: DB, patientId: number, encounterId: number): Superbill | null {
-	const patient = getPatientHeader(db, patientId);
-	const encounter = patient ? getEncounter(db, patientId, encounterId) : null;
-	if (!patient || !encounter) return null;
-	return {
-		patient,
-		encounter,
-		practice: getPractice(db),
-		lines: getCodingLines(db, patientId, encounterId)!,
-		status: getVisitStatus(db, patientId, encounterId)!.status
-	};
+/**
+ * The codes the provider chose, for the report's "Codes for your billing system" block. A suggested
+ * but unconfirmed visit code does not count; tests (and 92060 when the findings support it) do.
+ * Null when code suggestions are off (D45), the pair is wrong, or nothing is chosen.
+ */
+export function getChosenCodes(db: DB, patientId: number, encounterId: number): ChosenCodes | null {
+	if (!usBillingOn(db)) return null;
+	const state = getCodingState(db, patientId, encounterId);
+	if (!state) return null;
+	const sensorimotor = sensorimotorSuggested(getFindings(db, patientId, encounterId) ?? {});
+	if (!state.visitCode && !state.tests.length && !(state.include92060 && sensorimotor)) return null;
+	const items = (listItems(db, patientId, encounterId) ?? []).map((i) => ({ id: i.id, title: i.title, codes: i.codes }));
+	// suggestedCode '' = only a chosen visit code makes a visit line; the summary checks are for the panel.
+	const { dx, cpt } = buildCoding({ state, suggestedCode: '', items, sensorimotor });
+	return { dx, cpt };
 }

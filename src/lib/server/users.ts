@@ -152,7 +152,7 @@ export async function setupFirstAdmin(
 	if (!needsSetup(db)) throw new UserError({ form: 'Setup is already complete. Sign in instead.' });
 	const errors: FieldErrors = {};
 	if (input.password !== input.confirm) errors.confirm = 'The two passwords do not match.';
-	// The diagnosis code set (D44); US billing starts on for ICD-10-CM, off for ICD-11 (D45).
+	// The diagnosis code set (D44); US code suggestions start on for ICD-10-CM, off for ICD-11 (D45).
 	const codeSet = input.codeSet === undefined || input.codeSet === '' ? 'icd10cm' : input.codeSet;
 	if (!isCodeSetId(codeSet)) errors.codeSet = 'Choose ICD-10-CM or ICD-11.';
 	checkPre(db, input, errors);

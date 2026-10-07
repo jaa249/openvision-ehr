@@ -1,21 +1,20 @@
 <script lang="ts">
-	// Coding panel (key 0): visit code, modifiers, justifiers, tests performed, coding lines, visit status.
-	// Spec: docs/spec/BEHAVIOR.md §11.1-11.5 with FIXes, §9.4 (92060), decision D7 (suggestions only,
+	// Codes section (key 0): visit code, modifiers, justifiers, tests performed and the code summary.
+	// A billing aid only (D46): codes to copy into the practice's billing system; OpenVision does not bill.
+	// Spec: docs/spec/BEHAVIOR.md §11.1-11.4 with FIXes, §9.4 (92060), decision D7 (suggestions only,
 	// always with the reasons; the provider chooses). Nothing is switched on for the provider.
 	import { onMount } from 'svelte';
 	import { VISIT_MODIFIERS, type Family } from '#lib/coding/codes.ts';
 	import { buildCoding } from '#lib/coding/lines.ts';
 	import { splitCodes, suggestVisit } from '#lib/coding/visit.ts';
-	import { EMPTY_CODING_STATE, type CodingResponse, type CodingState, type TestPerformed, type VisitStatusId } from '#lib/coding/types.ts';
+	import { EMPTY_CODING_STATE, type CodingResponse, type CodingState, type TestPerformed } from '#lib/coding/types.ts';
 	import { sensorimotorSuggested } from '#lib/exam/sections/neuro.ts';
-	import { lockHeaders } from '#lib/exam/lock.svelte.ts';
 	import type { PlanData } from '#lib/plan/types.ts';
 	import type { PanelProps } from './types.ts';
 	import { CodingSaver, errorText } from './coding/saver.svelte.ts';
 	import VisitCodeCard from './coding/VisitCodeCard.svelte';
 	import TestsCard from './coding/TestsCard.svelte';
 	import SummaryCard from './coding/SummaryCard.svelte';
-	import StatusControl from './coding/StatusControl.svelte';
 
 	let { context, findings }: PanelProps = $props();
 
@@ -43,7 +42,7 @@
 			data = (await res.json()) as CodingResponse;
 			coding = data.state;
 		} catch (e) {
-			loadError = `Could not load coding: ${e instanceof Error ? e.message : String(e)}`;
+			loadError = `Could not load codes: ${e instanceof Error ? e.message : String(e)}`;
 		}
 		// The Imp/Plan endpoint may not exist yet in this build: coding still works, without diagnoses or tests.
 		try {
@@ -93,75 +92,6 @@
 		update({ justifiersOff: coding.justifiersOff.includes(id) ? coding.justifiersOff.filter((x) => x !== id) : [...coding.justifiersOff, id] });
 	}
 
-	// ---------- save lines / print ----------
-	let busy = $state(false);
-	let linesMessage = $state<string | null>(null);
-	let linesFailed = $state(false);
-
-	async function saveLines(): Promise<boolean> {
-		if (!summary || !summary.ok || !canEdit) return false;
-		busy = true;
-		linesMessage = null;
-		try {
-			if (!(await saver.settle())) throw new Error(saver.lastError ?? 'Your coding choices are not saved yet.');
-			const res = await fetch(`${base}/coding`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json', ...lockHeaders() },
-				body: JSON.stringify({ action: 'saveLines', dx: summary.dx, cpt: summary.cpt })
-			});
-			if (!res.ok) throw new Error(await errorText(res));
-			const body = (await res.json()) as { lines: CodingResponse['lines'] };
-			if (data) data.lines = body.lines;
-			linesFailed = false;
-			linesMessage = 'Coding lines saved.';
-			return true;
-		} catch (e) {
-			linesFailed = true;
-			linesMessage = `Not saved: ${e instanceof Error ? e.message : String(e)}`;
-			return false;
-		} finally {
-			busy = false;
-		}
-	}
-
-	async function printSuperbill() {
-		const tab = window.open('about:blank', '_blank'); // opened now, while the click still counts
-		if (canEdit && summary?.ok && !(await saveLines())) {
-			tab?.close();
-			return;
-		}
-		const url = `/patients/${context.patientId}/encounters/${context.encounterId}/superbill`;
-		if (tab) tab.location.href = url;
-		else window.location.href = url;
-	}
-
-	// ---------- visit status ----------
-	let statusBusy = $state(false);
-	let statusError = $state<string | null>(null);
-	async function setStatus(s: VisitStatusId) {
-		if (!data) return;
-		statusBusy = true;
-		statusError = null;
-		const before = data.status;
-		data.status = s;
-		try {
-			const res = await fetch(`${base}/coding`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ action: 'status', status: s })
-			});
-			if (!res.ok) throw new Error(await errorText(res));
-			const body = (await res.json()) as { status: VisitStatusId; history: CodingResponse['statusHistory'] };
-			data.status = body.status;
-			data.statusHistory = body.history;
-		} catch (e) {
-			data.status = before;
-			statusError = `Status not changed: ${e instanceof Error ? e.message : String(e)}`;
-		} finally {
-			statusBusy = false;
-		}
-	}
-
 	const saveLabel = $derived.by(() => {
 		if (saver.status === 'error') return `Not saved: ${saver.lastError ?? 'error'}`;
 		if (saver.showSaving) return 'Saving…';
@@ -172,7 +102,7 @@
 
 <section class="coding" aria-labelledby="coding-title">
 	<div class="head">
-		<h2 id="coding-title">Coding</h2>
+		<h2 id="coding-title">Codes</h2>
 		<span class="save" class:error={saver.status === 'error'} role="status" aria-live="polite">{saveLabel}</span>
 	</div>
 
@@ -182,16 +112,15 @@
 			<button type="button" onclick={load}>Retry</button>
 		</p>
 	{:else if !data || !suggestion || !summary}
-		<p class="banner" role="status">Loading coding…</p>
+		<p class="banner" role="status">Loading codes…</p>
 	{:else}
-		<div class="status-row">
-			<StatusControl status={data.status} history={data.statusHistory} busy={statusBusy} error={statusError} onchange={setStatus} />
-		</div>
-
 		{#if !canEdit}
-			<p class="banner">You can view coding. Only a provider or admin can change it.</p>
+			<p class="banner">You can view the codes. Only a provider or admin can change them.</p>
 		{/if}
-		<p class="banner subtle">Codes are suggestions with their reasons. You choose what to bill.</p>
+		<p class="banner subtle">
+			Suggested codes with their reasons, to copy into your billing system. You choose; OpenVision does not create bills. Chosen codes print
+			on the exam report.
+		</p>
 		{#if planNote}<p class="banner warn" role="status">{planNote}</p>{/if}
 
 		<div class="cards">
@@ -260,16 +189,7 @@
 				oninclude92060={(on) => update({ include92060: on })}
 			/>
 
-			<SummaryCard
-				{summary}
-				saved={data.lines}
-				{canEdit}
-				{busy}
-				message={linesMessage}
-				failed={linesFailed}
-				onsave={saveLines}
-				onprint={printSuperbill}
-			/>
+			<SummaryCard {summary} />
 		</div>
 	{/if}
 </section>
@@ -296,9 +216,6 @@
 	}
 	.save.error {
 		color: var(--danger);
-	}
-	.status-row {
-		margin-bottom: var(--space-3);
 	}
 	.banner {
 		margin: 0 0 var(--space-2);

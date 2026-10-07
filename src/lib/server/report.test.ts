@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase, seedDemo, type DB } from './db.ts';
+import { render } from 'svelte/server';
 import { getPractice, getPrintable, getPrintables, listEncounters, logPrint, MAX_PRINT, parseIds } from './report.ts';
+import { saveCodingState, validateCodingState } from './coding.ts';
+import { addItem } from './plan.ts';
+import { updateCodeSettings } from './settings.ts';
+import { EMPTY_CODING_STATE } from '#lib/coding/types.ts';
+import ExamReport from '#lib/components/ExamReport.svelte';
 
 let db: DB;
 beforeEach(() => {
@@ -34,6 +40,42 @@ describe('printable encounters', () => {
 
 	it('has the practice header', () => {
 		expect(getPractice(db).name).toMatch(/Example Eye Care/);
+	});
+});
+
+describe('codes on the report (D46)', () => {
+	const html = (pid: number, eid: number) =>
+		render(ExamReport, { props: { item: getPrintable(db, pid, eid)!, practice: getPractice(db), generatedOn: 'today' } }).body;
+	const choose = (o: Record<string, unknown>) => saveCodingState(db, 1, 1, 1, validateCodingState({ ...EMPTY_CODING_STATE, ...o }));
+	beforeEach(() => {
+		addItem(db, 1, 1, 1, { title: 'Glaucoma suspect', codes: 'H40.003', plan: 'OCT next visit' });
+	});
+
+	it('nothing printed while nothing is chosen (the suggestion alone does not count)', () => {
+		expect(getPrintable(db, 1, 1)!.codes).toBeNull();
+		expect(html(1, 1)).not.toContain('Codes for your billing system');
+	});
+
+	it('prints the chosen visit code with modifiers, the tests and the diagnoses after Impression/Plan', () => {
+		const item = addItem(db, 1, 1, 1, { title: 'Type 2 diabetes', codes: 'E11.9' })!;
+		choose({ visitCode: '92014', modifiers: ['25'], tests: [{ cpt: '92133', label: 'OCT optic nerve', modifier: '', justifiers: [item.id] }] });
+		const codes = getPrintable(db, 1, 1)!.codes!;
+		expect(codes.cpt.map((l) => l.code)).toEqual(['92014', '92133']);
+		expect(codes.dx.map((d) => `${d.letter}:${d.code}`)).toEqual(['A:H40.003', 'B:E11.9']);
+		const page = html(1, 1);
+		const at = page.indexOf('Codes for your billing system');
+		expect(at).toBeGreaterThan(page.indexOf('Impression/Plan'));
+		expect(page).toContain('92014-25');
+		expect(page).toContain('92133');
+		expect(page).toContain('H40.003');
+		expect(page).toContain('OpenVision does not create bills.');
+	});
+
+	it('nothing printed with US code suggestions off', () => {
+		choose({ visitCode: '92014' });
+		updateCodeSettings(db, { usBilling: false }, null);
+		expect(getPrintable(db, 1, 1)!.codes).toBeNull();
+		expect(html(1, 1)).not.toContain('Codes for your billing system');
 	});
 });
 

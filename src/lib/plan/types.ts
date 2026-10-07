@@ -89,13 +89,14 @@ export interface PlanData {
 	orderListOwner: string;
 	/** The practice's current diagnosis code set (D44): the code finder and New Dx use it. */
 	codeSet: CodeSetId;
-	/** US billing (D45): when off there is no Coding section to point to. */
+	/** US code suggestions (D45): when off there is no Codes section to point to. */
 	usBilling: boolean;
 }
 
 /** What the printed report needs (§13.2 item 12). */
 export interface PlanReport {
-	items: { title: string; codes: string; codeText: string; codeSystem?: CodeSetId; plan: string }[];
+	/** codeUris: ICD-11 only, as on ImpItem (the FHIR export keeps code, title and URI together, D47). */
+	items: { title: string; codes: string; codeText: string; codeSystem?: CodeSetId; codeUris?: string; plan: string }[];
 	orders: string[];
 	/** Free-text plan / RTC printed under the orders. */
 	orderPlan: string;

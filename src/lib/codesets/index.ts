@@ -97,7 +97,7 @@ export function codeSetOfCode(code: string): CodeSetId | null {
 	return null;
 }
 
-/** A diagnosis code of either set, as saved on coding lines. */
+/** A diagnosis code of either set, as listed in the code summary. */
 export const isDxCode = (code: string) => codeSetOfCode(code) !== null;
 
 // ---------- code text ("TAG:CODE (description); ...") ----------

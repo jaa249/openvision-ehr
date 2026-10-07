@@ -1,4 +1,5 @@
-// Coding panel types shared by the server, the API, the panel and the superbill (spec §11).
+// Codes section types shared by the server, the API, the panel and the printed report (spec §11).
+// A billing aid only (D46): codes to copy into the practice's billing system; OpenVision never bills.
 import type { Family, PatientStatus, VisitLevel } from './codes.ts';
 
 /** A test checked under "Tests performed" (§11.3 with FIXes). */
@@ -49,7 +50,7 @@ export interface DxLine {
 	title: string;
 }
 
-/** Procedure line of the summary / superbill. */
+/** Procedure line of the summary and the report's code block. */
 export interface CptLine {
 	code: string;
 	description: string;
@@ -88,39 +89,25 @@ export interface VisitSuggestion {
 	evidence: Evidence[];
 }
 
-export const VISIT_STATUSES = [
-	{ id: 'in_progress', label: 'In progress', help: 'The visit is still being documented.' },
-	{ id: 'coding_complete', label: 'Coding complete', help: 'Codes reviewed and coding lines saved.' },
-	{ id: 'checked_out', label: 'Checked out', help: 'The patient has left the office.' },
-	{ id: 'send_notes', label: 'Send notes', help: 'The report needs to go to another provider.' }
-] as const;
-export type VisitStatusId = (typeof VISIT_STATUSES)[number]['id'];
-
-export interface StatusChange {
-	status: VisitStatusId;
-	changedAt: string;
-	/** The user's name at the time (FIX: a name, not a 0/1 flag). */
-	changedBy: string;
-}
-
-export interface SavedLines {
-	dx: DxLine[];
-	cpt: CptLine[];
-	savedAt: string | null;
-	savedBy: string | null;
-}
-
 /** GET /api/patients/[pid]/encounters/[eid]/coding */
 export interface CodingResponse {
 	state: CodingState;
 	/** Computed on the server from the saved findings and plan; the panel recomputes it live. */
 	suggestion: VisitSuggestion;
 	patient: PatientStatusResult;
-	lines: SavedLines;
-	status: VisitStatusId;
-	statusHistory: StatusChange[];
 	/** Provider or admin; techs can view only. */
 	canEdit: boolean;
+}
+
+/**
+ * The codes the provider CHOSE, for the printed report ("Codes for your billing system"): the chosen
+ * visit code (never the unconfirmed suggestion) with its modifiers, the tests performed, and the
+ * diagnoses in pointer (justifier) order. Null when nothing is chosen or code suggestions are off.
+ */
+export interface ChosenCodes {
+	dx: DxLine[];
+	/** Visit line first (when chosen), then 92060 and the tests, as on the summary. */
+	cpt: CptLine[];
 }
 
 /** The pieces of the Imp/Plan the coding logic needs (works for ImpItem and the report's plan items). */

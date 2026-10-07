@@ -1,5 +1,6 @@
-// Coding lines (spec §11.2-11.4 with FIXes): the diagnosis list with pointer letters A-L and the CPT
-// lines with modifiers and pointers, plus the checks shown under the summary. Pure.
+// Code summary (spec §11.2-11.4 with FIXes): the diagnosis list with pointer letters A-L and the CPT
+// lines with modifiers and pointers, plus the checks shown under the summary. Pure. Shown in the Codes
+// section and printed on the report; never saved as billing lines (D46).
 //
 // Rules:
 // - Diagnoses come from coded impression items in plan order; comma-joined codes are expanded,

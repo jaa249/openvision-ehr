@@ -5,6 +5,7 @@ import { drawingZones } from './drawings.ts';
 import { getPmsfh } from './history.ts';
 import { getPlanForReport } from './plan.ts';
 import { getSignature } from './signing.ts';
+import { getChosenCodes } from './coding.ts';
 import { MAX_EXPORT, MAX_PRINT } from '#lib/exam/print.ts';
 import type { Practice, PrintableEncounter } from '#lib/exam/types.ts';
 
@@ -27,7 +28,8 @@ export function getPrintable(db: DB, patientId: number, encounterId: number): Pr
 		drawingZones: drawingZones(db, encounterId),
 		history: getPmsfh(db, patientId),
 		plan: getPlanForReport(db, encounterId),
-		signature: getSignature(db, encounterId)
+		signature: getSignature(db, encounterId),
+		codes: getChosenCodes(db, patientId, encounterId)
 	};
 }
 

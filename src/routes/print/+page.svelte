@@ -41,7 +41,9 @@
 	<span class="count">{n} {n === 1 ? 'report' : 'reports'}{#if n > 1}, each starts on a new page{/if}</span>
 	{#if data.missing}<span class="warn">{data.missing} could not be found and were skipped</span>{/if}
 	<span class="spacer"></span>
-	<span class="tip">For a PDF, choose <strong>Save as PDF</strong> as the printer.</span>
+	<span class="tip" class:pdf={data.pdf} role={data.pdf ? 'status' : undefined}>
+		{#if data.pdf}To download a PDF, choose <strong>Save as PDF</strong> in the print dialog.{:else}For a PDF, choose <strong>Save as PDF</strong> as the printer.{/if}
+	</span>
 	<a class="export" href="/export/csv?ids={idList}" download>Export CSV</a>
 	<a class="export" href="/export/fhir?ids={idList}" download>Export FHIR</a>
 	<button type="button" class="primary" onclick={printWhenReady}>Print</button>
@@ -81,6 +83,13 @@
 	.tip {
 		color: var(--text-3);
 		font-size: var(--text-xs);
+	}
+	.tip.pdf {
+		color: var(--text-1);
+		font-size: var(--text-sm);
+		padding: var(--space-1) var(--space-2);
+		background: var(--accent-soft);
+		border-radius: var(--radius-2);
 	}
 	.export {
 		font-size: var(--text-sm);

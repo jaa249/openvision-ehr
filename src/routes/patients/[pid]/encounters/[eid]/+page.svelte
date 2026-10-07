@@ -207,7 +207,7 @@
 	const when = (iso: string) =>
 		new Date(iso).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
-	/** Sections offered: Coding (key 0) only with US billing on (D45). */
+	/** Sections offered: Codes (key 0) only with US code suggestions on (D45). */
 	const sections = $derived(data.usBilling ? SECTIONS : SECTIONS.filter((s) => s.id !== 'CODING'));
 	const current = $derived(sections.find((s) => s.id === section) ?? sections[0]);
 	const sec = $derived(SECTION_DEF.get(section));
@@ -238,17 +238,33 @@
 	// ---------- printing ----------
 	let notice = $state<string | null>(null);
 	/** Saves first so the report matches the screen, then opens it in a new tab (spec §13). */
-	async function printExam() {
+	async function printExam(pdf = false) {
 		const tab = window.open('about:blank', '_blank'); // opened now, while the click still counts
 		if (!(await saver.settle())) {
 			tab?.close();
-			notice = 'Not printed: recent changes are not saved yet. Check the connection and try again.';
+			notice = `Not ${pdf ? 'downloaded' : 'printed'}: recent changes are not saved yet. Check the connection and try again.`;
 			setTimeout(() => (notice = null), 8000);
 			return;
 		}
-		const url = `/print?auto=1&ids=${data.encounter.id}`;
+		// pdf=1: the print view says to choose "Save as PDF" (no PDF engine, D17).
+		const url = `/print?auto=1&ids=${data.encounter.id}${pdf ? '&pdf=1' : ''}`;
 		if (tab) tab.location.href = url;
 		else window.location.href = url;
+	}
+	/** Download as FHIR R4 for another EHR (D47): saved first, then the logged export of this one visit. */
+	async function downloadFhir() {
+		if (!(await saver.settle())) {
+			notice = 'Not downloaded: recent changes are not saved yet. Check the connection and try again.';
+			setTimeout(() => (notice = null), 8000);
+			return;
+		}
+		// A download link, not a navigation: the exam page (and its edit lock) stays as it is.
+		const a = document.createElement('a');
+		a.href = `/export/fhir?ids=${data.encounter.id}`;
+		a.download = '';
+		document.body.append(a);
+		a.click();
+		a.remove();
 	}
 	/** Spectacle / contact lens Rx for one refraction source (spec §12.1), saved first like the report. */
 	async function printRx(source: string) {
@@ -519,7 +535,9 @@
 			{lock}
 			cansign={canSign}
 			{signing}
-			onprint={printExam}
+			onprint={() => printExam()}
+			ondownloadpdf={() => printExam(true)}
+			ondownloadfhir={downloadFhir}
 			onsign={startSign}
 			ontakeover={takeOver}
 			onedit={() => lock.acquire()}

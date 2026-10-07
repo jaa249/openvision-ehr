@@ -1,4 +1,4 @@
-// Code-set choice (D44) and the US billing switch (D45) across settings, the plan, history and signing.
+// Code-set choice (D44) and the US code suggestions switch (D45) across settings, the plan, history and signing.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
 import { migrate, openDatabase, seedDemo, type DB } from './db.ts';
@@ -33,7 +33,7 @@ const planError = (fn: () => unknown) => {
 };
 
 describe('settings', () => {
-	it('existing installs and the demo stay ICD-10-CM with US billing', () => {
+	it('existing installs and the demo stay ICD-10-CM with US code suggestions', () => {
 		expect(getCodeSettings(db)).toEqual({ codeSet: 'icd10cm', usBilling: true });
 	});
 
@@ -49,7 +49,7 @@ describe('settings', () => {
 		expect(getCodeSettings(db)).toEqual({ codeSet: 'icd11', usBilling: true });
 	});
 
-	it('first-run setup: the chosen set, with US billing on for ICD-10-CM and off for ICD-11', async () => {
+	it('first-run setup: the chosen set, with US code suggestions on for ICD-10-CM and off for ICD-11', async () => {
 		const PW = 'a sentence that is long';
 		const a = openDatabase(':memory:');
 		await setupFirstAdmin(a, { username: 'boss', displayName: 'Boss', password: PW, confirm: PW, codeSet: 'icd11' });

@@ -105,7 +105,7 @@
 
 <div class="orders">
 	<div class="head">
-		<p class="help">Ticked orders show at the next visit. Orders with a CPT code are tests the Coding section can bill.</p>
+		<p class="help">Ticked orders show at the next visit. Orders with a CPT code show as tests in the Codes section.</p>
 		{#if canEdit}
 			<button type="button" class="pencil" aria-expanded={editing} aria-controls="orders-editor" onclick={() => (editing = !editing)}>
 				<span aria-hidden="true">✎</span> {editing ? 'Done editing list' : 'Edit list'}

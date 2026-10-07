@@ -8,17 +8,14 @@ import {
 	CodingValidationError,
 	getCodingResponse,
 	getCodingState,
-	saveCodingLines,
 	saveCodingState,
-	setVisitStatus,
-	validateCodingState,
-	validateLines
+	validateCodingState
 } from '#lib/server/coding.ts';
 import type { RequestHandler } from './$types';
 
 /**
  * Coding is always reached through its own patient: a wrong pair is a 404, never another chart.
- * With US billing off (D45) there is no coding at all: 404 for every method, nothing is deleted.
+ * With US code suggestions off (D45) there is no coding at all: 404 for every method, nothing is deleted.
  */
 function scope(params: { pid: string; eid: string }) {
 	if (!usBillingOn(getDb())) error(404, 'Not found');
@@ -54,7 +51,7 @@ function editable(pid: number, eid: number, userId: number, request: Request) {
 	}
 }
 
-/** State, the computed suggestion, saved lines and visit status. Techs can view. */
+/** State and the computed suggestion. Techs can view. A billing aid only (D46). */
 export const GET: RequestHandler = ({ params, locals }) => {
 	const { pid, eid } = scope(params);
 	return json(getCodingResponse(getDb(), pid, eid, locals.user?.role));
@@ -79,33 +76,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	return json({ savedAt, state: getCodingState(db, pid, eid) });
 };
 
-/**
- * One action per request:
- * saveLines { dx, cpt } — "Save coding lines" (provider or admin; exam must be editable).
- * status { status } — visit status; any signed-in user (check-out happens after signing, so the
- *   exam lock does not apply: the status is workflow, not exam content).
- */
-export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const { pid, eid } = scope(params);
-	const b = await body(request);
-	const db = getDb();
-	try {
-		if (b.action === 'saveLines') {
-			requireCoder(locals.user?.role);
-			const lines = validateLines(b);
-			editable(pid, eid, locals.userId, request);
-			const saved = saveCodingLines(db, pid, eid, locals.userId, lines);
-			if (!saved) error(404, 'Not found');
-			return json({ lines: saved });
-		}
-		if (b.action === 'status') {
-			const r = setVisitStatus(db, pid, eid, locals.userId, b.status);
-			if (!r) error(404, 'Not found');
-			return json(r);
-		}
-	} catch (e) {
-		if (e instanceof CodingValidationError) error(400, e.message);
-		throw e;
-	}
+/** No actions any more: saved billing lines and the visit status were removed (D46). */
+export const POST: RequestHandler = ({ params }) => {
+	scope(params);
 	error(400, 'Unknown action');
 };

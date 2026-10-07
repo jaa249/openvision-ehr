@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { FIELDS, SECTION_DEF } from '#lib/exam/catalog.ts';
 import type { PrintableEncounter } from '#lib/exam/types.ts';
 import { allergyStatusText } from '#lib/history/summary.ts';
+import { CODE_SETS, codeSetOfCode, splitCodeText, type CodeSetId } from '#lib/codesets/index.ts';
+import type { PlanReport } from '#lib/plan/types.ts';
 
 // ---------- CSV ----------
 
@@ -49,6 +51,11 @@ const MRN_SYSTEM = 'urn:openvision:mrn';
 const SNOMED = 'http://snomed.info/sct';
 const ALLERGY_CLINICAL = 'http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical';
 const ALLERGY_VERIFICATION = 'http://terminology.hl7.org/CodeSystem/allergyintolerance-verification';
+const CONDITION_CLINICAL = 'http://terminology.hl7.org/CodeSystem/condition-clinical';
+const CONDITION_VERIFICATION = 'http://terminology.hl7.org/CodeSystem/condition-ver-status';
+const CONDITION_CATEGORY = 'http://terminology.hl7.org/CodeSystem/condition-category';
+/** Our extension carrying the WHO linearization URI next to an ICD-11 code and title (WHO licence; D47). */
+export const ICD11_URI_EXTENSION = 'urn:openvision:fhir:icd11-uri';
 /** SNOMED CT body structures for laterality. */
 const EYE_SITE = {
 	OD: { code: '18944008', display: 'Right eye structure' },
@@ -66,6 +73,29 @@ function uuid(key: string): string {
 }
 
 type Resource = Record<string, unknown> & { resourceType: string; id: string };
+type PlanItem = PlanReport['items'][number];
+
+/**
+ * Condition.code.coding for one impression item, in the item's own code set (D44): ICD-10-CM codes as
+ * displayed with their description; ICD-11 codes with "&" extensions, WHO title(s) as stored and, in
+ * our extension, the WHO URI of each code part (code, title and URI travel together; D47).
+ */
+function conditionCodings(item: PlanItem): Record<string, unknown>[] {
+	const codes = item.codes ? item.codes.split(', ').filter(Boolean) : [];
+	const titles = new Map(splitCodeText(item.codeText).map((c) => [c.code, c.description]));
+	const uris = (item.codeUris ?? '').split(', ');
+	return codes.map((code, i) => {
+		const set: CodeSetId = item.codeSystem ?? codeSetOfCode(code) ?? 'icd10cm';
+		const display = titles.get(code);
+		const partUris = set === 'icd11' ? (uris[i] ?? '').split('&').filter(Boolean) : [];
+		return {
+			...(partUris.length ? { extension: partUris.map((u) => ({ url: ICD11_URI_EXTENSION, valueUri: u })) } : {}),
+			system: CODE_SETS[set].system,
+			code,
+			...(display ? { display } : {})
+		};
+	});
+}
 
 const xml = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 /** Human-readable summary every resource should carry (FHIR dom-6). */
@@ -75,8 +105,10 @@ const narrative = (t: string) => ({
 });
 
 /**
- * A FHIR R4 "collection" Bundle: Patient, Practitioner, Encounter, AllergyIntolerance and one
- * Observation per recorded finding. Observations are "preliminary" because exams are not signed yet.
+ * A FHIR R4 "collection" Bundle: Patient, Practitioner, Encounter, AllergyIntolerance, one Observation
+ * per recorded finding and one Condition per impression item (D47), so a downloaded visit can be added
+ * to another chart. Observations are "final" and Conditions "confirmed" once the exam is signed;
+ * before that they are "preliminary" / "provisional".
  */
 export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Record<string, unknown> {
 	const resources = new Map<string, Resource>();
@@ -87,7 +119,8 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 	};
 	const today = now.toISOString().slice(0, 10);
 
-	for (const { patient: p, encounter: e, findings } of items) {
+	for (const { patient: p, encounter: e, findings, plan, signature } of items) {
+		const signed = !!signature;
 		const patientRef = add(`patient:${p.id}`, {
 			resourceType: 'Patient',
 			text: narrative(`${p.legalName}${p.preferredName ? ` ("${p.preferredName}")` : ''}, born ${p.dob}, MRN ${p.mrn}`),
@@ -149,7 +182,7 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 		}
 		const encounterRef = add(`encounter:${e.id}`, {
 			resourceType: 'Encounter',
-			text: narrative(`${e.visitType} eye exam on ${e.date} with ${e.provider}`),
+			text: narrative(encounterText(e.visitType, e.date, e.provider, plan)),
 			identifier: [{ system: 'urn:openvision:encounter', value: String(e.id) }],
 			status: e.date < today ? 'finished' : 'in-progress',
 			class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB', display: 'ambulatory' },
@@ -165,7 +198,7 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 			add(`obs:${e.id}:${f.id}`, {
 				resourceType: 'Observation',
 				text: narrative(`${f.label}: ${value}`),
-				status: 'preliminary',
+				status: signed ? 'final' : 'preliminary',
 				category: [
 					{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/observation-category', code: 'exam', display: 'Exam' }] }
 				],
@@ -179,6 +212,23 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 				bodySite: { coding: [{ system: SNOMED, ...site }], text: f.eye }
 			});
 		}
+		// Impression/Plan (D47): one Condition per item, coded or not; the plan text is its note.
+		(plan?.items ?? []).forEach((item, i) => {
+			const coding = conditionCodings(item);
+			const title = item.title.trim() || item.codes || 'Impression';
+			add(`condition:${e.id}:${i}:${item.title}:${item.codes}`, {
+				resourceType: 'Condition',
+				text: narrative(`${title}${item.codes ? ` (${item.codes})` : ''}${item.plan ? `. Plan: ${item.plan}` : ''}`),
+				clinicalStatus: { coding: [{ system: CONDITION_CLINICAL, code: 'active' }] },
+				verificationStatus: { coding: [{ system: CONDITION_VERIFICATION, code: signed ? 'confirmed' : 'provisional' }] },
+				category: [{ coding: [{ system: CONDITION_CATEGORY, code: 'encounter-diagnosis', display: 'Encounter Diagnosis' }] }],
+				code: { ...(coding.length ? { coding } : {}), text: title },
+				subject: { reference: patientRef },
+				encounter: { reference: encounterRef },
+				recordedDate: e.date,
+				...(item.plan.trim() ? { note: [{ text: item.plan }] } : {})
+			});
+		});
 	}
 
 	return {
@@ -188,6 +238,14 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 		timestamp: now.toISOString(),
 		entry: [...resources.values()].map((r) => ({ fullUrl: `urn:uuid:${r.id}`, resource: r }))
 	};
+}
+
+/** The Encounter narrative; the orders and next visit ride along in it (D47: no CarePlan yet). */
+function encounterText(visitType: string, date: string, provider: string, plan: PlanReport | null | undefined): string {
+	const parts = [`${visitType} eye exam on ${date} with ${provider}.`];
+	if (plan?.orders.length) parts.push(`Orders/Next visit: ${plan.orders.join('; ')}.`);
+	if (plan?.orderPlan.trim()) parts.push(`${plan.orders.length ? '' : 'Next visit: '}${plan.orderPlan.trim()}`);
+	return parts.join(' ');
 }
 
 /** e.g. openvision-2026-10-06-3-visits */

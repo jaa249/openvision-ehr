@@ -13,6 +13,8 @@
 		cansign = false,
 		signing = false,
 		onprint,
+		ondownloadpdf,
+		ondownloadfhir,
 		onsign,
 		ontakeover,
 		onedit,
@@ -27,6 +29,10 @@
 		cansign?: boolean;
 		signing?: boolean;
 		onprint: () => void;
+		/** Download as PDF: opens the print view (the browser's Save as PDF; no PDF engine, D17). */
+		ondownloadpdf?: () => void;
+		/** Download as FHIR R4 JSON for another EHR (D47). */
+		ondownloadfhir?: () => void;
 		onsign?: () => void;
 		/** Read-only because someone else holds the lock: take it over (the page confirms first). */
 		ontakeover?: () => void;
@@ -47,7 +53,36 @@
 	const allergies = $derived(historyBus.allergy?.patientId === patient.id ? historyBus.allergy.status : patient.allergyStatus);
 	const time = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 	const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+	// ---------- Download menu (D46: the visit goes into another chart as a PDF or FHIR) ----------
+	// A disclosure (button + list of buttons): Tab moves through the items, Escape closes and
+	// returns focus to the button, a click outside closes it.
+	let downloadOpen = $state(false);
+	let downloadButton = $state<HTMLButtonElement | null>(null);
+	let downloadWrap = $state<HTMLDivElement | null>(null);
+	function closeDownload(refocus = true) {
+		downloadOpen = false;
+		if (refocus) downloadButton?.focus();
+	}
+	function pick(fn: (() => void) | undefined) {
+		closeDownload();
+		fn?.();
+	}
+	function onDownloadKey(e: KeyboardEvent) {
+		if (e.key === 'Escape' && downloadOpen) {
+			e.stopPropagation();
+			closeDownload();
+		}
+	}
+	function onWindowPointer(e: PointerEvent) {
+		if (downloadOpen && downloadWrap && !downloadWrap.contains(e.target as Node)) closeDownload(false);
+	}
+	function onWrapFocusOut(e: FocusEvent) {
+		if (downloadOpen && downloadWrap && !downloadWrap.contains(e.relatedTarget as Node | null)) downloadOpen = false;
+	}
 </script>
+
+<svelte:window onpointerdown={onWindowPointer} />
 
 <header class="banner" aria-label="Patient">
 	{#if patient.photoUrl}
@@ -118,6 +153,41 @@
 		</button>
 	{/if}
 	<button type="button" class="print" onclick={onprint} title="Print this exam (Ctrl+P)">Print</button>
+	{#if ondownloadpdf || ondownloadfhir}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="download" bind:this={downloadWrap} onkeydown={onDownloadKey} onfocusout={onWrapFocusOut}>
+			<button
+				type="button"
+				bind:this={downloadButton}
+				aria-expanded={downloadOpen}
+				aria-controls="download-menu"
+				title="Download this visit to add it to another chart"
+				onclick={() => (downloadOpen = !downloadOpen)}
+			>
+				Download <span aria-hidden="true">▾</span>
+			</button>
+			{#if downloadOpen}
+				<ul id="download-menu" class="menu" aria-label="Download this visit">
+					{#if ondownloadpdf}
+						<li>
+							<button type="button" onclick={() => pick(ondownloadpdf)} aria-describedby="download-pdf-hint">
+								<span class="item">PDF</span>
+								<span class="hint" id="download-pdf-hint">Opens the report: choose Save as PDF in the print dialog</span>
+							</button>
+						</li>
+					{/if}
+					{#if ondownloadfhir}
+						<li>
+							<button type="button" onclick={() => pick(ondownloadfhir)} aria-describedby="download-fhir-hint">
+								<span class="item">FHIR (for another EHR)</span>
+								<span class="hint" id="download-fhir-hint">FHIR R4 JSON file with the findings and impression/plan</span>
+							</button>
+						</li>
+					{/if}
+				</ul>
+			{/if}
+		</div>
+	{/if}
 	<ThemeToggle />
 	<a class="close" href="/">Patients</a>
 </header>
@@ -229,5 +299,51 @@
 		min-height: var(--target-min);
 		display: inline-flex;
 		align-items: center;
+	}
+	.download {
+		position: relative;
+	}
+	.menu {
+		position: absolute;
+		right: 0;
+		top: calc(100% + 4px);
+		z-index: 30;
+		list-style: none;
+		margin: 0;
+		padding: var(--space-1);
+		min-width: 17rem;
+		max-width: min(22rem, calc(100vw - 2 * var(--space-4)));
+		background: var(--surface-1);
+		border: 1px solid var(--hairline);
+		border-radius: var(--radius-2);
+		box-shadow: var(--shadow-overlay);
+		display: grid;
+		gap: 2px;
+	}
+	.menu button {
+		display: grid;
+		gap: 2px;
+		width: 100%;
+		min-height: max(var(--target-min), 44px);
+		text-align: left;
+		border: 0;
+		background: none;
+		padding: var(--space-2);
+	}
+	.menu button:hover,
+	.menu button:focus-visible {
+		background: var(--accent-soft);
+	}
+	.menu .item {
+		font-weight: var(--weight-semibold);
+	}
+	.menu .hint {
+		font-size: var(--text-xs);
+		color: var(--text-3);
+	}
+	@media print {
+		.download {
+			display: none;
+		}
 	}
 </style>

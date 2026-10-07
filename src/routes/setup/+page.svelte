@@ -66,7 +66,7 @@
 				{/each}
 			</fieldset>
 			<p class="hint" id="codeset-hint">
-				ICD-10-CM turns on US billing (CPT coding and superbill); ICD-11 leaves it off. Both can be changed later in Settings → Practice.
+				ICD-10-CM turns on US code suggestions (CPT visit and test codes to copy into your billing system; OpenVision does not create bills); ICD-11 leaves them off. Both can be changed later in Settings → Practice.
 			</p>
 			{#if errors.codeSet}<p class="err">{errors.codeSet}</p>{/if}
 			{#if codeSet === 'icd11'}<p class="hint">{ICD11_CITATION}. Licence: {ICD11_LICENCE}.</p>{/if}
