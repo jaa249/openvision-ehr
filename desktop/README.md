@@ -62,3 +62,15 @@ Azure Trusted Signing variables `AZURE_SIGN_ENDPOINT`, `AZURE_SIGN_ACCOUNT`, `AZ
 `AZURE_SIGN_PUBLISHER` (with `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`). Nothing secret
 is kept in the repo. `.github/workflows/desktop.yml` builds and uploads a draft release when a `v*` tag
 is pushed.
+
+**Releasing a version**
+
+1. Set `version` in the root `package.json`, add a `CHANGELOG.md` entry, commit and push.
+2. Tag and push the tag (`git tag -a v0.1.1 -m "OpenVision 0.1.1"` then `git push origin v0.1.1`). The
+   workflow tests, builds and uploads `OpenVision-Setup.exe`, `latest.yml`, the `.blockmap` and
+   `SHA256SUMS.txt` to a draft release.
+3. Write the release notes on the draft (install steps, fingerprint, changelog). **Before 1.0, tick
+   "Set as a pre-release"**: 0.x apps follow pre-releases, 1.0 and later follow full releases only
+   (`followsPrereleases` in `lib/updates.cjs`).
+4. Publish, then update the version in the README's "Download for Windows" links
+   (`releases/download/v<version>/OpenVision-Setup.exe`).

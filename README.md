@@ -7,7 +7,7 @@
 <p align="center">A free, open-source eye exam and eye-care records app for optometrists and ophthalmologists.</p>
 
 <p align="center">
-  <a href="https://github.com/jaa249/openvision-ehr/releases/latest/download/OpenVision-Setup.exe"><strong>Download for Windows</strong></a> (64-bit, Windows 10 or 11)
+  <a href="https://github.com/jaa249/openvision-ehr/releases/download/v0.1.0/OpenVision-Setup.exe"><strong>Download for Windows</strong></a> (version 0.1.0, 64-bit, Windows 10 or 11)
   &nbsp;|&nbsp; <a href="#install-on-windows">How to install</a>
   &nbsp;|&nbsp; <a href="#a-quick-tour">See screenshots</a>
 </p>
@@ -78,7 +78,7 @@ Status: early (0.1.0). Still to come: database encryption at rest, see [`docs/SE
 
 ## Install on Windows
 
-1. **[Download OpenVision-Setup.exe](https://github.com/jaa249/openvision-ehr/releases/latest/download/OpenVision-Setup.exe)** (about 115 MB). This link always gives the newest version. Older versions and release notes are on the [Releases page](https://github.com/jaa249/openvision-ehr/releases).
+1. **[Download OpenVision-Setup.exe](https://github.com/jaa249/openvision-ehr/releases/download/v0.1.0/OpenVision-Setup.exe)** (about 115 MB). This is version 0.1.0; every version and its release notes are on the [Releases page](https://github.com/jaa249/openvision-ehr/releases).
 2. Double-click the file and allow it to make changes (it installs for everyone on the computer, so it needs an administrator).
 3. The installer is not code-signed yet, so Windows may say **"Windows protected your PC"**. Click **More info**, then **Run anyway**. Only do this for a file downloaded from the link above.
 4. Read and accept the data safety notice and the [Terms of Use](docs/TERMS.md) (see also the [Privacy Policy](docs/PRIVACY.md)).

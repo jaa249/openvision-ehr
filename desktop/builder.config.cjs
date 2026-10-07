@@ -47,8 +47,9 @@ module.exports = {
 			: {})
 	},
 	nsis: {
-		// A fixed name so the README's "Download for Windows" link (releases/latest/download/OpenVision-Setup.exe)
-		// never changes; the version is in the file's properties, the release and latest.yml.
+		// A fixed name so the README's "Download for Windows" link (releases/download/v<version>/OpenVision-Setup.exe;
+		// update its version when a release is published) only changes in one place; the version is in the
+		// file's properties, the release and latest.yml.
 		artifactName: 'OpenVision-Setup.${ext}',
 		oneClick: false,
 		perMachine: true,

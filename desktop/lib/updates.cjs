@@ -9,6 +9,14 @@
 // turns checking off (tests, or a practice that updates by hand).
 
 /**
+ * Before 1.0 every release is published as a GitHub pre-release, so a 0.x app must follow pre-releases or
+ * it would never see the next version. From 1.0 on, the app follows full releases only.
+ */
+function followsPrereleases(version) {
+	return /^0./.test(String(version));
+}
+
+/**
  * backup(): writes a pre-update backup and returns its path (throws on failure).
  * shutdown(): stops the server, calls backupBeforeInstall, closes the database; resolves to its result.
  */
@@ -22,7 +30,7 @@ function createUpdates({ app, dialog, log, getWindow, enabled, backup, shutdown,
 			({ autoUpdater: updater } = require('electron-updater'));
 			updater.autoDownload = true;
 			updater.autoInstallOnAppQuit = false; // set to true on quit, after the backup
-			updater.allowPrerelease = false;
+			updater.allowPrerelease = followsPrereleases(app.getVersion());
 			updater.logger = { info: (m) => log.info('update:', m), warn: (m) => log.warn('update:', m), error: (m) => log.error('update:', m), debug() {} };
 			updater.on('update-not-available', () => {
 				if (manualCheck) info(`OpenVision is up to date (version ${app.getVersion()}).`);
@@ -123,4 +131,4 @@ ${log.file}`);
 	};
 }
 
-module.exports = { createUpdates };
+module.exports = { createUpdates, followsPrereleases };

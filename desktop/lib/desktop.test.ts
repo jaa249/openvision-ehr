@@ -10,6 +10,7 @@ const { resolveDataDir, dataLayout, prepareDataDir, clearTmp } = require('./path
 const { classifyNavigation, classifyWindowOpen, permissionAllowed } = require('./navigation.cjs');
 const { backupName, backupsToPrune, takePreUpdateBackup, KEEP } = require('./backups.cjs');
 const { makeToken, tokenMatches } = require('./shelltoken.cjs');
+const { followsPrereleases } = require('./updates.cjs');
 const { rotationPlan, safePath, createLogger } = require('./log.cjs');
 const { pdfPageSize, pdfFileName, validIds } = require('./pdf.cjs');
 const { parseBitLockerProtection, systemDrive } = require('./bitlocker.cjs');
@@ -209,5 +210,14 @@ describe('versions', () => {
 		const desk = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8'));
 		expect(desk.version).toBe(rootPkg.version);
 		expect(require('../builder.config.cjs').extraMetadata.version).toBe(rootPkg.version);
+	});
+});
+
+describe('updates follow pre-releases only before 1.0', () => {
+	it('0.x follows pre-releases, 1.0 and later do not', () => {
+		expect(followsPrereleases('0.1.0')).toBe(true);
+		expect(followsPrereleases('0.12.3')).toBe(true);
+		expect(followsPrereleases('1.0.0')).toBe(false);
+		expect(followsPrereleases('10.0.0')).toBe(false);
 	});
 });
