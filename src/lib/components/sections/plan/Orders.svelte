@@ -5,6 +5,7 @@
 	import { registerFlush } from '#lib/exam/lock.svelte.ts';
 	import { postJson } from './api.ts';
 	import type { OrderOption, VisitOrder } from '#lib/plan/types.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 
 	let {
 		options,
@@ -25,6 +26,7 @@
 		/** The list changed in the editor. */
 		onoptions: (next: OrderOption[]) => void;
 	} = $props();
+	const { t } = useI18n();
 
 	// Local working copies: the user's checks and text win over a slower server answer.
 	let checked = $state<number[]>([]);
@@ -73,7 +75,7 @@
 	let newCpt = $state('');
 
 	async function edit(body: Record<string, unknown>): Promise<boolean> {
-		const r = await postJson<OrderOption[]>('/api/orders', body, false);
+		const r = await postJson<OrderOption[]>(t, '/api/orders', body, false);
 		if (r.ok) {
 			onoptions(r.data);
 			editError = '';
@@ -86,7 +88,7 @@
 	async function addOption(e: SubmitEvent) {
 		e.preventDefault();
 		if (!newLabel.trim()) {
-			editError = 'Name the order.';
+			editError = t('plan.orderNameMissing');
 			return;
 		}
 		if (await edit({ action: 'add', label: newLabel, cpt: newCpt })) {
@@ -105,24 +107,24 @@
 
 <div class="orders">
 	<div class="head">
-		<p class="help">Ticked orders show at the next visit. Orders with a CPT code show as tests in the Codes section.</p>
+		<p class="help">{t('plan.ordersHelp')}</p>
 		{#if canEdit}
 			<button type="button" class="pencil" aria-expanded={editing} aria-controls="orders-editor" onclick={() => (editing = !editing)}>
-				<span aria-hidden="true">✎</span> {editing ? 'Done editing list' : 'Edit list'}
+				<span aria-hidden="true">✎</span> {editing ? t('plan.ordersDoneEditing') : t('plan.ordersEditList')}
 			</button>
 		{/if}
 	</div>
-	{#if !canEdit}<p class="help">This is {owner}'s orders list; only they can change it.</p>{/if}
+	{#if !canEdit}<p class="help">{t('plan.ordersNotOwner', { owner })}</p>{/if}
 
 	{#if editing}
-		<div id="orders-editor" class="editor" role="group" aria-label="Edit your orders list">
-			<p class="help">Changes apply to future visits; visits already saved keep their orders.</p>
+		<div id="orders-editor" class="editor" role="group" aria-label={t('plan.ordersEditorAria')}>
+			<p class="help">{t('plan.ordersEditorHelp')}</p>
 			<ul>
 				{#each options as o, i (o.id)}
 					<li>
-						<label class="visually-hidden" for="ord-l-{o.id}">Order name</label>
+						<label class="visually-hidden" for="ord-l-{o.id}">{t('plan.orderName')}</label>
 						<input id="ord-l-{o.id}" value={o.label} maxlength="80" onchange={(e) => edit({ action: 'update', id: o.id, label: e.currentTarget.value })} />
-						<label class="visually-hidden" for="ord-c-{o.id}">CPT code for {o.label}</label>
+						<label class="visually-hidden" for="ord-c-{o.id}">{t('plan.orderCptFor', { label: o.label })}</label>
 						<input
 							id="ord-c-{o.id}"
 							class="cpt"
@@ -132,25 +134,25 @@
 							placeholder="CPT"
 							onchange={(e) => edit({ action: 'update', id: o.id, cpt: e.currentTarget.value })}
 						/>
-						<button type="button" class="icon" onclick={() => move(i, -1)} disabled={i === 0} aria-label="Move {o.label} up">↑</button>
-						<button type="button" class="icon" onclick={() => move(i, 1)} disabled={i === options.length - 1} aria-label="Move {o.label} down">↓</button>
-						<button type="button" class="icon danger" onclick={() => edit({ action: 'delete', id: o.id })} aria-label="Remove {o.label} from the list">✕</button>
+						<button type="button" class="icon" onclick={() => move(i, -1)} disabled={i === 0} aria-label={t('plan.orderMoveUp', { label: o.label })}>↑</button>
+						<button type="button" class="icon" onclick={() => move(i, 1)} disabled={i === options.length - 1} aria-label={t('plan.orderMoveDown', { label: o.label })}>↓</button>
+						<button type="button" class="icon danger" onclick={() => edit({ action: 'delete', id: o.id })} aria-label={t('plan.orderRemove', { label: o.label })}>✕</button>
 					</li>
 				{/each}
 			</ul>
 			<form class="add" onsubmit={addOption}>
-				<label class="visually-hidden" for="ord-new">New order name</label>
-				<input id="ord-new" bind:value={newLabel} maxlength="80" placeholder="New order, e.g. Return in 2 weeks" />
-				<label class="visually-hidden" for="ord-new-cpt">New order CPT code (optional)</label>
+				<label class="visually-hidden" for="ord-new">{t('plan.orderNewName')}</label>
+				<input id="ord-new" bind:value={newLabel} maxlength="80" placeholder={t('plan.orderNewPlaceholder')} />
+				<label class="visually-hidden" for="ord-new-cpt">{t('plan.orderNewCpt')}</label>
 				<input id="ord-new-cpt" class="cpt" bind:value={newCpt} maxlength="5" inputmode="numeric" placeholder="CPT" />
-				<button type="submit">Add order</button>
+				<button type="submit">{t('plan.orderAdd')}</button>
 			</form>
 			{#if editError}<p class="error" role="alert">{editError}</p>{/if}
 		</div>
 	{/if}
 
 	<fieldset class="list">
-		<legend class="visually-hidden">Orders for the next visit</legend>
+		<legend class="visually-hidden">{t('plan.ordersLegend')}</legend>
 		{#each options as o (o.id)}
 			<label class="check">
 				<input type="checkbox" checked={checked.includes(o.id)} onchange={(e) => toggle(o.id, e.currentTarget.checked)} />
@@ -161,19 +163,19 @@
 		{#each orphans as d (d.optionId)}
 			<label class="check">
 				<input type="checkbox" checked={checked.includes(d.optionId!)} onchange={(e) => toggle(d.optionId!, e.currentTarget.checked)} />
-				<span>{d.label} <em>(no longer in the list)</em></span>
+				<span>{d.label} <em>{t('plan.orderNoLongerInList')}</em></span>
 				{#if d.cpt}<span class="cptcode">{d.cpt}</span>{/if}
 			</label>
 		{/each}
-		{#if !options.length && !orphans.length}<p class="help">The orders list is empty.{#if canEdit} Use Edit list to add orders.{/if}</p>{/if}
+		{#if !options.length && !orphans.length}<p class="help">{canEdit ? t('plan.ordersEmptyCanEdit') : t('plan.ordersEmpty')}</p>{/if}
 	</fieldset>
 
-	<label class="plan-label" for="orders-plan">Plan / return to clinic</label>
+	<label class="plan-label" for="orders-plan">{t('plan.ordersPlanLabel')}</label>
 	<textarea
 		id="orders-plan"
 		rows="3"
 		maxlength="4000"
-		placeholder="e.g. RTC 6 months for dilated exam"
+		placeholder={t('plan.ordersPlanPlaceholder')}
 		bind:value={planText}
 		oninput={() => schedule(600)}
 	></textarea>

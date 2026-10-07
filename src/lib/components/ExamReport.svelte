@@ -1,19 +1,27 @@
 <script lang="ts">
-	import { buildReport } from '#lib/exam/report.ts';
+	import { buildReport, type ReportRow, type ReportSection } from '#lib/exam/report.ts';
 	import type { PrintableEncounter, Practice } from '#lib/exam/types.ts';
 	import { historyReport } from '#lib/exam/sections/history.ts';
 	import ReportPlan from './report/ReportPlan.svelte';
 	import ReportCodes from './report/ReportCodes.svelte';
 	import ReportSignature from './report/ReportSignature.svelte';
 	import { allergyStatusText, issueLine, summarizeFamily, summarizeSocial, visibleIssues } from '#lib/history/summary.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let { item, practice, generatedOn }: { item: PrintableEncounter; practice: Practice; generatedOn: string } = $props();
+
+	// Headings and labels in the reader's language (D48); recorded findings print exactly as entered.
+	const { t } = useI18n();
+	const sectionTitle = (s: ReportSection) => (s.titleText ? t(s.titleText.key, s.titleText.params) : s.title);
+	const rowLabel = (r: ReportRow) => (r.labelText ? t(r.labelText.key, r.labelText.params) : r.label);
 
 	const sections = $derived(buildReport(item.findings));
 	const p = $derived(item.patient);
 	const e = $derived(item.encounter);
 
 	// Drawings (spec §13.4): the latest saved drawing prints with its section; none means nothing.
+	// The English titles match the report sections; DRAWING_TITLE_KEY is what the reader sees.
 	const DRAWING_TITLES: Record<string, string> = {
 		HPI: 'History of present illness',
 		EXT: 'External',
@@ -22,6 +30,15 @@
 		RETINA: 'Retina',
 		IMPPLAN: 'Impression/Plan'
 	};
+	const DRAWING_TITLE_KEY: Record<string, MessageKey> = {
+		HPI: 'report.drawingHpi',
+		EXT: 'report.sectionExternal',
+		ANTSEG: 'report.sectionAnteriorSegment',
+		NEURO: 'report.drawingNeuro',
+		RETINA: 'report.sectionRetina',
+		IMPPLAN: 'report.impressionPlan'
+	};
+	const drawingTitle = (zone: string) => (DRAWING_TITLE_KEY[zone] ? t(DRAWING_TITLE_KEY[zone]) : zone);
 	const drawn = $derived(item.drawingZones ?? []);
 	const drawingIn = (title: string) => drawn.find((z) => DRAWING_TITLES[z] === title);
 	/** Drawn zones whose section has no recorded findings still print, after the sections. */
@@ -33,19 +50,28 @@
 	const historyBlocks = $derived.by(() => {
 		const h = item.history;
 		if (!h) return [];
-		const lines = (t: Parameters<typeof visibleIssues>[1]) => visibleIssues(h.issues, t).map((i) => issueLine(i) + (i.active ? '' : ' (inactive)'));
+		const lines = (type: Parameters<typeof visibleIssues>[1]) =>
+			visibleIssues(h.issues, type).map((i) => (i.active ? issueLine(i) : t('report.historyInactive', { line: issueLine(i) })));
 		const fh = summarizeFamily(h.family);
-		const meds = [...visibleIssues(h.issues, 'MED').map(issueLine), ...visibleIssues(h.issues, 'EYEMED').map((i) => `${issueLine(i)} (eye)`)];
+		const meds = [
+			...visibleIssues(h.issues, 'MED').map(issueLine),
+			...visibleIssues(h.issues, 'EYEMED').map((i) => t('report.historyEyeMed', { line: issueLine(i) }))
+		];
 		const social = summarizeSocial(h.social);
+		const none = t('report.historyNone');
 		const blocks = [
-			{ title: 'POH', lines: lines('POH'), empty: 'None' },
-			{ title: 'Eye surgery', lines: lines('POS'), empty: 'None' },
-			{ title: 'PMH', lines: lines('PMH'), empty: 'None' },
-			{ title: 'Medication', lines: meds, empty: 'None' },
-			{ title: 'Surgery', lines: lines('SURG'), empty: 'None' },
-			{ title: 'Allergy', lines: lines('ALLERGY'), empty: allergyStatusText(h.allergyStatus) },
-			{ title: 'Social', lines: social, empty: 'Not documented' },
-			{ title: 'FH', lines: fh.state === 'positive' ? fh.lines : [], empty: fh.state === 'negative' ? 'Negative' : 'Not recorded' }
+			{ title: t('report.historyPoh'), lines: lines('POH'), empty: none },
+			{ title: t('report.historyEyeSurgery'), lines: lines('POS'), empty: none },
+			{ title: t('report.historyPmh'), lines: lines('PMH'), empty: none },
+			{ title: t('report.historyMedication'), lines: meds, empty: none },
+			{ title: t('report.historySurgery'), lines: lines('SURG'), empty: none },
+			{ title: t('report.historyAllergy'), lines: lines('ALLERGY'), empty: allergyStatusText(h.allergyStatus) },
+			{ title: t('report.historySocial'), lines: social, empty: t('report.historyNotDocumented') },
+			{
+				title: t('report.historyFh'),
+				lines: fh.state === 'positive' ? fh.lines : [],
+				empty: fh.state === 'negative' ? t('report.historyNegative') : t('report.historyNotRecorded')
+			}
 		];
 		const anything = h.issues.length > 0 || fh.state !== 'unrecorded' || social.length > 0 || h.allergyStatus.kind !== 'unknown';
 		return anything ? blocks : [];
@@ -56,7 +82,7 @@
 {#snippet pmsfh()}
 	{#if history}
 		<section class="pmsfh">
-			<h2>Past history</h2>
+			<h2>{t('report.pastHistory')}</h2>
 			{#if historyBlocks.length}
 				<div class="cols">
 					{#each historyBlocks as b (b.title)}
@@ -71,7 +97,7 @@
 					{/each}
 				</div>
 			{:else}
-				<p class="empty">No past history recorded.</p>
+				<p class="empty">{t('report.noPastHistory')}</p>
 			{/if}
 		</section>
 	{/if}
@@ -79,63 +105,63 @@
 
 {#snippet drawing(zone: string)}
 	<figure class="drawing">
-		<img src={drawingUrl(zone)} width="324" height="180" alt="{DRAWING_TITLES[zone] ?? zone} drawing, OD on the left" />
+		<img src={drawingUrl(zone)} width="324" height="180" alt={t('report.drawingAlt', { title: drawingTitle(zone) })} />
 	</figure>
 {/snippet}
 
 <!-- One encounter on paper. Colours are fixed (paper is white in every theme). -->
-<article class="report" aria-label="Exam report for {p.legalName}, {e.date}">
+<article class="report" aria-label={t('report.ariaLabel', { name: p.legalName, date: e.date })}>
 	<header>
 		<div class="practice">
 			<strong>{practice.name}</strong>
 			{#if practice.address}<span>{practice.address}</span>{/if}
 			<span>
-				{#if practice.phone}Phone {practice.phone}{/if}{#if practice.phone && practice.fax}&ensp;·&ensp;{/if}{#if practice.fax}Fax {practice.fax}{/if}
+				{#if practice.phone}{t('report.practicePhone', { phone: practice.phone })}{/if}{#if practice.phone && practice.fax}&ensp;·&ensp;{/if}{#if practice.fax}{t('report.practiceFax', { fax: practice.fax })}{/if}
 			</span>
 		</div>
 		<dl class="patient">
-			<dt>Patient</dt>
+			<dt>{t('report.patient')}</dt>
 			<dd>
 				<strong>{p.legalName}</strong>{#if p.preferredName}&nbsp;(&ldquo;{p.preferredName}&rdquo;){/if}
 			</dd>
-			<dt>DOB</dt>
-			<dd>{p.dob} ({p.age} y)</dd>
-			<dt>MRN</dt>
+			<dt>{t('report.dob')}</dt>
+			<dd>{t('report.dobAge', { dob: p.dob, age: p.age })}</dd>
+			<dt>{t('report.mrn')}</dt>
 			<dd>{p.mrn}</dd>
-			<dt>Visit</dt>
+			<dt>{t('report.visit')}</dt>
 			<dd>{e.date} · {e.visitType}</dd>
-			<dt>Provider</dt>
+			<dt>{t('report.provider')}</dt>
 			<dd>{e.provider}</dd>
 			{#if e.technician}
-				<dt>Technician</dt>
+				<dt>{t('report.technician')}</dt>
 				<dd>{e.technician}</dd>
 			{/if}
 		</dl>
 	</header>
 
-	<h1>Eye examination</h1>
+	<h1>{t('report.heading')}</h1>
 	<!-- Always printed: "Not recorded" must never be mistaken for "no allergies". -->
-	<p class="allergies" class:listed={p.allergyStatus.kind === 'listed'}><strong>Allergies:</strong> {allergyStatusText(p.allergyStatus)}</p>
+	<p class="allergies" class:listed={p.allergyStatus.kind === 'listed'}><strong>{t('report.allergiesLabel')}</strong> {allergyStatusText(p.allergyStatus)}</p>
 
 	{#if hpiCount === 0}{@render pmsfh()}{/if}
 	{#each sections as s, i (s.title)}
 		<section>
-			<h2>{s.title}</h2>
+			<h2>{sectionTitle(s)}</h2>
 			{#if s.summary}<p class="summary">{s.summary}</p>{/if}
 			{#if s.rows.length}
 			<table>
 				<thead>
-					<tr><th scope="col" class="od">OD (right)</th><th scope="col" class="label"><span class="visually-hidden">Finding</span></th><th scope="col">OS (left)</th></tr>
+					<tr><th scope="col" class="od">{t('report.odRight')}</th><th scope="col" class="label"><span class="visually-hidden">{t('report.finding')}</span></th><th scope="col">{t('report.osLeft')}</th></tr>
 				</thead>
 				<tbody>
 					{#each s.rows as r (r.label)}
 						<tr>
 							{#if !r.od && !r.os}
 								<!-- Binocular measures (e.g. "NPC: 5 cm") carry their value in the label. -->
-								<th scope="row" colspan="3" class="label">{r.label}</th>
+								<th scope="row" colspan="3" class="label">{rowLabel(r)}</th>
 							{:else}
 								<td class="od">{r.od}</td>
-								<th scope="row" class="label">{r.label}</th>
+								<th scope="row" class="label">{rowLabel(r)}</th>
 								<td>{r.os}</td>
 							{/if}
 						</tr>
@@ -153,23 +179,23 @@
 					</tbody>
 				</table>
 			{/if}
-			{#if s.comments}<p class="comments"><strong>Comments:</strong> {s.comments}</p>{/if}
+			{#if s.comments}<p class="comments"><strong>{t('report.commentsLabel')}</strong> {s.comments}</p>{/if}
 			{#if drawingIn(s.title)}{@render drawing(drawingIn(s.title)!)}{/if}
 		</section>
 		{#if i === hpiCount - 1}{@render pmsfh()}{/if}
 	{:else}
-		<p class="none">No exam findings recorded for this visit.</p>
+		<p class="none">{t('report.noFindings')}</p>
 	{/each}
 	{#each drawnOnly.filter((z) => z !== 'IMPPLAN') as z (z)}
 		<section>
-			<h2>{DRAWING_TITLES[z] ?? z}</h2>
+			<h2>{drawingTitle(z)}</h2>
 			{@render drawing(z)}
 		</section>
 	{/each}
 	<ReportPlan plan={item.plan} />
 	{#if drawn.includes('IMPPLAN')}
 		<section>
-			<h2>Impression/Plan drawing</h2>
+			<h2>{t('report.impressionPlanDrawing')}</h2>
 			{@render drawing('IMPPLAN')}
 		</section>
 	{/if}
@@ -177,7 +203,7 @@
 
 	<footer>
 		<ReportSignature provider={e.provider} signature={item.signature} />
-		<div class="generated">Generated {generatedOn} · OpenVision</div>
+		<div class="generated">{t('report.generated', { date: generatedOn })}</div>
 	</footer>
 </article>
 

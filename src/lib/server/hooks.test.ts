@@ -123,6 +123,25 @@ describe('hooks gate', () => {
 		expect((await run('/settings/me', { token })).res?.status).toBe(200);
 		db.prepare('UPDATE users SET must_change_password = 0 WHERE id = 2').run();
 	});
+
+	it('sets locals.locale and the html lang/dir of the page (D48)', async () => {
+		const db = getDb();
+		const token = createSession(db, 1);
+		db.prepare("INSERT INTO user_prefs (user_id, key, value) VALUES (1, 'locale', 'es') ON CONFLICT (user_id, key) DO UPDATE SET value = 'es'").run();
+		const { ev } = event('/', { token });
+		let html = '';
+		await handle({
+			event: ev,
+			resolve: async (e, opts) => {
+				html = (await opts?.transformPageChunk?.({ html: '<html lang="en"><body></body></html>', done: true })) ?? '';
+				return new Response(html, { status: 200 });
+			}
+		});
+		expect(ev.locals.locale).toBe('es');
+		expect(html).toBe('<html lang="es" dir="ltr"><body></body></html>');
+		db.prepare("DELETE FROM user_prefs WHERE user_id = 1 AND key = 'locale'").run();
+		expect((await run('/login')).locals?.locale).toBe('en');
+	});
 });
 
 describe('settings routes check roles on the server', () => {

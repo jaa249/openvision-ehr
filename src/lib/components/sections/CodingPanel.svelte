@@ -4,7 +4,7 @@
 	// Spec: docs/spec/BEHAVIOR.md §11.1-11.4 with FIXes, §9.4 (92060), decision D7 (suggestions only,
 	// always with the reasons; the provider chooses). Nothing is switched on for the provider.
 	import { onMount } from 'svelte';
-	import { VISIT_MODIFIERS, type Family } from '#lib/coding/codes.ts';
+	import { MODIFIER_HELP_KEY, MODIFIER_LABEL_KEY, VISIT_MODIFIERS, type Family } from '#lib/coding/codes.ts';
 	import { buildCoding } from '#lib/coding/lines.ts';
 	import { splitCodes, suggestVisit } from '#lib/coding/visit.ts';
 	import { EMPTY_CODING_STATE, type CodingResponse, type CodingState, type TestPerformed } from '#lib/coding/types.ts';
@@ -15,8 +15,10 @@
 	import VisitCodeCard from './coding/VisitCodeCard.svelte';
 	import TestsCard from './coding/TestsCard.svelte';
 	import SummaryCard from './coding/SummaryCard.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 
 	let { context, findings }: PanelProps = $props();
+	const { t } = useI18n();
 
 	// svelte-ignore state_referenced_locally
 	const base = `/api/patients/${context.patientId}/encounters/${context.encounterId}`;
@@ -42,7 +44,7 @@
 			data = (await res.json()) as CodingResponse;
 			coding = data.state;
 		} catch (e) {
-			loadError = `Could not load codes: ${e instanceof Error ? e.message : String(e)}`;
+			loadError = t('codes.loadFailed', { error: e instanceof Error ? e.message : String(e) });
 		}
 		// The Imp/Plan endpoint may not exist yet in this build: coding still works, without diagnoses or tests.
 		try {
@@ -51,10 +53,10 @@
 				plan = (await res.json()) as PlanData;
 				planNote = null;
 			} else {
-				planNote = res.status === 404 ? 'Impression / Plan is not available yet, so there are no diagnoses or tests to code.' : `Impression / Plan could not be loaded (${res.status}).`;
+				planNote = res.status === 404 ? t('codes.planNotAvailable') : t('codes.planLoadFailedStatus', { status: res.status });
 			}
 		} catch {
-			planNote = 'Impression / Plan could not be loaded. Check the connection.';
+			planNote = t('codes.planLoadFailedConnection');
 		}
 	}
 
@@ -64,14 +66,15 @@
 	const items = $derived(plan?.items ?? []);
 	const coded = $derived(items.filter((i) => splitCodes(i.codes).length > 0));
 	const sensorimotor = $derived(sensorimotorSuggested(findings));
-	const suggestion = $derived(data ? suggestVisit({ findings, items, orders: plan?.orders ?? [], patient: data.patient }) : null);
+	const suggestion = $derived(data ? suggestVisit({ findings, items, orders: plan?.orders ?? [], patient: data.patient }, t) : null);
 	const summary = $derived(
 		suggestion
 			? buildCoding({
 					state: coding,
 					suggestedCode: coding.family === 'eye' ? suggestion.code : '',
 					items: items.map((i) => ({ id: i.id, title: i.title, codes: i.codes })),
-					sensorimotor
+					sensorimotor,
+					t
 				})
 			: null
 	);
@@ -93,34 +96,31 @@
 	}
 
 	const saveLabel = $derived.by(() => {
-		if (saver.status === 'error') return `Not saved: ${saver.lastError ?? 'error'}`;
-		if (saver.showSaving) return 'Saving…';
-		if (saver.status === 'saved') return 'Saved';
+		if (saver.status === 'error') return saver.lastError ? t('codes.notSaved', { error: saver.lastError }) : t('codes.notSavedUnknown');
+		if (saver.showSaving) return t('codes.saving');
+		if (saver.status === 'saved') return t('codes.saved');
 		return '';
 	});
 </script>
 
 <section class="coding" aria-labelledby="coding-title">
 	<div class="head">
-		<h2 id="coding-title">Codes</h2>
+		<h2 id="coding-title">{t('codes.heading')}</h2>
 		<span class="save" class:error={saver.status === 'error'} role="status" aria-live="polite">{saveLabel}</span>
 	</div>
 
 	{#if loadError}
 		<p class="banner error" role="alert">
 			{loadError}
-			<button type="button" onclick={load}>Retry</button>
+			<button type="button" onclick={load}>{t('codes.retry')}</button>
 		</p>
 	{:else if !data || !suggestion || !summary}
-		<p class="banner" role="status">Loading codes…</p>
+		<p class="banner" role="status">{t('codes.loadingCodes')}</p>
 	{:else}
 		{#if !canEdit}
-			<p class="banner">You can view the codes. Only a provider or admin can change them.</p>
+			<p class="banner">{t('codes.viewOnly')}</p>
 		{/if}
-		<p class="banner subtle">
-			Suggested codes with their reasons, to copy into your billing system. You choose; OpenVision does not create bills. Chosen codes print
-			on the exam report.
-		</p>
+		<p class="banner subtle">{t('codes.intro')}</p>
 		{#if planNote}<p class="banner warn" role="status">{planNote}</p>{/if}
 
 		<div class="cards">
@@ -135,25 +135,25 @@
 
 			<div class="stack">
 				<div class="panel" role="group" aria-labelledby="mod-title">
-					<div class="card-head"><h3 id="mod-title">Visit modifiers</h3></div>
+					<div class="card-head"><h3 id="mod-title">{t('codes.modifiersTitle')}</h3></div>
 					<ul class="mods">
 						{#each VISIT_MODIFIERS as m (m.code)}
 							{@const on = coding.modifiers.includes(m.code)}
 							<li>
 								<button type="button" class="toggle" aria-pressed={on} aria-describedby="mod-help-{m.code}" {disabled} onclick={() => toggleModifier(m.code)}>
 									<span class="tcode">{m.code}</span>
-									<span>{m.label}</span>
-									<span class="tstate">{on ? 'On' : 'Off'}</span>
+									<span>{t(MODIFIER_LABEL_KEY[m.code])}</span>
+									<span class="tstate">{on ? t('codes.on') : t('codes.off')}</span>
 								</button>
-								<p id="mod-help-{m.code}" class="note">{m.help}</p>
+								<p id="mod-help-{m.code}" class="note">{t(MODIFIER_HELP_KEY[m.code])}</p>
 							</li>
 						{/each}
 					</ul>
 				</div>
 
 				<div class="panel" role="group" aria-labelledby="just-title">
-					<div class="card-head"><h3 id="just-title">Visit justifiers</h3></div>
-					<p class="note pad">One per coded impression item, all on by default. Each points the visit code at that item's diagnoses.</p>
+					<div class="card-head"><h3 id="just-title">{t('codes.justifiersTitle')}</h3></div>
+					<p class="note pad">{t('codes.justifiersHelp')}</p>
 					{#if coded.length}
 						<ul class="justs">
 							{#each coded as item (item.id)}
@@ -162,17 +162,22 @@
 									<button type="button" class="toggle" aria-pressed={on} {disabled} onclick={() => toggleJustifier(item.id)}>
 										<span class="tcode">{item.seq}</span>
 										<span class="jtext">{item.title}<span class="jcode">{splitCodes(item.codes).join(', ')}</span></span>
-										<span class="tstate">{on ? 'On' : 'Off'}</span>
+										<span class="tstate">{on ? t('codes.on') : t('codes.off')}</span>
 									</button>
 								</li>
 							{/each}
 						</ul>
 					{:else}
-						<p class="note pad">No coded impression items yet.</p>
+						<p class="note pad">{t('codes.noCodedItems')}</p>
 					{/if}
 					{#if items.length > coded.length}
 						<p class="note pad warn-text">
-							Not coded: {items.filter((i) => !coded.includes(i)).map((i) => i.title || 'untitled').join('; ')}. Add diagnosis codes in Imp / Plan.
+							{t('codes.notCoded', {
+								titles: items
+									.filter((i) => !coded.includes(i))
+									.map((i) => i.title || t('codes.untitled'))
+									.join('; ')
+							})}
 						</p>
 					{/if}
 				</div>

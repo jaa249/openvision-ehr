@@ -1,6 +1,8 @@
 // Per-user layout prefs (spec §1.7 with FIX): the whitelist of keys, their types and the
 // new-user defaults. Shared by the server (validation, storage) and the browser helper.
 // Booleans are real booleans in the API and '1'/'0' in the database, never translated words.
+import { LOCALE_CODES, type LocaleCode } from '#lib/i18n/locales.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 interface BoolDef {
 	type: 'boolean';
@@ -22,6 +24,15 @@ export const EXAM_MODE_LABEL: Record<ExamMode, string> = {
 	priors: 'Prior visits',
 	draw: 'Drawing'
 };
+/** What the screen shows for each mode (D48); EXAM_MODE_LABEL stays the English name. */
+export const EXAM_MODE_LABEL_KEY: Record<ExamMode, MessageKey> = {
+	text: 'settings.examModeText',
+	qp: 'settings.examModeQp',
+	priors: 'settings.examModePriors',
+	draw: 'settings.examModeDraw'
+};
+/** The user's language (D48): 'practice' follows the practice default, else a language code. */
+export const LOCALE_PREF_VALUES: readonly ('practice' | LocaleCode)[] = ['practice', ...LOCALE_CODES];
 /** Must match COVER_ZONES in #lib/exam/sections/neuro.ts (checked by a test). */
 export const COVER_ZONE_KEYS = ['SCDIST', 'CCDIST', 'SCNEAR', 'CCNEAR'] as const;
 
@@ -41,10 +52,28 @@ export const PREF_DEFS = {
 	'cover.zone': oneOf(COVER_ZONE_KEYS, 'CCDIST', 'Cover test tab'),
 	tooltips: bool(true, 'Tooltips on'),
 	'pmsfh.open': bool(true, 'History slide-out open'),
-	'retina.wide': bool(true, 'Fundus text grid wide')
+	'retina.wide': bool(true, 'Fundus text grid wide'),
+	locale: oneOf(LOCALE_PREF_VALUES, 'practice', 'Language')
 } as const;
 
 export type PrefKey = keyof typeof PREF_DEFS;
+
+/** Translated label of each pref (D48); `label` in PREF_DEFS stays the English name. A test checks every key has one. */
+export const PREF_LABEL_KEY: Record<PrefKey, MessageKey> = {
+	'exam.mode': 'settings.defaultPanel',
+	cylinder: 'settings.cylinderConvention',
+	'refraction.W': 'settings.prefGlassesPanel',
+	'refraction.MR': 'settings.prefManifestPanel',
+	'refraction.AR': 'settings.prefAutorefractionPanel',
+	'refraction.CTL': 'settings.prefContactLensPanel',
+	'refraction.wide': 'settings.prefRxDetails',
+	'cover.open': 'settings.prefCoverTestOpen',
+	'cover.zone': 'settings.prefCoverTestTab',
+	tooltips: 'settings.prefTooltips',
+	'pmsfh.open': 'settings.prefHistorySlideOut',
+	'retina.wide': 'settings.prefFundusGridWide',
+	locale: 'common.language'
+};
 type DefOf<K extends PrefKey> = (typeof PREF_DEFS)[K];
 export type PrefValue<K extends PrefKey> = DefOf<K> extends { type: 'boolean' } ? boolean : DefOf<K> extends EnumDef<infer V> ? V : never;
 export type Prefs = { [K in PrefKey]: PrefValue<K> };

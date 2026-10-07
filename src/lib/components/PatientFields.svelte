@@ -1,5 +1,6 @@
 <script lang="ts">
 	// Demographic fields shared by "New patient" and the chart's edit form.
+	import { useI18n } from '#lib/i18n/context.ts';
 	type Values = { legalFirst?: string; legalLast?: string; preferredName?: string; dob?: string; mrn?: string };
 	let {
 		values = {},
@@ -7,11 +8,12 @@
 		today,
 		mrnRequired = false
 	}: { values?: Values; errors?: Record<string, string>; today: string; mrnRequired?: boolean } = $props();
+	const { t } = useI18n();
 </script>
 
 <div class="grid">
 	<div class="field">
-		<label for="legalFirst">Legal first name</label>
+		<label for="legalFirst">{t('patients.legalFirstName')}</label>
 		<input
 			id="legalFirst"
 			name="legalFirst"
@@ -25,7 +27,7 @@
 		{#if errors.legalFirst}<p class="err" id="legalFirst-err">{errors.legalFirst}</p>{/if}
 	</div>
 	<div class="field">
-		<label for="legalLast">Legal last name</label>
+		<label for="legalLast">{t('patients.legalLastName')}</label>
 		<input
 			id="legalLast"
 			name="legalLast"
@@ -39,7 +41,7 @@
 		{#if errors.legalLast}<p class="err" id="legalLast-err">{errors.legalLast}</p>{/if}
 	</div>
 	<div class="field">
-		<label for="preferredName">Preferred name <span class="opt">(optional)</span></label>
+		<label for="preferredName">{t('patients.preferredName')} <span class="opt">{t('common.optionalTag')}</span></label>
 		<input
 			id="preferredName"
 			name="preferredName"
@@ -49,11 +51,11 @@
 			aria-invalid={errors.preferredName ? 'true' : undefined}
 			aria-describedby="preferredName-hint{errors.preferredName ? ' preferredName-err' : ''}"
 		/>
-		<p class="hint" id="preferredName-hint">Shown on screen; reports use the legal name.</p>
+		<p class="hint" id="preferredName-hint">{t('patients.preferredNameHint')}</p>
 		{#if errors.preferredName}<p class="err" id="preferredName-err">{errors.preferredName}</p>{/if}
 	</div>
 	<div class="field">
-		<label for="dob">Date of birth</label>
+		<label for="dob">{t('patients.dateOfBirth')}</label>
 		<input
 			id="dob"
 			name="dob"
@@ -68,7 +70,7 @@
 		{#if errors.dob}<p class="err" id="dob-err">{errors.dob}</p>{/if}
 	</div>
 	<div class="field">
-		<label for="mrn">MRN {#if !mrnRequired}<span class="opt">(optional)</span>{/if}</label>
+		<label for="mrn">{t('patients.mrn')} {#if !mrnRequired}<span class="opt">{t('common.optionalTag')}</span>{/if}</label>
 		<input
 			id="mrn"
 			name="mrn"
@@ -79,7 +81,7 @@
 			aria-invalid={errors.mrn ? 'true' : undefined}
 			aria-describedby="mrn-hint{errors.mrn ? ' mrn-err' : ''}"
 		/>
-		<p class="hint" id="mrn-hint">{mrnRequired ? 'Letters, numbers and hyphens; must be unique.' : 'Leave blank to assign the next 6-digit number.'}</p>
+		<p class="hint" id="mrn-hint">{mrnRequired ? t('patients.mrnHintEdit') : t('patients.mrnHintNew')}</p>
 		{#if errors.mrn}<p class="err" id="mrn-err">{errors.mrn}</p>{/if}
 	</div>
 </div>

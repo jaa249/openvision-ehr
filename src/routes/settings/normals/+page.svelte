@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const { t } = useI18n();
 	const keep = (confirmText?: string) => ({ cancel }: { cancel: () => void }) => {
 		if (confirmText && !confirm(confirmText)) cancel();
 		return async ({ update }: { update: (o?: { reset?: boolean }) => Promise<void> }) => update({ reset: false });
@@ -14,15 +17,16 @@
 	};
 </script>
 
-<svelte:head><title>My normal values · Settings · OpenVision</title></svelte:head>
+<svelte:head><title>{t('settings.normalsTitle')}</title></svelte:head>
 
-<h2>My normal values</h2>
+<h2>{t('settings.normalsHeading')}</h2>
 <p class="lead">
-	What the Normal buttons and the <kbd>D</kbd> shorthand write into an exam, per section. Leave a box blank to have Normal skip that field. Only you
-	use these values.
+	<Msg key="settings.normalsLead">
+		{#snippet shorthand()}<kbd>D</kbd>{/snippet}
+	</Msg>
 </p>
 
-<nav class="jump" aria-label="Sections">
+<nav class="jump" aria-label={t('settings.normalsSections')}>
 	{#each data.sections as s (s.id)}<a href="#sec-{s.id}">{s.label}</a>{/each}
 </nav>
 
@@ -47,25 +51,25 @@
 								aria-invalid={errs[f.id] ? 'true' : undefined}
 								aria-describedby={[errs[f.id] ? `n-${f.id}-err` : '', f.seed !== null && f.seed !== f.value ? `n-${f.id}-hint` : ''].filter(Boolean).join(' ') || undefined}
 							/>
-							{#if f.seed !== null && f.seed !== f.value}<p class="hint" id="n-{f.id}-hint">Starter: {f.seed}</p>{/if}
+							{#if f.seed !== null && f.seed !== f.value}<p class="hint" id="n-{f.id}-hint">{t('settings.normalsStarter', { value: f.seed })}</p>{/if}
 							{#if errs[f.id]}<p class="err" id="n-{f.id}-err">{errs[f.id]}</p>{/if}
 						</div>
 					{/each}
 				</div>
 				<div class="actions">
-					<button type="submit" class="primary">Save {s.label}</button>
-					<button type="submit" formaction="?/reset" formnovalidate>Reset {s.label} to starter values</button>
+					<button type="submit" class="primary">{t('settings.normalsSaveSection', { section: s.label })}</button>
+					<button type="submit" formaction="?/reset" formnovalidate>{t('settings.normalsResetSection', { section: s.label })}</button>
 					{#if form?.section === s.id && form.ok}<p class="saved" role="status">{form.message}</p>{/if}
 				</div>
 			</fieldset>
 		</form>
 	{/each}
 
-	<form method="POST" action="?/reset" use:enhance={keep('Replace ALL your normal values with the starter values?')} class="card">
+	<form method="POST" action="?/reset" use:enhance={keep(t('settings.normalsResetAllConfirm'))} class="card">
 		<input type="hidden" name="section" value="all" />
-		<p class="hint">Start over: every section goes back to the starter values.</p>
+		<p class="hint">{t('settings.normalsResetAllHint')}</p>
 		<div class="actions">
-			<button type="submit" class="danger">Reset all sections to starter values</button>
+			<button type="submit" class="danger">{t('settings.normalsResetAll')}</button>
 			{#if form?.section === 'all' && form.ok}<p class="saved" role="status">{form.message}</p>{/if}
 		</div>
 	</form>

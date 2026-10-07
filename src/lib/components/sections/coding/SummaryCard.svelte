@@ -4,23 +4,31 @@
 	// the practice's billing system, and the chosen ones print on the exam report.
 	import type { CodingSummary } from '#lib/coding/lines.ts';
 	import { codeSetsShort } from '#lib/codesets/index.ts';
+	import { MAX_DX } from '#lib/coding/codes.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let { summary }: { summary: CodingSummary } = $props();
+	const { t } = useI18n();
 
-	const LEVEL = { error: 'Fix', warning: 'Check', suggestion: 'Consider' } as const;
+	const LEVEL: Record<CodingSummary['checks'][number]['level'], MessageKey> = {
+		error: 'codes.levelFix',
+		warning: 'codes.levelCheck',
+		suggestion: 'codes.levelConsider'
+	};
 </script>
 
 <div class="panel wide" role="group" aria-labelledby="summary-title">
 	<div class="card-head">
-		<h3 id="summary-title">Code summary</h3>
+		<h3 id="summary-title">{t('codes.summaryTitle')}</h3>
 	</div>
 
 	<div class="tables">
 		<div class="tbl">
-			<h4>Diagnoses <span class="count">{summary.dx.length} of 12</span></h4>
+			<h4>{t('codes.summaryDiagnoses')} <span class="count">{t('codes.summaryDxCount', { n: summary.dx.length, max: MAX_DX })}</span></h4>
 			{#if summary.dx.length}
 				<table>
-					<thead><tr><th scope="col" class="ptr">Ptr</th><th scope="col" class="code">{codeSetsShort(summary.dx.map((d) => d.code))}</th><th scope="col">Impression</th></tr></thead>
+					<thead><tr><th scope="col" class="ptr">{t('codes.summaryPtr')}</th><th scope="col" class="code">{codeSetsShort(summary.dx.map((d) => d.code))}</th><th scope="col">{t('codes.summaryImpression')}</th></tr></thead>
 					<tbody>
 						{#each summary.dx as d (d.letter)}
 							<tr><td class="ptr">{d.letter}</td><td class="code">{d.code}</td><td>{d.title}</td></tr>
@@ -28,13 +36,13 @@
 					</tbody>
 				</table>
 			{:else}
-				<p class="empty">No coded diagnoses.</p>
+				<p class="empty">{t('codes.summaryNoDx')}</p>
 			{/if}
 		</div>
 		<div class="tbl">
-			<h4>Procedures</h4>
+			<h4>{t('codes.summaryProcedures')}</h4>
 			<table>
-				<thead><tr><th scope="col" class="code">CPT</th><th scope="col">Description</th><th scope="col" class="mod">Mod</th><th scope="col" class="ptr">Ptr</th></tr></thead>
+				<thead><tr><th scope="col" class="code">CPT</th><th scope="col">{t('codes.summaryDescription')}</th><th scope="col" class="mod">{t('codes.summaryMod')}</th><th scope="col" class="ptr">{t('codes.summaryPtr')}</th></tr></thead>
 				<tbody>
 					{#each summary.cpt as l, i (i)}
 						<tr class:over={l.pointers.length > 4}>
@@ -44,7 +52,7 @@
 							<td class="ptr">{l.pointers.join('') || '—'}</td>
 						</tr>
 					{:else}
-						<tr><td colspan="4" class="empty">No procedure lines.</td></tr>
+						<tr><td colspan="4" class="empty">{t('codes.summaryNoProcedures')}</td></tr>
 					{/each}
 				</tbody>
 			</table>
@@ -52,14 +60,14 @@
 	</div>
 
 	{#if summary.checks.length}
-		<ul class="checks" aria-label="Checks">
+		<ul class="checks" aria-label={t('codes.summaryChecks')}>
 			{#each summary.checks as c, i (i)}
-				<li class={c.level}><span class="lvl">{LEVEL[c.level]}</span> {c.message}</li>
+				<li class={c.level}><span class="lvl">{t(LEVEL[c.level])}</span> {c.message}</li>
 			{/each}
 		</ul>
 	{/if}
 
-	<p class="help">Copy these codes into your billing system. Chosen codes also print on the exam report. OpenVision does not create bills.</p>
+	<p class="help">{t('codes.summaryHelp')}</p>
 </div>
 
 <style>

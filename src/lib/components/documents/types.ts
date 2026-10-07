@@ -1,5 +1,6 @@
 // Shared shapes for patient documents (server: src/lib/server/documents.ts; UI: this folder).
 // Spec: docs/spec/BEHAVIOR.md §15.4.
+import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 /** Exam zones that show documents. OTHER holds categories tied to no zone. */
 export const DOC_ZONES = ['EXT', 'ANTSEG', 'RETINA', 'NEURO', 'GLAUCOMA', 'OTHER'] as const;
@@ -12,6 +13,16 @@ export const DOC_ZONE_LABEL: Record<DocZone, string> = {
 	NEURO: 'Neuro',
 	GLAUCOMA: 'Glaucoma',
 	OTHER: 'Other'
+};
+
+/** DOC_ZONE_LABEL in the reader's language (D48); the English above stays for the server and logs. */
+export const DOC_ZONE_LABEL_KEY: Record<DocZone, MessageKey> = {
+	EXT: 'documents.zoneExternal',
+	ANTSEG: 'documents.zoneAnteriorSegment',
+	RETINA: 'documents.zoneRetina',
+	NEURO: 'documents.zoneNeuro',
+	GLAUCOMA: 'documents.zoneGlaucoma',
+	OTHER: 'documents.zoneOther'
 };
 
 /** File types we accept, decided by the file's first bytes (never by its name). */

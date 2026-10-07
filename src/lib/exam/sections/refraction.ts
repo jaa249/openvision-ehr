@@ -8,6 +8,7 @@
 import type { FieldDef } from '../catalog.ts';
 import type { ReportSection } from '../report.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 type EyeSide = 'OD' | 'OS';
 
@@ -138,6 +139,40 @@ export const COL_LABEL: Record<EyeCol | OuCol, string> = {
 	WETTYPE: 'cycloplegic method'
 };
 
+/** Screen text of COL_LABEL (D48), lower case like the English, for "{source} {column} {eye}" labels. */
+export const COL_LABEL_KEY: Record<EyeCol | OuCol, MessageKey> = {
+	SPH: 'sections.rxColSphere',
+	CYL: 'sections.rxColCylinder',
+	AXIS: 'sections.rxColAxis',
+	VA: 'sections.rxColVa',
+	MIDADD: 'sections.rxColMidAdd',
+	ADD: 'sections.rxColAdd',
+	NEARVA: 'sections.rxColNearVa',
+	PRISM: 'sections.rxColPrism',
+	BASE: 'sections.rxColPrismBase',
+	HPD: 'sections.rxColHPrism',
+	HBASE: 'sections.rxColHPrismBase',
+	VPD: 'sections.rxColVPrism',
+	VBASE: 'sections.rxColVPrismBase',
+	SLABOFF: 'sections.rxColSlabOff',
+	VERTEXDIST: 'sections.rxColVertex',
+	MPDD: 'sections.rxColPdDistance',
+	MPDN: 'sections.rxColPdNear',
+	BC: 'sections.rxColBaseCurve',
+	DIAM: 'sections.rxColDiameter',
+	MANUFACTURER: 'sections.rxColManufacturer',
+	SUPPLIER: 'sections.rxColSupplier',
+	BRAND: 'sections.rxColBrand',
+	BPDD: 'sections.rxColBinPdDistance',
+	BPDN: 'sections.rxColBinPdNear',
+	LENS_MATERIAL: 'sections.rxColLensMaterial',
+	LENS_TREATMENTS: 'sections.rxColLensTreatments',
+	RX_TYPE: 'sections.rxColRxType',
+	COMMENTS: 'sections.rxColComments',
+	BALANCED: 'sections.rxColBalanced',
+	WETTYPE: 'sections.rxColWetType'
+};
+
 const MAXLEN: Record<EyeCol | OuCol, number> = {
 	SPH: 10,
 	CYL: 10,
@@ -224,6 +259,8 @@ export const REFRACTION_DEFAULTS: Record<string, string> = {};
 
 /** Stored 0-3 (spec §1.5). */
 export const RX_TYPES = ['Single vision', 'Bifocal', 'Trifocal', 'Progressive'] as const;
+/** Screen labels of RX_TYPES, same order (D48). The stored value is the index. */
+export const RX_TYPE_LABEL_KEY: readonly MessageKey[] = ['sections.rxTypeSingle', 'sections.rxTypeBifocal', 'sections.rxTypeTrifocal', 'sections.rxTypeProgressive'];
 export const LENS_MATERIALS = ['CR-39 plastic', 'Polycarbonate', 'Trivex', 'High-index 1.60', 'High-index 1.67', 'High-index 1.74', 'Glass'];
 export const LENS_TREATMENTS = ['Anti-reflective', 'Scratch-resistant', 'UV protection', 'Photochromic', 'Blue-light filter', 'Tint'];
 export const CTL_MANUFACTURERS = ['Alcon', 'Bausch + Lomb', 'CooperVision', 'Johnson & Johnson Vision'];

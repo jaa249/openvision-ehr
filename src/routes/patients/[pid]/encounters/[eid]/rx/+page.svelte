@@ -1,11 +1,11 @@
 <script lang="ts">
 	// Spectacle / contact lens Rx (spec §12.4). Values come from the exam; small edits here (transpose, CTL details,
 	// quantity, treatments) go into the dispense record (FIX), which is written when the user prints (§12.5 FIX).
+	// Headings and labels are in the reader's language (D48); values, materials and treatments stay as recorded.
 	import { onMount } from 'svelte';
 	import {
 		LENS_MATERIALS,
 		LENS_TREATMENTS,
-		METHOD_LABEL,
 		RX_TYPES,
 		formatAxis,
 		formatPower,
@@ -15,9 +15,14 @@
 		transpose,
 		type RxValues
 	} from '#lib/exam/sections/refraction.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
+	import { METHOD_KEY, RX_TYPE_KEY } from './labels.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	const { t, dateTime, longDate } = useI18n();
 
 	const p = $derived(data.patient);
 	const e = $derived(data.encounter);
@@ -29,9 +34,8 @@
 	let rxType = $state(data.rx.rxType);
 	let comments = $derived(values.COMMENTS ?? '');
 
-	const generatedOn = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-	const longDate = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { dateStyle: 'long' });
-	const title = $derived(`${isCtl ? 'Contact lens' : 'Spectacle'} Rx · ${p.legalName}`);
+	const generatedOn = dateTime(new Date());
+	const title = $derived(isCtl ? t('rx.titleContactLens', { name: p.legalName }) : t('rx.titleSpectacle', { name: p.legalName }));
 
 	const g = (k: string) => values[k] ?? '';
 	function set(k: string, v: string) {
@@ -65,17 +69,17 @@
 	function doTranspose() {
 		let any = false;
 		for (const eye of ['OD', 'OS']) {
-			const t = transpose({ sph: g(`${eye}SPH`), cyl: g(`${eye}CYL`), axis: g(`${eye}AXIS`) });
-			if (!t) continue;
+			const tr = transpose({ sph: g(`${eye}SPH`), cyl: g(`${eye}CYL`), axis: g(`${eye}AXIS`) });
+			if (!tr) continue;
 			any = true;
-			values = { ...values, [`${eye}SPH`]: t.sph, [`${eye}CYL`]: t.cyl, [`${eye}AXIS`]: t.axis };
+			values = { ...values, [`${eye}SPH`]: tr.sph, [`${eye}CYL`]: tr.cyl, [`${eye}AXIS`]: tr.axis };
 		}
-		message = any ? 'Transposed. The printed record keeps these values; the exam is unchanged.' : 'Nothing to transpose (no cylinder).';
+		message = any ? t('rx.transposed') : t('rx.nothingToTranspose');
 	}
 
-	function toggleTreatment(t: string, on: boolean) {
-		const cur = splitList(g('LENS_TREATMENTS')).filter((x) => x !== t);
-		if (on) cur.push(t);
+	function toggleTreatment(treatment: string, on: boolean) {
+		const cur = splitList(g('LENS_TREATMENTS')).filter((x) => x !== treatment);
+		if (on) cur.push(treatment);
 		set('LENS_TREATMENTS', LENS_TREATMENTS.filter((x) => cur.includes(x)).concat(cur.filter((x) => !LENS_TREATMENTS.includes(x))).join('|'));
 	}
 
@@ -85,12 +89,24 @@
 	const showPrism = $derived(prismFilled || data.rx.kind === 'MR' || data.rx.kind === 'AR');
 	const showMid = $derived(rxType === '2' || rxType === '3' || !!(g('ODMIDADD') || g('OSMIDADD')));
 	const showAdd = $derived(rxType !== '0' || !!(g('ODADD') || g('OSADD')));
-	const FIT_KEYS = ['HPD', 'HBASE', 'VPD', 'VBASE', 'SLABOFF', 'VERTEXDIST', 'MPDD', 'MPDN'];
+	const FIT_KEYS = ['HPD', 'HBASE', 'VPD', 'VBASE', 'SLABOFF', 'VERTEXDIST', 'MPDD', 'MPDN'] as const;
+	/** Box labels of the fitting columns ("OD hpd" in English, as before). */
+	const FIT_ARIA: Record<(typeof FIT_KEYS)[number], MessageKey> = {
+		HPD: 'rx.ariaFitHpd',
+		HBASE: 'rx.ariaFitHbase',
+		VPD: 'rx.ariaFitVpd',
+		VBASE: 'rx.ariaFitVbase',
+		SLABOFF: 'rx.ariaFitSlaboff',
+		VERTEXDIST: 'rx.ariaFitVertexdist',
+		MPDD: 'rx.ariaFitMpdd',
+		MPDN: 'rx.ariaFitMpdn'
+	};
 	const hasFitting = $derived(
 		FIT_KEYS.some((c) => g(`OD${c}`) || g(`OS${c}`)) || !!(g('BPDD') || g('BPDN') || g('LENS_MATERIAL') || g('LENS_TREATMENTS'))
 	);
 	let fittingOpen = $state(false);
 	const ctlAdd = $derived(!!(g('ODADD') || g('OSADD')));
+	const eyeSide = (eye: string) => (eye === 'OD' ? t('report.odRight') : t('report.osLeft'));
 
 	// ---------- print = dispense record (§12.5) ----------
 	let saved = $state<{ id: number; printedAt: string; body: string } | null>(null);
@@ -120,7 +136,7 @@
 			return true;
 		} catch (err) {
 			failed = true;
-			message = `Not printed: the dispense record could not be saved (${err instanceof Error ? err.message : err}).`;
+			message = t('rx.notPrinted', { error: err instanceof Error ? err.message : String(err) });
 			return false;
 		}
 	}
@@ -155,10 +171,10 @@
 		};
 	});
 
-	const printedAt = $derived(saved ? new Date(saved.printedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
+	const printedAt = $derived(saved ? dateTime(saved.printedAt) : '');
 </script>
 
-<svelte:head><title>{title} · OpenVision</title></svelte:head>
+<svelte:head><title>{t('rx.pageTitle', { title })}</title></svelte:head>
 
 {#snippet field(k: string, label: string, cls = '')}
 	<input
@@ -173,16 +189,16 @@
 	/>
 {/snippet}
 
-<div class="toolbar" role="toolbar" aria-label="Rx">
-	<a href="/patients/{p.id}/encounters/{e.id}">← Exam</a>
-	<span class="what">{METHOD_LABEL[data.rx.kind]}{data.rx.kind === 'W' ? ` · glasses #${source.slice(1)}` : ''}</span>
-	<a href="/patients/{p.id}/encounters/{e.id}/rx/history">Dispensed history</a>
+<div class="toolbar" role="toolbar" aria-label={t('rx.toolbarLabel')}>
+	<a href="/patients/{p.id}/encounters/{e.id}">{t('rx.backToExam')}</a>
+	<span class="what">{data.rx.kind === 'W' ? t('rx.methodGlassesNumber', { method: t(METHOD_KEY.W), number: source.slice(1) }) : t(METHOD_KEY[data.rx.kind])}</span>
+	<a href="/patients/{p.id}/encounters/{e.id}/rx/history">{t('rx.dispensedHistory')}</a>
 	<span class="spacer"></span>
-	{#if !isCtl}<button type="button" onclick={doTranspose} title="Plus/minus cylinder transpose">± Transpose</button>{/if}
-	<button type="button" class="primary" onclick={printNow} disabled={busy}>Print</button>
+	{#if !isCtl}<button type="button" onclick={doTranspose} title={t('rx.transposeTitle')}>{t('rx.transpose')}</button>{/if}
+	<button type="button" class="primary" onclick={printNow} disabled={busy}>{t('rx.print')}</button>
 </div>
 <p class="msg" class:error={failed} role="status" aria-live="polite">
-	{#if message}{message}{:else if saved}Dispense record saved, printed {printedAt}.{:else}Editing here changes only this Rx, not the exam. Printing saves a dispense record.{/if}
+	{#if message}{message}{:else if saved}{t('rx.savedPrinted', { when: printedAt })}{:else}{t('rx.editingHint')}{/if}
 </p>
 
 <article class="rx" aria-label={title}>
@@ -191,47 +207,47 @@
 			<strong>{data.practice.name}</strong>
 			{#if data.practice.address}<span>{data.practice.address}</span>{/if}
 			<span>
-				{#if data.practice.phone}Phone {data.practice.phone}{/if}{#if data.practice.phone && data.practice.fax}&ensp;·&ensp;{/if}{#if data.practice.fax}Fax {data.practice.fax}{/if}
+				{#if data.practice.phone}{t('report.practicePhone', { phone: data.practice.phone })}{/if}{#if data.practice.phone && data.practice.fax}&ensp;·&ensp;{/if}{#if data.practice.fax}{t('report.practiceFax', { fax: data.practice.fax })}{/if}
 			</span>
 		</div>
 		<dl class="patient">
-			<dt>Patient</dt>
+			<dt>{t('report.patient')}</dt>
 			<dd><strong>{p.legalName}</strong></dd>
-			<dt>DOB</dt>
+			<dt>{t('report.dob')}</dt>
 			<dd>{p.dob}</dd>
-			<dt>Visit</dt>
+			<dt>{t('report.visit')}</dt>
 			<dd>{e.date}</dd>
-			<dt>Provider</dt>
+			<dt>{t('report.provider')}</dt>
 			<dd>{e.provider}</dd>
-			<dt>Generated</dt>
+			<dt>{t('rx.generatedLabel')}</dt>
 			<dd>{generatedOn}</dd>
 		</dl>
 	</header>
 
-	<h1>{isCtl ? 'Contact lens prescription' : 'Spectacle prescription'}</h1>
-	<p class="expires"><strong>Expiration date:</strong> {longDate(data.expires)}</p>
+	<h1>{isCtl ? t('rx.headingContactLens') : t('rx.headingSpectacle')}</h1>
+	<p class="expires"><strong>{t('rx.expirationLabel')}</strong> {longDate(data.expires)}</p>
 
 	{#if !isCtl}
 		<section>
-			<h2>Distance</h2>
+			<h2>{t('rx.distance')}</h2>
 			<table>
 				<thead>
 					<tr>
-						<th scope="col"><span class="visually-hidden">Eye</span></th>
-						<th scope="col">Sphere</th>
-						<th scope="col">Cylinder</th>
-						<th scope="col">Axis</th>
-						{#if showPrism}<th scope="col" class:noprint={!prismFilled}>Prism</th>{/if}
+						<th scope="col"><span class="visually-hidden">{t('rx.colEye')}</span></th>
+						<th scope="col">{t('rx.sphere')}</th>
+						<th scope="col">{t('rx.cylinder')}</th>
+						<th scope="col">{t('rx.axis')}</th>
+						{#if showPrism}<th scope="col" class:noprint={!prismFilled}>{t('rx.colPrism')}</th>{/if}
 					</tr>
 				</thead>
 				<tbody>
 					{#each ['OD', 'OS'] as eye (eye)}
 						<tr>
-							<th scope="row">{eye} ({eye === 'OD' ? 'right' : 'left'})</th>
-							<td>{@render field(`${eye}SPH`, `${eye} sphere`)}</td>
-							<td>{@render field(`${eye}CYL`, `${eye} cylinder`)}</td>
-							<td>{@render field(`${eye}AXIS`, `${eye} axis`)}</td>
-							{#if showPrism}<td class:noprint={!prismFilled}>{@render field(`${eye}PRISM`, `${eye} prism`)}</td>{/if}
+							<th scope="row">{eyeSide(eye)}</th>
+							<td>{@render field(`${eye}SPH`, t('rx.ariaSphere', { eye }))}</td>
+							<td>{@render field(`${eye}CYL`, t('rx.ariaCylinder', { eye }))}</td>
+							<td>{@render field(`${eye}AXIS`, t('rx.ariaAxis', { eye }))}</td>
+							{#if showPrism}<td class:noprint={!prismFilled}>{@render field(`${eye}PRISM`, t('rx.ariaPrism', { eye }))}</td>{/if}
 						</tr>
 					{/each}
 				</tbody>
@@ -239,31 +255,31 @@
 		</section>
 
 		<section>
-			<h2>Lens type</h2>
-			<div class="types" role="radiogroup" aria-label="Lens type">
+			<h2>{t('rx.lensType')}</h2>
+			<div class="types" role="radiogroup" aria-label={t('rx.lensType')}>
 				{#each RX_TYPES as label, i (label)}
 					<label class="radio" class:chosen={rxType === String(i)}>
 						<input type="radio" name="rxtype" value={String(i)} checked={rxType === String(i)} onchange={() => (rxType = String(i))} />
-						{label}
+						{t(RX_TYPE_KEY[label])}
 					</label>
 				{/each}
-				{#if rxType === ''}<span class="none-type">Not specified</span>{/if}
+				{#if rxType === ''}<span class="none-type">{t('rx.notSpecified')}</span>{/if}
 			</div>
 			{#if showAdd || showMid}
 				<table class="adds">
 					<thead>
 						<tr>
-							<th scope="col"><span class="visually-hidden">Eye</span></th>
-							{#if showMid}<th scope="col">Mid ADD</th>{/if}
-							{#if showAdd}<th scope="col">Near ADD</th>{/if}
+							<th scope="col"><span class="visually-hidden">{t('rx.colEye')}</span></th>
+							{#if showMid}<th scope="col">{t('rx.colMidAdd')}</th>{/if}
+							{#if showAdd}<th scope="col">{t('rx.nearAdd')}</th>{/if}
 						</tr>
 					</thead>
 					<tbody>
 						{#each ['OD', 'OS'] as eye (eye)}
 							<tr>
 								<th scope="row">{eye}</th>
-								{#if showMid}<td>{@render field(`${eye}MIDADD`, `${eye} mid ADD`)}</td>{/if}
-								{#if showAdd}<td>{@render field(`${eye}ADD`, `${eye} near ADD`)}</td>{/if}
+								{#if showMid}<td>{@render field(`${eye}MIDADD`, t('rx.ariaMidAdd', { eye }))}</td>{/if}
+								{#if showAdd}<td>{@render field(`${eye}ADD`, t('rx.ariaNearAdd', { eye }))}</td>{/if}
 							</tr>
 						{/each}
 					</tbody>
@@ -273,36 +289,40 @@
 
 		<section class="fitting" class:empty={!hasFitting}>
 			<details open={hasFitting || fittingOpen} ontoggle={(ev) => (fittingOpen = ev.currentTarget.open)}>
-				<summary><h2>Fitting data</h2></summary>
+				<summary><h2>{t('rx.fittingData')}</h2></summary>
 				<table>
 					<thead>
 						<tr>
-							<th scope="col"><span class="visually-hidden">Eye</span></th>
-							<th scope="col">H prism</th>
-							<th scope="col">Base</th>
-							<th scope="col">V prism</th>
-							<th scope="col">Base</th>
-							<th scope="col">Slab-off</th>
-							<th scope="col">Vertex</th>
-							<th scope="col">PD dist</th>
-							<th scope="col">PD near</th>
+							<th scope="col"><span class="visually-hidden">{t('rx.colEye')}</span></th>
+							<th scope="col">{t('rx.hPrism')}</th>
+							<th scope="col">{t('rx.base')}</th>
+							<th scope="col">{t('rx.vPrism')}</th>
+							<th scope="col">{t('rx.base')}</th>
+							<th scope="col">{t('rx.slabOff')}</th>
+							<th scope="col">{t('rx.vertex')}</th>
+							<th scope="col">{t('rx.pdDist')}</th>
+							<th scope="col">{t('rx.pdNear')}</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each ['OD', 'OS'] as eye (eye)}
 							<tr>
 								<th scope="row">{eye}</th>
-								{#each FIT_KEYS as c (c)}<td>{@render field(`${eye}${c}`, `${eye} ${c.toLowerCase()}`, 'narrow')}</td>{/each}
+								{#each FIT_KEYS as c (c)}<td>{@render field(`${eye}${c}`, t(FIT_ARIA[c], { eye }), 'narrow')}</td>{/each}
 							</tr>
 						{/each}
 					</tbody>
 				</table>
 				<p class="line">
-					<span>Binocular PD: dist {@render field('BPDD', 'Binocular PD distance', 'narrow')} near {@render field('BPDN', 'Binocular PD near', 'narrow')}</span>
+					<span
+						><Msg key="rx.binocularPd"
+							>{#snippet dist()}{@render field('BPDD', t('rx.ariaBpdDist'), 'narrow')}{/snippet}{#snippet near()}{@render field('BPDN', t('rx.ariaBpdNear'), 'narrow')}{/snippet}</Msg
+						></span
+					>
 				</p>
 				<p class="line">
 					<label>
-						Lens material
+						{t('rx.lensMaterial')}
 						<select class="f" value={g('LENS_MATERIAL')} onchange={(ev) => set('LENS_MATERIAL', ev.currentTarget.value)}>
 							<option value=""></option>
 							{#each LENS_MATERIALS as m (m)}<option value={m}>{m}</option>{/each}
@@ -311,12 +331,12 @@
 					</label>
 				</p>
 				<fieldset class="treat">
-					<legend>Lens treatments</legend>
-					{#each LENS_TREATMENTS as t (t)}
-						{@const on = splitList(g('LENS_TREATMENTS')).includes(t)}
+					<legend>{t('rx.lensTreatments')}</legend>
+					{#each LENS_TREATMENTS as treatment (treatment)}
+						{@const on = splitList(g('LENS_TREATMENTS')).includes(treatment)}
 						<label class="check" class:chosen={on}>
-							<input type="checkbox" checked={on} onchange={(ev) => toggleTreatment(t, ev.currentTarget.checked)} />
-							{t}
+							<input type="checkbox" checked={on} onchange={(ev) => toggleTreatment(treatment, ev.currentTarget.checked)} />
+							{treatment}
 						</label>
 					{/each}
 				</fieldset>
@@ -327,35 +347,35 @@
 			<table class="ctl">
 				<thead>
 					<tr>
-						<th scope="col" class="lenshead"><span class="visually-hidden">Lens</span></th>
-						<th scope="col" class="brandhead">Brand</th>
-						<th scope="col">Sphere</th>
-						<th scope="col">Cylinder</th>
-						<th scope="col">Axis</th>
-						<th scope="col">BC</th>
-						<th scope="col">Diam</th>
-						{#if ctlAdd}<th scope="col">ADD</th>{/if}
-						<th scope="col">Quantity</th>
+						<th scope="col" class="lenshead"><span class="visually-hidden">{t('rx.colLens')}</span></th>
+						<th scope="col" class="brandhead">{t('rx.colBrand')}</th>
+						<th scope="col">{t('rx.sphere')}</th>
+						<th scope="col">{t('rx.cylinder')}</th>
+						<th scope="col">{t('rx.axis')}</th>
+						<th scope="col">{t('rx.colBc')}</th>
+						<th scope="col">{t('rx.colDiam')}</th>
+						{#if ctlAdd}<th scope="col">{t('rx.colAdd')}</th>{/if}
+						<th scope="col">{t('rx.quantity')}</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each ['OD', 'OS'] as eye (eye)}
 						<tr>
-							<th scope="row">{eye === 'OD' ? 'Right lens' : 'Left lens'}</th>
+							<th scope="row">{eye === 'OD' ? t('rx.rightLens') : t('rx.leftLens')}</th>
 							<td class="brand">
-								{@render field(`CTLBRAND${eye}`, `${eye} brand`, 'wide')}
+								{@render field(`CTLBRAND${eye}`, t('rx.ariaBrand', { eye }), 'wide')}
 								<span class="by" class:noprint={!g(`CTLMANUFACTURER${eye}`) && !g(`CTLSUPPLIER${eye}`)}>
-									by {@render field(`CTLMANUFACTURER${eye}`, `${eye} manufacturer`, 'mid')}
-									{#if g(`CTLSUPPLIER${eye}`)}via {g(`CTLSUPPLIER${eye}`)}{/if}
+									<Msg key="rx.ctlBy">{#snippet manufacturer()}{@render field(`CTLMANUFACTURER${eye}`, t('rx.ariaManufacturer', { eye }), 'mid')}{/snippet}</Msg>
+									{#if g(`CTLSUPPLIER${eye}`)}{t('rx.ctlVia', { supplier: g(`CTLSUPPLIER${eye}`) })}{/if}
 								</span>
 							</td>
-							<td>{@render field(`${eye}SPH`, `${eye} sphere`)}</td>
-							<td>{@render field(`${eye}CYL`, `${eye} cylinder`)}</td>
-							<td>{@render field(`${eye}AXIS`, `${eye} axis`)}</td>
-							<td>{@render field(`${eye}BC`, `${eye} base curve`, 'narrow')}</td>
-							<td>{@render field(`${eye}DIAM`, `${eye} diameter`, 'narrow')}</td>
-							{#if ctlAdd}<td>{@render field(`${eye}ADD`, `${eye} ADD`)}</td>{/if}
-							<td>{@render field(`CTL${eye}QUANTITY`, `${eye} quantity`)}</td>
+							<td>{@render field(`${eye}SPH`, t('rx.ariaSphere', { eye }))}</td>
+							<td>{@render field(`${eye}CYL`, t('rx.ariaCylinder', { eye }))}</td>
+							<td>{@render field(`${eye}AXIS`, t('rx.ariaAxis', { eye }))}</td>
+							<td>{@render field(`${eye}BC`, t('rx.ariaBaseCurve', { eye }), 'narrow')}</td>
+							<td>{@render field(`${eye}DIAM`, t('rx.ariaDiameter', { eye }), 'narrow')}</td>
+							{#if ctlAdd}<td>{@render field(`${eye}ADD`, t('rx.ariaAdd', { eye }))}</td>{/if}
+							<td>{@render field(`CTL${eye}QUANTITY`, t('rx.ariaQuantity', { eye }))}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -364,18 +384,18 @@
 	{/if}
 
 	<section class="comments" class:empty={!comments}>
-		<h2>Comments</h2>
-		<textarea class="f" rows="2" value={comments} aria-label="Comments" oninput={(ev) => set('COMMENTS', ev.currentTarget.value)}></textarea>
+		<h2>{t('rx.comments')}</h2>
+		<textarea class="f" rows="2" value={comments} aria-label={t('rx.comments')} oninput={(ev) => set('COMMENTS', ev.currentTarget.value)}></textarea>
 		<p class="print-text">{comments}</p>
 	</section>
 
 	<footer>
 		<div class="sign">
 			<span class="line-sign"></span>
-			<span>Provider: {e.provider}</span>
-			<span class="draft">Not electronically signed</span>
+			<span>{t('rx.providerLine', { name: e.provider })}</span>
+			<span class="draft">{t('rx.notESigned')}</span>
 		</div>
-		<div class="generated">{saved ? `Printed ${printedAt}` : `Generated ${generatedOn}`} · OpenVision</div>
+		<div class="generated">{saved ? t('rx.footerPrinted', { when: printedAt }) : t('rx.footerGenerated', { when: generatedOn })}</div>
 	</footer>
 </article>
 

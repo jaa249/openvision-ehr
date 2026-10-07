@@ -2,10 +2,13 @@
 	// Signature block on the printed report (spec §13.2 item 12 FIX: always shown; real signing date).
 	// Addenda follow the signature, each with its author and time; they never change the signed text.
 	import type { Signature } from '#lib/plan/types.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	let { provider, signature }: { provider: string; signature: Signature | null | undefined } = $props();
 
-	const when = (iso: string) =>
-		new Date(iso).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+	const { t, dateTime } = useI18n();
+	/** In the page language (D48): "Oct 7, 2026, 3:04 PM" in English. */
+	const when = (iso: string) => dateTime(iso);
 </script>
 
 <div class="block">
@@ -13,14 +16,14 @@
 		<span class="line"></span>
 		<span class="provider">{provider}</span>
 		{#if signature}
-			<span class="signed">Electronically signed by {signature.signedBy} on <time datetime={signature.signedAt}>{when(signature.signedAt)}</time></span>
+			<span class="signed"><Msg key="report.signedBy" params={{ name: signature.signedBy }}>{#snippet date()}<time datetime={signature.signedAt}>{when(signature.signedAt)}</time>{/snippet}</Msg></span>
 		{:else}
-			<span class="draft">Not signed</span>
+			<span class="draft">{t('report.notSigned')}</span>
 		{/if}
 	</div>
 	{#if signature?.addenda.length}
-		<section class="addenda" aria-label="Addenda">
-			<h3>Addenda</h3>
+		<section class="addenda" aria-label={t('report.addenda')}>
+			<h3>{t('report.addenda')}</h3>
 			<ol>
 				{#each signature.addenda as a, i (i)}
 					<li>

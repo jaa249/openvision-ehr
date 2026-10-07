@@ -10,8 +10,10 @@
 	import ImpItemRow from './plan/ImpItemRow.svelte';
 	import Builder from './plan/Builder.svelte';
 	import Orders from './plan/Orders.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 
 	let { context, findings }: PanelProps = $props();
+	const { t } = useI18n();
 
 	const url = $derived(`/api/patients/${context.patientId}/encounters/${context.encounterId}/plan`);
 
@@ -37,7 +39,7 @@
 	let dirtyCount = $state(0);
 	const timers = new Map<number, ReturnType<typeof setTimeout>>();
 	const saveText = $derived(
-		inflight > 0 || dirtyCount > 0 ? 'Saving…' : saveError ? `Not saved: ${saveError}` : savedOnce ? 'All changes saved' : ''
+		inflight > 0 || dirtyCount > 0 ? t('plan.saving') : saveError ? t('plan.notSaved', { error: saveError }) : savedOnce ? t('plan.allSaved') : ''
 	);
 
 	async function track<T>(p: Promise<import('./plan/api.ts').Result<T>>) {
@@ -50,7 +52,7 @@
 		} else if (r.status !== 409) saveError = r.message;
 		return r;
 	}
-	const post = <T,>(body: Record<string, unknown>) => track(postJson<T>(url, body));
+	const post = <T,>(body: Record<string, unknown>) => track(postJson<T>(t, url, body));
 
 	function say(text: string, tone: 'info' | 'warn' = 'info', action?: { label: string; run: () => void }) {
 		clearTimeout(noticeTimer);
@@ -68,7 +70,7 @@
 			data = d;
 			items = d.items;
 		} catch {
-			loadError = 'The impression list could not be loaded. Check the connection and reopen the section.';
+			loadError = t('plan.loadError');
 		}
 	});
 
@@ -97,7 +99,7 @@
 		const it = items.find((i) => i.id === id);
 		if (!it) return;
 		if (!it.title.trim()) {
-			errors[id] = { message: 'The title cannot be empty, so this change is not saved yet.', duplicate: false };
+			errors[id] = { message: t('plan.titleEmpty'), duplicate: false };
 			return;
 		}
 		const sent = { title: it.title, plan: it.plan };
@@ -128,7 +130,7 @@
 			cur.codeSystem = r.data.item.codeSystem;
 			cur.codeUris = r.data.item.codeUris;
 			delete errors[id];
-			announce = codes ? `Codes for ${cur.title}: ${r.data.item.codes}` : `Codes removed from ${cur.title}`;
+			announce = codes ? t('plan.announceCodes', { title: cur.title, codes: r.data.item.codes }) : t('plan.announceCodesRemoved', { title: cur.title });
 		} else if (!r.ok) {
 			errors[id] = { message: r.message, duplicate: false };
 		}
@@ -161,11 +163,11 @@
 		const r = await post<{ item: ImpItem; items: ImpItem[] }>({ action: 'add', item: itemOf(c), index, allowDuplicate });
 		if (r.ok) {
 			items = merge(r.data.items);
-			announce = `Added ${r.data.item.title} as item ${r.data.item.seq}.`;
+			announce = t('plan.announceAdded', { title: r.data.item.title, seq: r.data.item.seq });
 			return 'ok';
 		}
 		if (r.status === 409) {
-			say(r.message, 'warn', { label: 'Add anyway', run: () => addCandidate(c, index, true) });
+			say(r.message, 'warn', { label: t('plan.addAnyway'), run: () => addCandidate(c, index, true) });
 			return 'dup';
 		}
 		say(r.message, 'warn');
@@ -187,7 +189,7 @@
 			}
 		}
 		say(
-			`Added ${added} item${added === 1 ? '' : 's'}.` + (skipped.length ? ` Already in the list, not added: ${skipped.join(', ')}.` : ''),
+			skipped.length ? t('plan.addedSkipped', { count: added, titles: skipped.join(', ') }) : t('plan.added', { count: added }),
 			skipped.length ? 'warn' : 'info'
 		);
 	}
@@ -198,7 +200,7 @@
 		const r = await post<{ items: ImpItem[] }>({ action: 'reorder', ids });
 		if (r.ok) {
 			items = merge(r.data.items);
-			announce = `Moved ${moved.title} to position ${ids.indexOf(moved.id) + 1}.`;
+			announce = t('plan.announceMoved', { title: moved.title, position: ids.indexOf(moved.id) + 1 });
 		} else {
 			items = Array.isArray(r.body.items) ? merge(r.body.items as ImpItem[]) : before;
 			say(r.message, 'warn');
@@ -237,7 +239,7 @@
 		}
 		delete errors[it.id];
 		items = merge(r.data.items);
-		say(`Deleted "${snapshot.title}".`, 'info', { label: 'Undo', run: () => restore(snapshot, index) });
+		say(t('plan.deleted', { title: snapshot.title }), 'info', { label: t('plan.undo'), run: () => restore(snapshot, index) });
 		await tick();
 		const next = items[Math.min(index, items.length - 1)];
 		document.getElementById(next ? `imp-${next.id}-title` : 'imp-newdx')?.focus();
@@ -253,7 +255,7 @@
 		});
 		if (r.ok) {
 			items = merge(r.data.items);
-			announce = `Restored ${s.title}.`;
+			announce = t('plan.announceRestored', { title: s.title });
 		} else say(r.message, 'warn');
 	}
 
@@ -272,7 +274,7 @@
 			if (r.data.item) {
 				if (newDx === text) newDx = '';
 				newDxError = '';
-				announce = `Added ${r.data.item.title} as item ${r.data.item.seq}.`;
+				announce = t('plan.announceAdded', { title: r.data.item.title, seq: r.data.item.seq });
 			}
 		} else newDxError = r.message;
 	}
@@ -292,13 +294,13 @@
 	async function loadCandidates(body: string) {
 		const rid = ++candRequest;
 		candLoading = true;
-		const r = await postJson<CandidateSet>(`${url}/candidates`, { findings: JSON.parse(body) }, false);
+		const r = await postJson<CandidateSet>(t, `${url}/candidates`, { findings: JSON.parse(body) }, false);
 		if (rid !== candRequest) return;
 		candLoading = false;
 		if (r.ok) {
 			cands = r.data;
 			candError = '';
-		} else candError = `Suggestions could not be updated: ${r.message}`;
+		} else candError = t('plan.candError', { error: r.message });
 	}
 	let first = true;
 	$effect(() => {
@@ -382,10 +384,10 @@
 
 <section class="impplan" aria-labelledby="ip-title">
 	<div class="head">
-		<h2 id="ip-title">Impression / Plan</h2>
+		<h2 id="ip-title">{t('plan.heading')}</h2>
 		<p class="save" class:error={!!saveError && !inflight && !dirtyCount} role="status" aria-live="polite">
 			{saveText}
-			{#if saveError && !inflight && !dirtyCount}<button type="button" onclick={retryAll}>Retry</button>{/if}
+			{#if saveError && !inflight && !dirtyCount}<button type="button" onclick={retryAll}>{t('plan.retry')}</button>{/if}
 		</p>
 	</div>
 	<p class="visually-hidden" role="status" aria-live="polite">{announce}</p>
@@ -397,14 +399,14 @@
 			<!-- Left: impression list + New Dx -->
 			<div class="panel" role="group" aria-labelledby="ip-list-title">
 				<div class="card-head">
-					<h3 id="ip-list-title">Impression</h3>
-					<span class="count">{items.length} item{items.length === 1 ? '' : 's'}</span>
+					<h3 id="ip-list-title">{t('plan.impression')}</h3>
+					<span class="count">{t('plan.itemCount', { count: items.length })}</span>
 				</div>
 				<div class="body">
 					{#if !data}
-						<p class="help">Loading…</p>
+						<p class="help">{t('plan.loading')}</p>
 					{:else if items.length}
-						<ol class="list" aria-label="Impression items">
+						<ol class="list" aria-label={t('plan.impressionItems')}>
 							{#each items as it, i (it.id)}
 								<li
 									class:drop-before={dropAt === i}
@@ -444,8 +446,8 @@
 							ondragleave={() => (dropAt = null)}
 							ondrop={(e) => drop(e, 0)}
 						>
-							<p><strong>No diagnoses yet.</strong></p>
-							<p class="help">Add suggestions from the Builder, or type a diagnosis in the New Dx box below.</p>
+							<p><strong>{t('plan.emptyTitle')}</strong></p>
+							<p class="help">{t('plan.emptyHelp')}</p>
 						</div>
 					{/if}
 
@@ -456,19 +458,17 @@
 								{@const a = notice.action}
 								<button type="button" onclick={() => { notice = null; a.run(); }}>{a.label}</button>
 							{/if}
-							<button type="button" class="dismiss" onclick={() => (notice = null)} aria-label="Dismiss message">✕</button>
+							<button type="button" class="dismiss" onclick={() => (notice = null)} aria-label={t('plan.dismiss')}>✕</button>
 						</div>
 					{/if}
 
 					<div class="newdx" class:drop-target={dropOnBox}>
-						<label for="imp-newdx">New Dx</label>
+						<label for="imp-newdx">{t('plan.newDx')}</label>
 						<textarea
 							id="imp-newdx"
 							rows="2"
 							maxlength="4200"
-							placeholder={codeSet === 'icd11'
-								? 'Primary open-angle glaucoma 9C61.0Z&XK9J\nOCT RNFL in 6 months'
-								: 'Glaucoma suspect OU H40.003\nOCT RNFL in 6 months'}
+							placeholder={codeSet === 'icd11' ? t('plan.newDxPlaceholderIcd11') : t('plan.newDxPlaceholderIcd10')}
 							aria-describedby="imp-newdx-help"
 							bind:value={newDx}
 							onblur={() => commitNewDx()}
@@ -482,19 +482,19 @@
 							ondrop={dropOnNewDx}
 						></textarea>
 						<div class="newdx-actions">
-							<button type="button" onclick={() => commitNewDx()} disabled={newDx.trim().length < 2}>Add to list</button>
+							<button type="button" onclick={() => commitNewDx()} disabled={newDx.trim().length < 2}>{t('plan.addToList')}</button>
 						</div>
 						<p class="help" id="imp-newdx-help">
-							Tab or "Add to list" creates the entry. First line: the diagnosis, optionally ending with {codeSet === 'icd11' ? 'an ICD-11 code (e.g. 9C61.0Z&XK9J)' : 'an ICD-10 code'}. Next lines: the plan.
+							{codeSet === 'icd11' ? t('plan.newDxHelpIcd11') : t('plan.newDxHelpIcd10')}
 						</p>
 						{#if newDxError}
 							<p class="err" role="alert">
 								{newDxError}
-								{#if newDxError.includes('already item')}<button type="button" onclick={() => commitNewDx(true)}>Add anyway</button>{/if}
+								{#if newDxError.includes('already item')}<button type="button" onclick={() => commitNewDx(true)}>{t('plan.addAnyway')}</button>{/if}
 							</p>
 						{/if}
 					</div>
-					<p class="help">Reorder with the ↑ ↓ buttons or drag an item by its ⋮⋮ handle. Delete can be undone for a few seconds.</p>
+					<p class="help">{t('plan.reorderHelp')}</p>
 				</div>
 			</div>
 
@@ -504,7 +504,7 @@
 					<h3>
 						<button type="button" id="acc-builder" aria-expanded={pane === 'builder'} aria-controls="acc-builder-pane" onclick={() => (pane = 'builder')}>
 							<span class="chev" aria-hidden="true">{pane === 'builder' ? '▾' : '▸'}</span>
-							Builder
+							{t('plan.builder')}
 							<span class="count">{cands ? cands.findings.length + cands.poh.length + cands.pmh.length : ''}</span>
 						</button>
 					</h3>
@@ -526,8 +526,8 @@
 					<h3>
 						<button type="button" id="acc-orders" aria-expanded={pane === 'orders'} aria-controls="acc-orders-pane" onclick={() => (pane = 'orders')}>
 							<span class="chev" aria-hidden="true">{pane === 'orders' ? '▾' : '▸'}</span>
-							Orders / next visit
-							<span class="count">{ordersCount ? `${ordersCount} checked` : ''}</span>
+							{t('plan.ordersNextVisit')}
+							<span class="count">{ordersCount ? t('plan.ordersChecked', { count: ordersCount }) : ''}</span>
 						</button>
 					</h3>
 					{#if pane === 'orders'}
@@ -543,12 +543,12 @@
 									onoptions={setOptions}
 								/>
 							{:else}
-								<p class="help">Loading…</p>
+								<p class="help">{t('plan.loading')}</p>
 							{/if}
 						</div>
 					{/if}
 				</div>
-				{#if data?.usBilling !== false}<p class="help">Visit codes, modifiers and tests performed are in the Codes section (key 0).</p>{/if}
+				{#if data?.usBilling !== false}<p class="help">{t('plan.codesHint')}</p>{/if}
 			</div>
 		</div>
 	{/if}

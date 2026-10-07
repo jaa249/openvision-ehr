@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { GRADES, SIZES, type QuickPick } from '#lib/exam/quickpicks.ts';
-	import type { SectionDef } from '#lib/exam/catalog.ts';
+	import { rowLabel, sectionTitle, type SectionDef } from '#lib/exam/catalog.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
 
 	type Eye = 'OD' | 'OS' | 'OU';
 	let {
@@ -13,6 +15,7 @@
 		onpick: (pick: QuickPick, eye: Eye, modifier: string | null) => void;
 	} = $props();
 
+	const { t } = useI18n();
 	// One modifier at a time; it applies to the next pick only (spec §4.2).
 	let modifier = $state<string | null>(null);
 
@@ -40,27 +43,27 @@
 	</div>
 {/snippet}
 
-<section class="qp" aria-label="Quick picks for {sec.title}">
+<section class="qp" aria-label={t('exam.qpFor', { section: sectionTitle(sec, t) })}>
 	<div class="modbar">
-		{@render chips('Grade', GRADES)}
-		{@render chips('Size', SIZES)}
-		{@render chips('Location', sec.locations)}
+		{@render chips(t('exam.qpGrade'), GRADES)}
+		{@render chips(t('exam.qpSize'), SIZES)}
+		{@render chips(t('exam.qpLocation'), sec.locations)}
 		<p class="status" aria-live="polite">
-			{#if modifier}Next pick starts with <strong>{modifier}</strong>{:else}Pick a modifier first, or tap OD, OS or OU{/if}
+			{#if modifier}<Msg key="exam.qpNextPick">{#snippet value()}<strong>{modifier}</strong>{/snippet}</Msg>{:else}{t('exam.qpPickModifier')}{/if}
 		</p>
 	</div>
 
 	<div class="list">
 		{#each groups as g (g.row.id)}
-			<h3>{g.row.label}</h3>
+			<h3>{rowLabel(g.row, t)}</h3>
 			<ul>
 				{#each g.items as p (p.id)}
 					<li>
 						<span class="label" class:clear={p.mode === 'replace' && !p.text}>{p.label}</span>
 						<span class="eyes">
-							<button type="button" class="od" aria-label="{p.label}, right eye" onclick={() => pick(p, 'OD')}>OD</button>
-							<button type="button" class="os" aria-label="{p.label}, left eye" onclick={() => pick(p, 'OS')}>OS</button>
-							<button type="button" aria-label="{p.label}, both eyes" onclick={() => pick(p, 'OU')}>OU</button>
+							<button type="button" class="od" aria-label={t('exam.qpRightEye', { pick: p.label })} onclick={() => pick(p, 'OD')}>OD</button>
+							<button type="button" class="os" aria-label={t('exam.qpLeftEye', { pick: p.label })} onclick={() => pick(p, 'OS')}>OS</button>
+							<button type="button" aria-label={t('exam.qpBothEyes', { pick: p.label })} onclick={() => pick(p, 'OU')}>OU</button>
 						</span>
 					</li>
 				{/each}

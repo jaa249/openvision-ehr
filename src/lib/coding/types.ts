@@ -1,6 +1,8 @@
 // Codes section types shared by the server, the API, the panel and the printed report (spec §11).
 // A billing aid only (D46): codes to copy into the practice's billing system; OpenVision never bills.
 import type { Family, PatientStatus, VisitLevel } from './codes.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
+import type { Params } from '#lib/i18n/translate.ts';
 
 /** A test checked under "Tests performed" (§11.3 with FIXes). */
 export interface TestPerformed {
@@ -74,7 +76,11 @@ export interface Evidence {
 
 export interface PatientStatusResult {
 	status: PatientStatus;
+	/** English text of the reason (D48: what the server and the tests read). */
 	reason: string;
+	/** The same reason as a message key and params, so the screen can show it in the user's language. */
+	reasonKey?: MessageKey;
+	reasonParams?: Params;
 	/** Date of the most recent qualifying earlier visit, if any. */
 	lastVisit: string | null;
 }

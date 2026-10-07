@@ -111,7 +111,7 @@ describe('migration', () => {
 		migrate(probe);
 		const latest = (probe.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number }).v;
 		const raw = new DatabaseSync(':memory:');
-		migrate(raw, latest - 3); // everything before the staff migration (the code-set, D44, and billing-aid, D46, migrations follow it)
+		migrate(raw, latest - 4); // everything before the staff migration (the code-set, D44, billing-aid, D46, and translations, D48, migrations follow it)
 		const at = '2026-10-01T00:00:00Z';
 		raw.exec(`INSERT INTO users (id, username, display_name, role, active, created_at) VALUES
 			(1, 'dr', 'Dr. One', 'provider', 1, '${at}'), (2, 'tech', 'Tech Two', 'tech', 1, '${at}'), (3, 'adm', 'Admin', 'admin', 1, '${at}')`);

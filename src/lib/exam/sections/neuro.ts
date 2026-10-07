@@ -7,6 +7,7 @@
 import type { Eye, FieldDef } from '../catalog.ts';
 import type { ReportRow, ReportSection } from '../report.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 // ---------- motility (§9.1) ----------
 
@@ -54,6 +55,21 @@ export function gazeName(c: Pick<MotilityCell, 'eye' | 'v' | 'h'>): string {
 	const vert = c.v < 0 ? 'up' : c.v > 0 ? 'down' : '';
 	const horiz = c.h ? ((c.h === 'R') === (c.eye === 'OD') ? 'out' : 'in') : '';
 	return vert && horiz ? `${vert} and ${horiz}` : vert || horiz;
+}
+
+const GAZE_KEY: Record<string, MessageKey> = {
+	up: 'sections.gazeUp',
+	down: 'sections.gazeDown',
+	out: 'sections.gazeOut',
+	in: 'sections.gazeIn',
+	'up and out': 'sections.gazeUpOut',
+	'up and in': 'sections.gazeUpIn',
+	'down and out': 'sections.gazeDownOut',
+	'down and in': 'sections.gazeDownIn'
+};
+/** Screen text of gazeName() (D48). */
+export function gazeKey(c: Pick<MotilityCell, 'eye' | 'v' | 'h'>): MessageKey {
+	return GAZE_KEY[gazeName(c)];
 }
 
 /** Horizontal gazes draw vertical hash marks; vertical and oblique gazes draw horizontal ones (§9.1). */
@@ -131,12 +147,35 @@ export function coverPositionName(n: number): string {
 	return row && col ? `${row} and ${col}` : row || col;
 }
 
+/** Screen text of coverPositionName(n), at index n - 1 (D48). */
+export const COVER_POSITION_KEY: readonly MessageKey[] = [
+	'sections.coverPosUpRight',
+	'sections.coverPosUp',
+	'sections.coverPosUpLeft',
+	'sections.coverPosRight',
+	'sections.coverPosPrimary',
+	'sections.coverPosLeft',
+	'sections.coverPosDownRight',
+	'sections.coverPosDown',
+	'sections.coverPosDownLeft',
+	'sections.coverPosRightTilt',
+	'sections.coverPosLeftTilt'
+];
+/** Screen labels of COVER_ZONES (D48). */
+export const COVER_ZONE_KEY: Record<CoverZone, { label: MessageKey; short: MessageKey }> = {
+	SCDIST: { label: 'sections.coverZoneScDist', short: 'sections.coverZoneScDistShort' },
+	CCDIST: { label: 'sections.coverZoneCcDist', short: 'sections.coverZoneCcDistShort' },
+	SCNEAR: { label: 'sections.coverZoneScNear', short: 'sections.coverZoneScNearShort' },
+	CCNEAR: { label: 'sections.coverZoneCcNear', short: 'sections.coverZoneCcNearShort' }
+};
+
 export const LATERALITIES = [
 	{ key: 'R', label: 'Right' },
 	{ key: 'L', label: 'Left' },
 	{ key: '', label: 'None' }
 ] as const;
 export type Laterality = (typeof LATERALITIES)[number]['key'];
+export const LATERALITY_LABEL_KEY: Record<Laterality, MessageKey> = { R: 'sections.latRight', L: 'sections.latLeft', '': 'sections.latNone' };
 export const DEVIATIONS = ['E', 'E(T)', 'ET', 'X', 'X(T)', 'XT', 'HT', 'H(T)', 'hypoT', 'hypo(T)'] as const;
 export const PRISMS = ['Ortho', '1', '2', '3', '4', '5', '6', '8', '10', '12', '14', '16', '18', '20', '25', '30', '35', '40'] as const;
 
@@ -179,6 +218,16 @@ export const NEURO_SINGLES = [
 	{ id: 'VERTFUSAMPS', label: 'Vertical fusional amplitudes', hint: '' },
 	{ id: 'STEREOPSIS', label: 'Stereopsis', hint: '' }
 ] as const;
+
+/** Screen labels of NEURO_EYE_ROWS and NEURO_PAIRS by key (D48). */
+export const NEURO_ROW_LABEL_KEY: Record<(typeof NEURO_EYE_ROWS)[number]['key'] | (typeof NEURO_PAIRS)[number]['key'], MessageKey> = {
+	COLOR: 'sections.neuroColor',
+	REDDESAT: 'sections.neuroRedDesat',
+	COINS: 'sections.neuroCoins',
+	NPA: 'sections.neuroNpa',
+	ACC: 'sections.neuroAccommodation',
+	CONV: 'sections.neuroConvergence'
+};
 
 // ---------- fields ----------
 

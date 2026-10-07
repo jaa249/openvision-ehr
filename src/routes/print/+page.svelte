@@ -1,15 +1,21 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import ExamReport from '#lib/components/ExamReport.svelte';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	const generatedOn = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+	const { t, dateTime } = useI18n();
+	// In the page language (D48), so the server render and the browser agree.
+	const generatedOn = dateTime(new Date());
 	const n = $derived(data.items.length);
 	const idList = $derived(data.items.map((i) => i.encounter.id).join(','));
 	const title = $derived(
-		n === 1 ? `${data.items[0].patient.legalName} ${data.items[0].encounter.date} · Exam report` : `${n} exam reports`
+		n === 1
+			? t('report.printTitleOne', { name: data.items[0].patient.legalName, date: data.items[0].encounter.date })
+			: t('report.printTitleMany', { count: n })
 	);
 
 	onMount(() => {
@@ -34,19 +40,19 @@
 	}
 </script>
 
-<svelte:head><title>{title} · OpenVision</title></svelte:head>
+<svelte:head><title>{t('report.printPageTitle', { title })}</title></svelte:head>
 
-<div class="toolbar" role="toolbar" aria-label="Print">
-	<a href="/encounters">← Encounters</a>
-	<span class="count">{n} {n === 1 ? 'report' : 'reports'}{#if n > 1}, each starts on a new page{/if}</span>
-	{#if data.missing}<span class="warn">{data.missing} could not be found and were skipped</span>{/if}
+<div class="toolbar" role="toolbar" aria-label={t('report.print')}>
+	<a href="/encounters">{t('report.backToEncounters')}</a>
+	<span class="count">{n > 1 ? t('report.printCountMany', { count: n }) : t('report.printCount', { count: n })}</span>
+	{#if data.missing}<span class="warn">{t('report.printMissing', { count: data.missing })}</span>{/if}
 	<span class="spacer"></span>
 	<span class="tip" class:pdf={data.pdf} role={data.pdf ? 'status' : undefined}>
-		{#if data.pdf}To download a PDF, choose <strong>Save as PDF</strong> in the print dialog.{:else}For a PDF, choose <strong>Save as PDF</strong> as the printer.{/if}
+		{#if data.pdf}<Msg key="report.pdfTipDialog">{#snippet saveAsPdf()}<strong>{t('report.saveAsPdf')}</strong>{/snippet}</Msg>{:else}<Msg key="report.pdfTipPrinter">{#snippet saveAsPdf()}<strong>{t('report.saveAsPdf')}</strong>{/snippet}</Msg>{/if}
 	</span>
-	<a class="export" href="/export/csv?ids={idList}" download>Export CSV</a>
-	<a class="export" href="/export/fhir?ids={idList}" download>Export FHIR</a>
-	<button type="button" class="primary" onclick={printWhenReady}>Print</button>
+	<a class="export" href="/export/csv?ids={idList}" download>{t('report.exportCsv')}</a>
+	<a class="export" href="/export/fhir?ids={idList}" download>{t('report.exportFhir')}</a>
+	<button type="button" class="primary" onclick={printWhenReady}>{t('report.print')}</button>
 </div>
 
 <div class="sheets">

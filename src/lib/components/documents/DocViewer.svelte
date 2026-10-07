@@ -2,9 +2,11 @@
 	// Document viewer (spec §15.4 "view": opens a document). Images show in place; PDFs open in a new
 	// tab with the browser's own viewer (pages from this app cannot be framed: X-Frame-Options DENY).
 	import { onMount } from 'svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import { docUrl, formatBytes, isImage, type DocMeta } from './types.ts';
 
 	let { doc, onclose }: { doc: DocMeta; onclose: () => void } = $props();
+	const { t } = useI18n();
 	let dialog: HTMLDialogElement;
 	let zoom = $state(false);
 
@@ -14,26 +16,31 @@
 <dialog bind:this={dialog} class="viewer" aria-labelledby="doc-viewer-title" {onclose}>
 	<div class="head">
 		<h2 id="doc-viewer-title">{doc.categoryName} <span class="date num">· {doc.takenOn}</span></h2>
-		<a class="btn" href={docUrl(doc.patientId, doc.id)} target="_blank" rel="noopener">Open in new tab</a>
-		<a class="btn" href={docUrl(doc.patientId, doc.id, true)} download={doc.filename}>Download</a>
-		<button type="button" onclick={() => dialog.close()}>Close</button>
+		<a class="btn" href={docUrl(doc.patientId, doc.id)} target="_blank" rel="noopener">{t('documents.openInNewTab')}</a>
+		<a class="btn" href={docUrl(doc.patientId, doc.id, true)} download={doc.filename}>{t('documents.download')}</a>
+		<button type="button" onclick={() => dialog.close()}>{t('documents.close')}</button>
 	</div>
 	{#if isImage(doc.mime)}
-		<button type="button" class="frame" class:zoom aria-pressed={zoom} aria-label={zoom ? 'Fit image to window' : 'Show image at full size'} onclick={() => (zoom = !zoom)}>
-			<img src={docUrl(doc.patientId, doc.id)} alt="{doc.categoryName}, taken {doc.takenOn}{doc.notes ? `: ${doc.notes}` : ''}" />
+		<button type="button" class="frame" class:zoom aria-pressed={zoom} aria-label={zoom ? t('documents.fitImage') : t('documents.fullSizeImage')} onclick={() => (zoom = !zoom)}>
+			<img
+				src={docUrl(doc.patientId, doc.id)}
+				alt={doc.notes
+					? t('documents.imageAltNotes', { category: doc.categoryName, date: doc.takenOn, notes: doc.notes })
+					: t('documents.imageAlt', { category: doc.categoryName, date: doc.takenOn })}
+			/>
 		</button>
-		<p class="hint">Press the image to switch between fit and full size.</p>
+		<p class="hint">{t('documents.zoomHint')}</p>
 	{:else}
 		<div class="pdf">
-			<p>This is a PDF ({formatBytes(doc.size)}). It opens in your browser's PDF viewer.</p>
-			<a class="btn primary" href={docUrl(doc.patientId, doc.id)} target="_blank" rel="noopener">Open PDF</a>
+			<p>{t('documents.pdfIntro', { size: formatBytes(doc.size) })}</p>
+			<a class="btn primary" href={docUrl(doc.patientId, doc.id)} target="_blank" rel="noopener">{t('documents.openPdf')}</a>
 		</div>
 	{/if}
 	<dl>
-		<div><dt>File</dt><dd>{doc.filename}</dd></div>
-		<div><dt>Size</dt><dd class="num">{formatBytes(doc.size)}</dd></div>
-		<div><dt>Uploaded</dt><dd>{doc.createdAt.slice(0, 10)} by {doc.createdBy}</dd></div>
-		<div class="wide"><dt>Notes</dt><dd>{doc.notes || 'None'}</dd></div>
+		<div><dt>{t('documents.file')}</dt><dd>{doc.filename}</dd></div>
+		<div><dt>{t('documents.size')}</dt><dd class="num">{formatBytes(doc.size)}</dd></div>
+		<div><dt>{t('documents.uploaded')}</dt><dd>{t('documents.uploadedOnBy', { date: doc.createdAt.slice(0, 10), name: doc.createdBy })}</dd></div>
+		<div class="wide"><dt>{t('documents.notes')}</dt><dd>{doc.notes || t('documents.none')}</dd></div>
 	</dl>
 </dialog>
 

@@ -6,7 +6,7 @@
 	import { page } from '$app/state';
 	import { FIELD_BY_ID } from '#lib/exam/catalog.ts';
 	import {
-		COL_LABEL,
+		COL_LABEL_KEY,
 		CTL_BRANDS,
 		CTL_MANUFACTURERS,
 		CTL_SUPPLIERS,
@@ -14,6 +14,7 @@
 		LENS_MATERIALS,
 		LENS_TREATMENTS,
 		RX_TYPES,
+		RX_TYPE_LABEL_KEY,
 		V_BASES,
 		W_SLOTS,
 		WET_METHODS,
@@ -24,6 +25,7 @@
 		isQuarterStep,
 		kindOf,
 		ouId,
+		slotOf,
 		sourceFieldIds,
 		sourceLabel,
 		splitList,
@@ -36,6 +38,9 @@
 	import type { PanelProps } from './types.ts';
 	import { defaultPrefs, type PrefKey, type Prefs as StoredPrefs } from '#lib/prefs/keys.ts';
 	import { loadPrefs, savePrefs } from '#lib/prefs/client.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let {
 		findings,
@@ -45,6 +50,13 @@
 		oncommit,
 		onprintrx
 	}: PanelProps & { onprintrx?: (source: RxSource) => void } = $props();
+	const { t } = useI18n();
+	/** "Glasses #2" translated; MR / CR / AR / CTL are notation and stay as they are. */
+	const srcLabel = (source: RxSource) => {
+		const slot = slotOf(source);
+		return slot ? t('sections.rxGlassesN', { n: slot }) : sourceLabel(source);
+	};
+	const colLabel = (col: keyof typeof COL_LABEL_KEY) => t(COL_LABEL_KEY[col]);
 
 	type Eye = 'OD' | 'OS';
 	const EYES: Eye[] = ['OD', 'OS'];
@@ -117,32 +129,32 @@
 	type Fmt = 'sph' | 'cyl' | 'axis' | 'add' | 'upper' | 'text';
 	interface Col {
 		col: EyeCol;
-		head: string;
+		head: MessageKey;
 		fmt: Fmt;
 		options?: string[];
 		list?: string;
 		wide?: boolean;
 	}
 	const C = {
-		SPH: { col: 'SPH', head: 'Sph', fmt: 'sph' },
-		CYL: { col: 'CYL', head: 'Cyl', fmt: 'cyl' },
-		AXIS: { col: 'AXIS', head: 'Axis', fmt: 'axis' },
-		VA: { col: 'VA', head: 'VA', fmt: 'text' },
-		MIDADD: { col: 'MIDADD', head: 'Mid ADD', fmt: 'add' },
-		ADD: { col: 'ADD', head: 'ADD', fmt: 'add' },
-		NEARVA: { col: 'NEARVA', head: 'Near VA', fmt: 'text' },
-		PRISM: { col: 'PRISM', head: 'Prism', fmt: 'upper' },
-		BASE: { col: 'BASE', head: 'Base', fmt: 'upper' }
+		SPH: { col: 'SPH', head: 'sections.rxHeadSph', fmt: 'sph' },
+		CYL: { col: 'CYL', head: 'sections.rxHeadCyl', fmt: 'cyl' },
+		AXIS: { col: 'AXIS', head: 'sections.rxHeadAxis', fmt: 'axis' },
+		VA: { col: 'VA', head: 'sections.rxHeadVa', fmt: 'text' },
+		MIDADD: { col: 'MIDADD', head: 'sections.rxHeadMidAdd', fmt: 'add' },
+		ADD: { col: 'ADD', head: 'sections.rxHeadAdd', fmt: 'add' },
+		NEARVA: { col: 'NEARVA', head: 'sections.rxHeadNearVa', fmt: 'text' },
+		PRISM: { col: 'PRISM', head: 'sections.rxHeadPrism', fmt: 'upper' },
+		BASE: { col: 'BASE', head: 'sections.rxHeadBase', fmt: 'upper' }
 	} satisfies Record<string, Col>;
 	const FITTING: Col[] = [
-		{ col: 'HPD', head: 'H prism', fmt: 'upper' },
-		{ col: 'HBASE', head: 'Base', fmt: 'upper', options: H_BASES },
-		{ col: 'VPD', head: 'V prism', fmt: 'upper' },
-		{ col: 'VBASE', head: 'Base', fmt: 'upper', options: V_BASES },
-		{ col: 'SLABOFF', head: 'Slab-off', fmt: 'text' },
-		{ col: 'VERTEXDIST', head: 'Vertex', fmt: 'text' },
-		{ col: 'MPDD', head: 'PD dist', fmt: 'upper' },
-		{ col: 'MPDN', head: 'PD near', fmt: 'upper' }
+		{ col: 'HPD', head: 'sections.rxHeadHPrism', fmt: 'upper' },
+		{ col: 'HBASE', head: 'sections.rxHeadBase', fmt: 'upper', options: H_BASES },
+		{ col: 'VPD', head: 'sections.rxHeadVPrism', fmt: 'upper' },
+		{ col: 'VBASE', head: 'sections.rxHeadBase', fmt: 'upper', options: V_BASES },
+		{ col: 'SLABOFF', head: 'sections.rxHeadSlabOff', fmt: 'text' },
+		{ col: 'VERTEXDIST', head: 'sections.rxHeadVertex', fmt: 'text' },
+		{ col: 'MPDD', head: 'sections.rxHeadPdDist', fmt: 'upper' },
+		{ col: 'MPDN', head: 'sections.rxHeadPdNear', fmt: 'upper' }
 	];
 
 	function wCols(source: RxSource): Col[] {
@@ -156,11 +168,11 @@
 	const MR_COLS: Col[] = [C.SPH, C.CYL, C.AXIS, C.VA, C.ADD, C.NEARVA, C.PRISM, C.BASE];
 	const CR_COLS: Col[] = [C.SPH, C.CYL, C.AXIS, C.VA];
 	const AR_COLS: Col[] = [C.SPH, C.CYL, C.AXIS, C.VA, C.ADD, C.NEARVA, C.PRISM];
-	const CTL_COLS: Col[] = [C.SPH, C.CYL, C.AXIS, { col: 'BC', head: 'BC', fmt: 'text' }, { col: 'DIAM', head: 'Diam', fmt: 'text' }, C.ADD, C.VA];
+	const CTL_COLS: Col[] = [C.SPH, C.CYL, C.AXIS, { col: 'BC', head: 'sections.rxHeadBc', fmt: 'text' }, { col: 'DIAM', head: 'sections.rxHeadDiam', fmt: 'text' }, C.ADD, C.VA];
 	const CTL_LENS: Col[] = [
-		{ col: 'BRAND', head: 'Brand', fmt: 'text', list: 'ctl-brands' },
-		{ col: 'MANUFACTURER', head: 'Manufacturer', fmt: 'text', list: 'ctl-makers' },
-		{ col: 'SUPPLIER', head: 'Supplier', fmt: 'text', list: 'ctl-suppliers' }
+		{ col: 'BRAND', head: 'sections.rxHeadBrand', fmt: 'text', list: 'ctl-brands' },
+		{ col: 'MANUFACTURER', head: 'sections.rxHeadManufacturer', fmt: 'text', list: 'ctl-makers' },
+		{ col: 'SUPPLIER', head: 'sections.rxHeadSupplier', fmt: 'text', list: 'ctl-suppliers' }
 	];
 
 	// ---------- formatting on leaving a box (§8.7) ----------
@@ -198,7 +210,7 @@
 				changes[id] = f.value === 'SPH' && sph.toUpperCase() === 'PLANO' ? '' : f.value;
 				if (f.signTyped && f.value !== 'SPH' && f.signTyped !== prefs.cyl) {
 					setPref('cyl', f.signTyped);
-					say(`Cylinder sign is now ${f.signTyped === '-' ? 'minus' : 'plus'} for new entries.`);
+					say(f.signTyped === '-' ? t('sections.rxCylNowMinus') : t('sections.rxCylNowPlus'));
 				}
 			}
 			if (changes[id] === 'SPH' || (changes[id] === '' && raw.trim())) changes[axisId] = '';
@@ -212,7 +224,7 @@
 				const os = val(osId);
 				if (value && (os === '' || os === (focusStart[id] ?? '')) && os !== value) {
 					changes[osId] = value;
-					label = `${sourceLabel(source)} ${COL_LABEL[c.col]} copied OD → OS`;
+					label = t('sections.rxUndoCopiedOdOs', { source: srcLabel(source), column: colLabel(c.col) });
 				}
 			}
 		} else if (c.fmt === 'upper') changes[id] = formatUpper(raw);
@@ -225,9 +237,9 @@
 			return /^[+-]\d+\.\d+$/.test(value) || /^(PLANO|SPH)$/.test(value)
 				? isQuarterStep(value)
 					? ''
-					: 'Not a 0.25 D step'
+					: t('sections.rxWarnQuarter')
 				: '';
-		if (c.fmt === 'axis') return formatAxis(value).ok ? '' : 'Axis must be 1-180';
+		if (c.fmt === 'axis') return formatAxis(value).ok ? '' : t('sections.rxWarnAxis');
 		return '';
 	}
 
@@ -243,14 +255,14 @@
 			changes[ids.axis] = t.axis;
 		}
 		if (!Object.keys(changes).length) {
-			say(`${sourceLabel(source)}: nothing to transpose (no cylinder).`);
+			say(t('sections.rxNothingToTranspose', { source: srcLabel(source) }));
 			return;
 		}
 		// FIX: transposing saves (through oncommit), with Undo.
-		apply(changes, `Transposed ${sourceLabel(source)}`);
+		apply(changes, t('sections.rxUndoTransposed', { source: srcLabel(source) }));
 	}
 
-	function clearSource(source: RxSource, label = `Cleared ${sourceLabel(source)}`) {
+	function clearSource(source: RxSource, label = t('sections.rxUndoCleared', { source: srcLabel(source) })) {
 		const ids = sourceFieldIds(source).filter((id) => writable(id) && (val(id) || findings[id]?.isDefault));
 		if (!ids.length) return;
 		const next: Findings = { ...findings };
@@ -264,14 +276,14 @@
 			return;
 		}
 		revealed = new Set([...revealed].filter((x) => x !== n));
-		clearSource(`W${n}` as RxSource, `Removed glasses #${n}`);
+		clearSource(`W${n}` as RxSource, t('sections.rxUndoRemovedGlasses', { n }));
 	}
 
 	function addSlot() {
 		const n = nextSlot;
 		if (!n) return;
 		revealed = new Set([...revealed, n]);
-		say(`Glasses #${n} added.`);
+		say(t('sections.rxGlassesAdded', { n }));
 	}
 
 	function printRx(source: RxSource) {
@@ -288,11 +300,11 @@
 		onedit(id, ordered.join('|'));
 	}
 
-	const TOGGLES: { key: 'W' | 'MR' | 'AR' | 'CTL'; label: string; sources: RxSource[] }[] = [
-		{ key: 'W', label: 'Glasses (W)', sources: ['W1'] },
-		{ key: 'MR', label: 'Manifest / cyclo', sources: ['MR', 'CR'] },
-		{ key: 'AR', label: 'Autorefraction', sources: ['AR'] },
-		{ key: 'CTL', label: 'Contact lens', sources: ['CTL'] }
+	const TOGGLES: { key: 'W' | 'MR' | 'AR' | 'CTL'; label: MessageKey; sources: RxSource[] }[] = [
+		{ key: 'W', label: 'sections.rxToggleGlasses', sources: ['W1'] },
+		{ key: 'MR', label: 'sections.rxToggleManifest', sources: ['MR', 'CR'] },
+		{ key: 'AR', label: 'sections.rxAutorefraction', sources: ['AR'] },
+		{ key: 'CTL', label: 'sections.rxContactLens', sources: ['CTL'] }
 	];
 </script>
 
@@ -300,10 +312,10 @@
 	{@const id = eyeId(source, c.col, eye)}
 	{@const s = cell(id)}
 	{@const w = warn(c, s.value)}
-	{@const label = `${sourceLabel(source)} ${COL_LABEL[c.col]} ${eye}`}
+	{@const label = t('sections.rxCellLabel', { source: srcLabel(source), column: colLabel(c.col), eye })}
 	<td class="cell" class:ghost={s.ghost} class:is-default={s.isDefault} class:copied={s.copied} class:warn={!!w} data-field={id}>
 		{#if !writable(id)}
-			<span class="na" aria-label="{label}: not available">–</span>
+			<span class="na" aria-label={t('sections.rxNotAvailable', { label })}>–</span>
 		{:else if c.options}
 			<select aria-label={label} value={s.value} onchange={(e) => onedit(id, e.currentTarget.value)}>
 				<option value=""></option>
@@ -336,8 +348,8 @@
 			<caption class="visually-hidden">{caption}</caption>
 			<thead>
 				<tr>
-					<th scope="col" class="eyehead"><span class="visually-hidden">Eye</span></th>
-					{#each cols as c (c.col)}<th scope="col">{c.head}</th>{/each}
+					<th scope="col" class="eyehead"><span class="visually-hidden">{t('sections.rxEye')}</span></th>
+					{#each cols as c (c.col)}<th scope="col">{t(c.head)}</th>{/each}
 				</tr>
 			</thead>
 			<tbody>
@@ -358,12 +370,12 @@
 	<label class="ou" class:ghost={s.ghost} class:copied={s.copied} class:grow={multiline}>
 		<span>{label}</span>
 		{#if multiline}
-			<textarea rows="1" value={s.value} aria-label="{sourceLabel(source)} {COL_LABEL[col]}" oninput={(e) => onedit(id, e.currentTarget.value)}></textarea>
+			<textarea rows="1" value={s.value} aria-label={t('sections.rxOuLabel', { source: srcLabel(source), column: colLabel(col) })} oninput={(e) => onedit(id, e.currentTarget.value)}></textarea>
 		{:else}
 			<input
 				class="short"
 				value={s.value}
-				aria-label="{sourceLabel(source)} {COL_LABEL[col]}"
+				aria-label={t('sections.rxOuLabel', { source: srcLabel(source), column: colLabel(col) })}
 				oninput={(e) => onedit(id, e.currentTarget.value)}
 				onblur={() => apply({ [id]: formatUpper(val(id)) })}
 			/>
@@ -375,11 +387,11 @@
 	<div class="card-head">
 		<h3>{title}</h3>
 		<span class="actions">
-			<button type="button" class="mini" onclick={() => doTranspose(source)} title="Plus/minus cylinder transpose">± Transpose</button>
-			<button type="button" class="mini" onclick={() => printRx(source)} aria-label="Print {sourceLabel(source)} Rx">Print Rx</button>
-			<button type="button" class="mini" onclick={() => clearSource(source)} aria-label="Clear {sourceLabel(source)}">Clear</button>
+			<button type="button" class="mini" onclick={() => doTranspose(source)} title={t('sections.rxTransposeTitle')}>± {t('sections.rxTranspose')}</button>
+			<button type="button" class="mini" onclick={() => printRx(source)} aria-label={t('sections.rxPrintSource', { source: srcLabel(source) })}>{t('sections.rxPrint')}</button>
+			<button type="button" class="mini" onclick={() => clearSource(source)} aria-label={t('sections.rxClearSource', { source: srcLabel(source) })}>{t('sections.clear')}</button>
 			{#if onclose}
-				<button type="button" class="mini close" onclick={onclose} aria-label="Close {title}">✕</button>
+				<button type="button" class="mini close" onclick={onclose} aria-label={t('sections.rxCloseTitle', { title })}>✕</button>
 			{/if}
 		</span>
 	</div>
@@ -387,27 +399,27 @@
 
 <section aria-labelledby="refraction-title">
 	<div class="head">
-		<h2 id="refraction-title">Refraction</h2>
-		<div class="toggles" role="group" aria-label="Show refraction panels">
-			{#each TOGGLES as t (t.key)}
-				{@const hidden = !prefs[t.key]}
-				<button type="button" aria-pressed={prefs[t.key]} onclick={() => setPref(t.key, !prefs[t.key])}>
-					{t.label}
-					{#if hidden && t.sources.some((s) => has(s))}<span class="dot" title="Has values"><span class="visually-hidden">(has values)</span></span>{/if}
+		<h2 id="refraction-title">{t('sections.rxTitle')}</h2>
+		<div class="toggles" role="group" aria-label={t('sections.rxShowPanels')}>
+			{#each TOGGLES as tg (tg.key)}
+				{@const hidden = !prefs[tg.key]}
+				<button type="button" aria-pressed={prefs[tg.key]} onclick={() => setPref(tg.key, !prefs[tg.key])}>
+					{t(tg.label)}
+					{#if hidden && tg.sources.some((s) => has(s))}<span class="dot" title={t('sections.rxHasValues')}><span class="visually-hidden">{t('sections.rxHasValuesHidden')}</span></span>{/if}
 				</button>
 			{/each}
 		</div>
 		<span class="tools">
-			<button type="button" aria-pressed={prefs.wide} onclick={() => setPref('wide', !prefs.wide)} title="Prism, PD, lens material and treatments for glasses">Rx details</button>
+			<button type="button" aria-pressed={prefs.wide} onclick={() => setPref('wide', !prefs.wide)} title={t('sections.rxDetailsTitle')}>{t('sections.rxDetails')}</button>
 			<button
 				type="button"
 				onclick={() => setPref('cyl', prefs.cyl === '+' ? '-' : '+')}
-				title="Sign given to a cylinder typed without one"
-				aria-label="Cylinder sign for unsigned entries: {prefs.cyl === '+' ? 'plus' : 'minus'}. Switch"
+				title={t('sections.rxCylTitle')}
+				aria-label={prefs.cyl === '+' ? t('sections.rxCylLabelPlus') : t('sections.rxCylLabelMinus')}
 			>
-				Cyl {prefs.cyl === '+' ? '+' : '−'}
+				{t('sections.rxCylButton', { sign: prefs.cyl === '+' ? '+' : '−' })}
 			</button>
-			<a href="{base}/rx/history" target="_blank" rel="noopener">Dispensed Rx</a>
+			<a href="{base}/rx/history" target="_blank" rel="noopener">{t('sections.rxDispensed')}</a>
 		</span>
 	</div>
 	<p class="status" role="status" aria-live="polite">{status}</p>
@@ -415,29 +427,29 @@
 	{#each visibleSlots as n (n)}
 		{@const source = `W${n}` as RxSource}
 		{@const typeId = ouId(source, 'RX_TYPE')}
-		<article class="card" aria-label="Current glasses #{n}">
-			{@render cardHead(source, `Current glasses #${n}`, () => closeSlot(n))}
-			<div class="rxtype" role="radiogroup" aria-label="Glasses #{n} Rx type">
+		<article class="card" aria-label={t('sections.rxCurrentGlassesN', { n })}>
+			{@render cardHead(source, t('sections.rxCurrentGlassesN', { n }), () => closeSlot(n))}
+			<div class="rxtype" role="radiogroup" aria-label={t('sections.rxGlassesRxType', { n })}>
 				{#each RX_TYPES as label, i (label)}
 					<label class="radio">
 						<input type="radio" name="rxtype-{n}" value={String(i)} checked={cell(typeId).value === String(i)} onchange={() => onedit(typeId, String(i))} />
-						{label}
+						{t(RX_TYPE_LABEL_KEY[i])}
 					</label>
 				{/each}
 			</div>
-			{@render grid(source, wCols(source), `Glasses #${n} distance and near`)}
+			{@render grid(source, wCols(source), t('sections.rxGlassesDistNear', { n }))}
 			{#if prefs.wide}
-				<h4>Fitting details</h4>
-				{@render grid(source, FITTING, `Glasses #${n} prism and PD`)}
+				<h4>{t('sections.rxFittingDetails')}</h4>
+				{@render grid(source, FITTING, t('sections.rxGlassesPrismPd', { n }))}
 				<div class="ou-row">
-					{@render ouText(source, 'BPDD', 'Binocular PD dist')}
-					{@render ouText(source, 'BPDN', 'Binocular PD near')}
+					{@render ouText(source, 'BPDD', t('sections.rxBinPdDist'))}
+					{@render ouText(source, 'BPDN', t('sections.rxBinPdNear'))}
 					{#if true}
 						{@const matId = ouId(source, 'LENS_MATERIAL')}
 						{@const mat = cell(matId)}
 						<label class="ou" class:copied={mat.copied}>
-							<span>Lens material</span>
-							<select value={mat.value} aria-label="Glasses #{n} lens material" onchange={(e) => onedit(matId, e.currentTarget.value)}>
+							<span>{t('sections.rxLensMaterial')}</span>
+							<select value={mat.value} aria-label={t('sections.rxGlassesLensMaterial', { n })} onchange={(e) => onedit(matId, e.currentTarget.value)}>
 								<option value=""></option>
 								{#each LENS_MATERIALS as m (m)}<option value={m}>{m}</option>{/each}
 								{#if mat.value && !LENS_MATERIALS.includes(mat.value)}<option value={mat.value}>{mat.value}</option>{/if}
@@ -447,7 +459,7 @@
 				</div>
 				{@const treat = splitList(cell(ouId(source, 'LENS_TREATMENTS')).value)}
 				<fieldset class="treat">
-					<legend>Lens treatments</legend>
+					<legend>{t('sections.rxLensTreatments')}</legend>
 					{#each LENS_TREATMENTS as t (t)}
 						<label class="check">
 							<input type="checkbox" checked={treat.includes(t)} onchange={(e) => toggleTreatment(source, t, e.currentTarget.checked)} />
@@ -456,34 +468,34 @@
 					{/each}
 				</fieldset>
 			{/if}
-			{@render ouText(source, 'COMMENTS', 'Comments', true)}
+			{@render ouText(source, 'COMMENTS', t('sections.comments'), true)}
 		</article>
 	{/each}
 	{#if nextSlot}
-		<button type="button" class="add" onclick={addSlot}>+ Additional Rx</button>
+		<button type="button" class="add" onclick={addSlot}>+ {t('sections.rxAdditional')}</button>
 	{/if}
 
 	{#if prefs.MR}
-		<article class="card" aria-label="Manifest and cycloplegic refraction">
-			{@render cardHead('MR', 'Manifest (dry)', () => setPref('MR', false))}
-			{@render grid('MR', MR_COLS, 'Manifest refraction')}
+		<article class="card" aria-label={t('sections.rxManifestAndCyclo')}>
+			{@render cardHead('MR', t('sections.rxManifestDry'), () => setPref('MR', false))}
+			{@render grid('MR', MR_COLS, t('sections.rxManifestRefraction'))}
 			<div class="ou-row">
 				{#if true}
 					{@const bal = cell('BALANCED')}
 					<label class="check" class:copied={bal.copied}>
 						<input type="checkbox" checked={!!bal.value} onchange={(e) => onedit('BALANCED', e.currentTarget.checked ? '1' : '')} />
-						Balanced
+						{t('sections.rxBalanced')}
 					</label>
 				{/if}
-				{@render ouText('MR', 'COMMENTS', 'Comments', true)}
+				{@render ouText('MR', 'COMMENTS', t('sections.comments'), true)}
 			</div>
 
 			<div class="sub">
-				{@render cardHead('CR', 'Cycloplegic (wet)')}
-				{@render grid('CR', CR_COLS, 'Cycloplegic refraction')}
+				{@render cardHead('CR', t('sections.rxCycloWet'))}
+				{@render grid('CR', CR_COLS, t('sections.rxCycloRefraction'))}
 				<div class="ou-row">
-					<div class="rxtype" role="radiogroup" aria-label="Cycloplegic method">
-						<span class="lbl">Method</span>
+					<div class="rxtype" role="radiogroup" aria-label={t('sections.rxCycloMethod')}>
+						<span class="lbl">{t('sections.rxMethod')}</span>
 						{#each WET_METHODS as m (m)}
 							<label class="radio">
 								<input type="radio" name="wettype" value={m} checked={cell('WETTYPE').value === m} onchange={() => onedit('WETTYPE', m)} />
@@ -496,31 +508,31 @@
 							{@const id = `${e}IOPPOST`}
 							{@const s = cell(id)}
 							<label class="ou" class:ghost={s.ghost} class:copied={s.copied}>
-								<span>Post-dilation IOP {e}</span>
-								<input class="short" inputmode="numeric" value={s.value} aria-label="IOP post-dilation {e}" oninput={(ev) => onedit(id, ev.currentTarget.value)} />
+								<span>{t('sections.rxPostDilationIop', { eye: e })}</span>
+								<input class="short" inputmode="numeric" value={s.value} aria-label={t('sections.iopPostDilationLabel', { eye: e })} oninput={(ev) => onedit(id, ev.currentTarget.value)} />
 							</label>
 						{/each}
 					{/if}
 				</div>
-				{@render ouText('CR', 'COMMENTS', 'Comments', true)}
+				{@render ouText('CR', 'COMMENTS', t('sections.comments'), true)}
 			</div>
 		</article>
 	{/if}
 
 	{#if prefs.AR}
-		<article class="card" aria-label="Autorefraction">
-			{@render cardHead('AR', 'Autorefraction', () => setPref('AR', false))}
-			{@render grid('AR', AR_COLS, 'Autorefraction')}
-			{@render ouText('AR', 'COMMENTS', 'Comments', true)}
+		<article class="card" aria-label={t('sections.rxAutorefraction')}>
+			{@render cardHead('AR', t('sections.rxAutorefraction'), () => setPref('AR', false))}
+			{@render grid('AR', AR_COLS, t('sections.rxAutorefraction'))}
+			{@render ouText('AR', 'COMMENTS', t('sections.comments'), true)}
 		</article>
 	{/if}
 
 	{#if prefs.CTL}
-		<article class="card" aria-label="Contact lens">
-			{@render cardHead('CTL', 'Contact lens', () => setPref('CTL', false))}
-			{@render grid('CTL', CTL_COLS, 'Contact lens power and fit')}
-			{@render grid('CTL', CTL_LENS, 'Contact lens brand')}
-			{@render ouText('CTL', 'COMMENTS', 'Comments', true)}
+		<article class="card" aria-label={t('sections.rxContactLens')}>
+			{@render cardHead('CTL', t('sections.rxContactLens'), () => setPref('CTL', false))}
+			{@render grid('CTL', CTL_COLS, t('sections.rxCtlPowerFit'))}
+			{@render grid('CTL', CTL_LENS, t('sections.rxCtlBrand'))}
+			{@render ouText('CTL', 'COMMENTS', t('sections.comments'), true)}
 		</article>
 	{/if}
 
@@ -529,8 +541,8 @@
 	<datalist id="ctl-suppliers">{#each CTL_SUPPLIERS as o (o)}<option value={o}></option>{/each}</datalist>
 
 	<p class="legend">
-		Powers format when you leave a box: <code>125</code> → +1.25, <code>pl</code> → PLANO, axis <code>90</code> → 090.
-		<span class="swatch copied" aria-hidden="true"></span> Copied from a prior visit.
+		<Msg key="sections.rxLegendFormat">{#snippet power()}<code>125</code>{/snippet}{#snippet plano()}<code>pl</code>{/snippet}{#snippet axis()}<code>90</code>{/snippet}</Msg>
+		<span class="swatch copied" aria-hidden="true"></span> {t('sections.legendCopied')}
 	</p>
 </section>
 

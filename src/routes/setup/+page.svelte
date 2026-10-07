@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import '#lib/components/settings/forms.css';
-	import { PASSWORD_HINT } from '#lib/components/settings/rules.ts';
-	import { CODE_SETS, CODE_SET_IDS, ICD11_CITATION, ICD11_LICENCE } from '#lib/codesets/index.ts';
+	import { PASSWORD_MAX, PASSWORD_MIN } from '#lib/components/settings/rules.ts';
+	import { CODE_SET_IDS, ICD11_CITATION, ICD11_LICENCE, type CodeSetId } from '#lib/codesets/index.ts';
+	import LanguageSelect from '#lib/components/settings/LanguageSelect.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { FullAutoFill } from 'svelte/elements';
 	import type { PageProps } from './$types';
 
-	let { form }: PageProps = $props();
+	let { data, form }: PageProps = $props();
+	const { t } = useI18n();
+	const codeSetLabel = (id: CodeSetId) => (id === 'icd11' ? t('codes.setIcd11') : t('codes.setIcd10cm'));
 	const errors = $derived<Record<string, string>>(form?.errors ?? {});
 	let busy = $state(false);
 	// Default ICD-10-CM; after a refused submit the earlier choice comes back from the form values.
@@ -14,11 +18,11 @@
 	const codeSet = $derived(picked ?? (form?.values?.codeSet === 'icd11' ? 'icd11' : 'icd10cm'));
 </script>
 
-<svelte:head><title>First-run setup · OpenVision</title></svelte:head>
+<svelte:head><title>{t('auth.setupTitle')}</title></svelte:head>
 
 <main>
-	<h1>Welcome to OpenVision</h1>
-	<p class="sub">No one can sign in yet. Create the first administrator account. You can add providers and technicians afterwards in Settings → Users.</p>
+	<h1>{t('auth.setupWelcome')}</h1>
+	<p class="sub">{t('auth.setupIntro')}</p>
 
 	<form
 		class="ov-form"
@@ -32,9 +36,16 @@
 			};
 		}}
 	>
+		{#if errors.form}<p class="summary" role="alert">{errors.form}</p>{/if}
+		<LanguageSelect
+			id="locale"
+			label={t('common.language')}
+			value={form?.values?.locale ?? data.locale}
+			hint={t('auth.setupLanguageHint')}
+			error={errors.locale}
+		/>
 		<fieldset>
-			<legend>Administrator</legend>
-			{#if errors.form}<p class="summary" role="alert">{errors.form}</p>{/if}
+			<legend>{t('auth.administrator')}</legend>
 			{#snippet field(id: string, label: string, type: string, autocomplete: FullAutoFill, value: string, hint = '')}
 				<div class="field">
 					<label for={id}>{label}</label>
@@ -52,26 +63,24 @@
 					{#if errors[id]}<p class="err" id="{id}-err">{errors[id]}</p>{/if}
 				</div>
 			{/snippet}
-			{@render field('username', 'Username', 'text', 'username', form?.values?.username ?? '', '3-32 letters, numbers, dots, hyphens or underscores.')}
-			{@render field('displayName', 'Display name', 'text', 'name', form?.values?.displayName ?? '', 'Shown in the header and on records, e.g. "Office Manager".')}
-			{@render field('password', 'Password', 'password', 'new-password', '', PASSWORD_HINT)}
-			{@render field('confirm', 'Confirm password', 'password', 'new-password', '')}
+			{@render field('username', t('auth.username'), 'text', 'username', form?.values?.username ?? '', t('auth.usernameHint'))}
+			{@render field('displayName', t('common.displayName'), 'text', 'name', form?.values?.displayName ?? '', t('auth.displayNameHint'))}
+			{@render field('password', t('auth.password'), 'password', 'new-password', '', t('common.passwordHint', { min: PASSWORD_MIN, max: PASSWORD_MAX }))}
+			{@render field('confirm', t('auth.confirmPassword'), 'password', 'new-password', '')}
 		</fieldset>
 		<fieldset>
-			<legend>Diagnosis codes</legend>
+			<legend>{t('auth.diagnosisCodes')}</legend>
 			<fieldset class="radios" aria-describedby="codeset-hint">
-				<legend class="label">Code set</legend>
+				<legend class="label">{t('auth.codeSet')}</legend>
 				{#each CODE_SET_IDS as id (id)}
-					<label class="check"><input type="radio" name="codeSet" value={id} checked={codeSet === id} onchange={() => (picked = id)} /> {CODE_SETS[id].label}</label>
+					<label class="check"><input type="radio" name="codeSet" value={id} checked={codeSet === id} onchange={() => (picked = id)} /> {codeSetLabel(id)}</label>
 				{/each}
 			</fieldset>
-			<p class="hint" id="codeset-hint">
-				ICD-10-CM turns on US code suggestions (CPT visit and test codes to copy into your billing system; OpenVision does not create bills); ICD-11 leaves them off. Both can be changed later in Settings → Practice.
-			</p>
+			<p class="hint" id="codeset-hint">{t('auth.codeSetHint')}</p>
 			{#if errors.codeSet}<p class="err">{errors.codeSet}</p>{/if}
-			{#if codeSet === 'icd11'}<p class="hint">{ICD11_CITATION}. Licence: {ICD11_LICENCE}.</p>{/if}
+			{#if codeSet === 'icd11'}<p class="hint">{t('auth.icd11Licence', { citation: ICD11_CITATION, licence: ICD11_LICENCE })}</p>{/if}
 			<div class="actions">
-				<button type="submit" class="primary" disabled={busy}>{busy ? 'Creating…' : 'Create admin and sign in'}</button>
+				<button type="submit" class="primary" disabled={busy}>{busy ? t('auth.creating') : t('auth.createAdmin')}</button>
 			</div>
 		</fieldset>
 	</form>

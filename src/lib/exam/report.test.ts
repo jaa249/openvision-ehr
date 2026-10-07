@@ -36,7 +36,7 @@ describe('report sections (spec §13.2)', () => {
 		const s = section(f({ RLF: '15', ODHERTEL: '16', OSHERTEL: '17', HERTELBASE: '100' }), 'Additional findings')!;
 		expect(s.rows).toEqual([
 			{ label: 'Levator function', od: '15 mm', os: '' },
-			{ label: 'Hertel (base 100)', od: '16 mm', os: '17 mm' }
+			{ label: 'Hertel (base 100)', labelText: { key: 'report.hertelBase', params: { base: '100' } }, od: '16 mm', os: '17 mm' }
 		]);
 		expect(titles(f({ RLF: '15' }))).toEqual(['Additional findings']);
 	});
@@ -44,5 +44,13 @@ describe('report sections (spec §13.2)', () => {
 	it('values print as typed (no reformatting) and blanks are ignored', () => {
 		const s = section(f({ ODCUP: '0.45V x 0.4H', OSCUP: '   ' }), 'Retina')!;
 		expect(s.rows.find((r) => r.label === 'C/D ratio')).toEqual({ label: 'C/D ratio', od: '0.45V x 0.4H', os: '' });
+	});
+
+	it('every heading report.ts prints has a translation key (D48)', () => {
+		const x = f({ RUL: 'ptosis', ODCONJ: 'quiet', ODDISC: 'pink', RLF: '15', ODHERTEL: '16' });
+		const own = buildReport(x).filter((s) => ['External', 'Anterior segment', 'Retina', 'Additional findings'].includes(s.title));
+		expect(own).toHaveLength(4);
+		for (const s of own) expect(s.titleText?.key, s.title).toMatch(/^report\./);
+		expect(section(x, 'Additional findings')!.rows.find((r) => r.label === 'Hertel')?.labelText).toEqual({ key: 'report.hertel' });
 	});
 });

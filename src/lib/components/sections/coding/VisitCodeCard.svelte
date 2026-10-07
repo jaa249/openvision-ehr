@@ -1,8 +1,10 @@
 <script lang="ts">
 	// Visit code choice (spec §11.1 FIX, decision D7): the suggestion is pre-selected and marked
 	// "suggested" with its reasons and the documented evidence; the provider confirms or picks another.
-	import { FAMILIES, LEVEL_LABEL, VISIT_CODES, type Family, type VisitCodeDef } from '#lib/coding/codes.ts';
+	import { FAMILIES, FAMILY_HELP_KEY, FAMILY_LABEL_KEY, LEVEL_LABEL_KEY, VISIT_CODES, type Family, type VisitCodeDef } from '#lib/coding/codes.ts';
 	import type { VisitSuggestion } from '#lib/coding/types.ts';
+	import { patientReason } from '#lib/coding/visit.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 
 	let {
 		family,
@@ -20,34 +22,36 @@
 		onfamily: (f: Family) => void;
 		oncode: (code: string) => void;
 	} = $props();
+	const { t } = useI18n();
 
 	const codes = $derived(VISIT_CODES.filter((c) => c.family === family));
 	const groups = $derived([
-		{ id: 'new', label: 'New patient', codes: codes.filter((c) => c.patient === 'new') },
-		{ id: 'established', label: 'Established patient', codes: codes.filter((c) => c.patient === 'established') }
+		{ id: 'new', label: t('codes.newPatient'), codes: codes.filter((c) => c.patient === 'new') },
+		{ id: 'established', label: t('codes.establishedPatient'), codes: codes.filter((c) => c.patient === 'established') }
 	]);
 	const suggested = $derived(family === 'eye' ? suggestion.code : null);
 	const selected = $derived(visitCode ?? suggested);
 	const confirmed = $derived(visitCode !== null);
-	const familyHelp = $derived(FAMILIES.find((f) => f.id === family)?.help ?? '');
+	const familyHelp = $derived(FAMILIES.some((f) => f.id === family) ? t(FAMILY_HELP_KEY[family]) : '');
 
 	function hint(c: VisitCodeDef): string {
 		const parts: string[] = [];
-		if (c.code === suggested) parts.push('suggested');
-		if (c.patient !== suggestion.patient.status) parts.push(`patient looks ${suggestion.patient.status}`);
+		if (c.code === suggested) parts.push(t('codes.hintSuggested'));
+		if (c.patient !== suggestion.patient.status)
+			parts.push(suggestion.patient.status === 'new' ? t('codes.hintLooksNew') : t('codes.hintLooksEstablished'));
 		return parts.join(' · ');
 	}
 </script>
 
 <div class="panel" role="group" aria-labelledby="visit-code-title">
 	<div class="card-head">
-		<h3 id="visit-code-title">Visit code</h3>
+		<h3 id="visit-code-title">{t('codes.visitCodeTitle')}</h3>
 		<fieldset class="family">
-			<legend class="visually-hidden">Code family</legend>
+			<legend class="visually-hidden">{t('codes.codeFamily')}</legend>
 			{#each FAMILIES as f (f.id)}
 				<label class="seg" class:on={family === f.id}>
 					<input type="radio" name="code-family" value={f.id} checked={family === f.id} {disabled} onchange={() => onfamily(f.id)} />
-					<span>{f.label}</span>
+					<span>{t(FAMILY_LABEL_KEY[f.id])}</span>
 				</label>
 			{/each}
 		</fieldset>
@@ -55,12 +59,12 @@
 	<p class="help">{familyHelp}</p>
 
 	<p class="patient">
-		<strong>{suggestion.patient.status === 'new' ? 'New patient' : 'Established patient'}</strong>
-		<span>{suggestion.patient.reason}</span>
+		<strong>{suggestion.patient.status === 'new' ? t('codes.newPatient') : t('codes.establishedPatient')}</strong>
+		<span>{patientReason(suggestion.patient, t)}</span>
 	</p>
 
 	<fieldset class="codes" aria-describedby="visit-code-state">
-		<legend class="visually-hidden">Visit code</legend>
+		<legend class="visually-hidden">{t('codes.visitCodeTitle')}</legend>
 		{#each groups as g (g.id)}
 			<div class="group" role="group" aria-label={g.label}>
 				<span class="group-label">{g.label}</span>
@@ -69,8 +73,8 @@
 						<label class="opt" class:on={selected === c.code} class:suggested={c.code === suggested} class:unconfirmed={selected === c.code && !confirmed}>
 							<input type="radio" name="visit-code" value={c.code} checked={selected === c.code} {disabled} onclick={() => oncode(c.code)} />
 							<span class="opt-code">{c.code}</span>
-							<span class="opt-level">{LEVEL_LABEL[c.level]}</span>
-							{#if c.code === suggested}<span class="badge">Suggested</span>{/if}
+							<span class="opt-level">{t(LEVEL_LABEL_KEY[c.level])}</span>
+							{#if c.code === suggested}<span class="badge">{t('codes.badgeSuggested')}</span>{/if}
 							{#if hint(c) && c.code !== suggested}<span class="opt-hint">{hint(c)}</span>{/if}
 						</label>
 					{/each}
@@ -80,35 +84,37 @@
 	</fieldset>
 	<p id="visit-code-state" class="state" class:warn={!confirmed} aria-live="polite">
 		{#if family === 'em' && !visitCode}
-			Pick the level by medical decision-making or total time. No suggestion is made for office codes.
+			{t('codes.stateEmPick')}
 		{:else if !confirmed}
-			{suggested} is pre-selected from the suggestion and not yet confirmed. Pick a code to confirm it.
+			{t('codes.stateUnconfirmed', { code: suggested ?? '' })}
 		{:else if visitCode === suggested}
-			You confirmed the suggested code {visitCode}.
+			{t('codes.stateConfirmed', { code: visitCode ?? '' })}
+		{:else if suggested}
+			{t('codes.stateChoseOther', { code: visitCode ?? '', suggested })}
 		{:else}
-			You chose {visitCode}{suggested ? `; the suggestion was ${suggested}` : ''}.
+			{t('codes.stateChose', { code: visitCode ?? '' })}
 		{/if}
 	</p>
 
 	{#if family === 'eye'}
 		<div class="why">
-			<h4>Why {suggestion.code} is suggested</h4>
+			<h4>{t('codes.whySuggested', { code: suggestion.code })}</h4>
 			<ul class="reasons">
 				{#each suggestion.reasons as r, i (i)}<li>{r}</li>{/each}
 			</ul>
-			<h4>Documented evidence</h4>
+			<h4>{t('codes.evidenceTitle')}</h4>
 			<ul class="evidence">
 				{#each suggestion.evidence as e (e.id)}
 					<li class:met={e.met}>
 						<span class="mark" aria-hidden="true">{e.met ? '✓' : '○'}</span>
 						<span class="ev-text">
-							<span class="ev-label">{e.label}<span class="visually-hidden">: {e.met ? 'documented' : 'not documented'}</span></span>
-							<span class="ev-detail">{e.detail}{e.supports === 'comprehensive' ? ' Speaks for comprehensive.' : ' Supports either level.'}</span>
+							<span class="ev-label">{e.label}<span class="visually-hidden">: {e.met ? t('codes.evDocumented') : t('codes.evNotDocumented')}</span></span>
+							<span class="ev-detail">{e.detail}{' '}{e.supports === 'comprehensive' ? t('codes.evSpeaksComprehensive') : t('codes.evSupportsEither')}</span>
 						</span>
 					</li>
 				{/each}
 			</ul>
-			<p class="help">Intermediate: evaluation of a new or existing condition. Comprehensive: a general evaluation of the complete visual system, including starting diagnostic or treatment programs.</p>
+			<p class="help">{t('codes.levelsHelp')}</p>
 		</div>
 	{/if}
 </div>

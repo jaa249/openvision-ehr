@@ -8,14 +8,27 @@ import { historyReport } from './sections/history.ts';
 import { neuroReport } from './sections/neuro.ts';
 import { dilationReport } from './sections/dilation.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
+import type { Params } from '#lib/i18n/translate.ts';
+
+/** A heading or label in the reader's language (D48); `label` / `title` keep the English. */
+export interface ReportText {
+	key: MessageKey;
+	params?: Params;
+}
 
 export interface ReportRow {
 	label: string;
 	od: string;
 	os: string;
+	/** Translated label, when the row has one; otherwise `label` prints as is. */
+	labelText?: ReportText;
 }
 export interface ReportSection {
+	/** English title: also what drawings and tests match on. */
 	title: string;
+	/** Translated title, when the section has one; otherwise `title` prints as is. */
+	titleText?: ReportText;
 	/** OD | label | OS rows (the exam-section layout). */
 	rows: ReportRow[];
 	comments: string;
@@ -26,17 +39,19 @@ export interface ReportSection {
 }
 
 /** Core rows print whenever their section prints; extra rows only when filled (§13.2 items 7, 8, 10). */
-const LAYOUT: { section: SectionId; title: string; core: string[]; extra: string[] }[] = [
-	{ section: 'EXT', title: 'External', core: ['BROW', 'UL', 'LL', 'MCT'], extra: ['ADNEXA'] },
+const LAYOUT: { section: SectionId; title: string; titleKey: MessageKey; core: string[]; extra: string[] }[] = [
+	{ section: 'EXT', title: 'External', titleKey: 'report.sectionExternal', core: ['BROW', 'UL', 'LL', 'MCT'], extra: ['ADNEXA'] },
 	{
 		section: 'ANTSEG',
 		title: 'Anterior segment',
+		titleKey: 'report.sectionAnteriorSegment',
 		core: ['CONJ', 'CORNEA', 'AC', 'LENS', 'IRIS'],
 		extra: ['GONIO', 'KTHICKNESS', 'SCHIRMER1', 'SCHIRMER2', 'TBUT']
 	},
 	{
 		section: 'RETINA',
 		title: 'Retina',
+		titleKey: 'report.sectionRetina',
 		core: ['DISC', 'CUP', 'MACULA', 'VESSELS', 'VITREOUS', 'PERIPH'],
 		extra: ['CMT']
 	}
@@ -72,7 +87,7 @@ export function buildReport(findings: Findings): ReportSection[] {
 			if (l.section === 'EXT') out.push(...additional());
 			continue;
 		}
-		out.push({ title: l.title, rows: [...core, ...extra], comments });
+		out.push({ title: l.title, titleText: { key: l.titleKey }, rows: [...core, ...extra], comments });
 		if (l.section === 'EXT') out.push(...additional());
 	}
 	// Cover test and neuro comments after Retina (item 11).
@@ -82,10 +97,17 @@ export function buildReport(findings: Findings): ReportSection[] {
 	function additional(): ReportSection[] {
 		const rows = ADDITIONAL.map((id) => row('EXT', id)).filter(filled);
 		const [od, base, os] = [v('ODHERTEL'), v('HERTELBASE'), v('OSHERTEL')];
-		if (od || os || base) rows.push({ label: `Hertel${base ? ` (base ${base})` : ''}`, od: od && `${od} mm`, os: os && `${os} mm` });
+		if (od || os || base)
+			rows.push({
+				label: `Hertel${base ? ` (base ${base})` : ''}`,
+				labelText: base ? { key: 'report.hertelBase', params: { base } } : { key: 'report.hertel' },
+				od: od && `${od} mm`,
+				os: os && `${os} mm`
+			});
 		// Neuro block (item 9): color, red desaturation, coins, NPA, NPC, accommodation, amplitudes, stereopsis.
 		rows.push(...neuro.additional);
 		const title = neuro.orthophoric ? 'Additional findings (orthophoric)' : 'Additional findings';
-		return rows.length || neuro.orthophoric ? [{ title, rows, comments: '' }] : [];
+		const titleText: ReportText = { key: neuro.orthophoric ? 'report.additionalFindingsOrthophoric' : 'report.additionalFindings' };
+		return rows.length || neuro.orthophoric ? [{ title, titleText, rows, comments: '' }] : [];
 	}
 }

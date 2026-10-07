@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { FIELD_BY_ID } from '#lib/exam/catalog.ts';
+	import { fieldLabel } from '#lib/exam/catalog.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
 	import type { ParseResult } from '#lib/shorthand/parse.ts';
 	import { ISSUE_TYPE_DEF } from '#lib/history/lists.ts';
 
@@ -14,16 +16,20 @@
 		input.focus();
 	}
 
+	const { t } = useI18n();
+
+	// Chips show what each entry will do; section ids, field values and typed text stay as they are.
 	function label(op: ParseResult['ops'][number]): string {
-		if (op.kind === 'defaults') return `Normal: ${op.sections === 'all' ? 'all sections' : op.sections.join(', ')}`;
-		if (op.kind === 'clear') return `Clear: ${op.sections === 'all' ? 'all sections' : op.sections.join(', ')}`;
+		if (op.kind === 'defaults')
+			return op.sections === 'all' ? t('exam.shNormalAll') : t('exam.shNormal', { sections: op.sections.join(', ') });
+		if (op.kind === 'clear') return op.sections === 'all' ? t('exam.shClearAll') : t('exam.shClear', { sections: op.sections.join(', ') });
 		if (op.kind === 'issue') return `${ISSUE_TYPE_DEF.get(op.type)?.short ?? op.type} + ${op.text}`;
 		if (op.kind === 'setEach')
 			return Object.entries(op.values)
-				.map(([f, v]) => `${FIELD_BY_ID.get(f)?.label ?? f} = ${v}`)
+				.map(([f, v]) => `${fieldLabel(f, t)} = ${v}`)
 				.join(', ');
-		const names = op.fields.map((f) => FIELD_BY_ID.get(f)?.label ?? f).join(' + ');
-		return `${names} ${op.append ? '+=' : '='} ${op.text || '(empty)'}`;
+		const names = op.fields.map((f) => fieldLabel(f, t)).join(' + ');
+		return `${names} ${op.append ? '+=' : '='} ${op.text || t('exam.shEmpty')}`;
 	}
 
 	function onkeydown(e: KeyboardEvent) {
@@ -37,7 +43,7 @@
 </script>
 
 <div class="bar">
-	<label for="shorthand">Shorthand <kbd>Alt K</kbd></label>
+	<label for="shorthand"><Msg key="exam.shLabel">{#snippet keys()}<kbd>Alt K</kbd>{/snippet}</Msg></label>
 	<input
 		id="shorthand"
 		bind:this={input}
@@ -58,7 +64,7 @@
 			<span class="chip err">{err.message}</span>
 		{/each}
 		{#if text && !result.ops.length && !result.errors.length}
-			<span class="hint">Type code:value, separate entries with ;</span>
+			<span class="hint">{t('exam.shHint')}</span>
 		{/if}
 	</div>
 </div>

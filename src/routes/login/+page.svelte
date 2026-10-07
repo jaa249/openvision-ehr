@@ -1,19 +1,42 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import '#lib/components/settings/forms.css';
+	import LanguageSelect from '#lib/components/settings/LanguageSelect.svelte';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	const errors = $derived<Record<string, string>>(form?.errors ?? {});
 	let busy = $state(false);
-	const ROLE: Record<string, string> = { admin: 'admin: settings and users', provider: 'provider: exams and signing', tech: 'technician: exam entry' };
+	const { t } = useI18n();
+	// Without JavaScript the language menu is a GET form with a "Change" button; once the page runs,
+	// a change applies at once and the button is not shown.
+	let hydrated = $state(false);
+	$effect(() => {
+		hydrated = true;
+	});
+	function changeLanguage(lang: string) {
+		const q = new URLSearchParams({ lang });
+		if (data.next !== '/') q.set('next', data.next);
+		goto(`/login?${q}`, { refreshAll: true, replace: true, reset: false });
+	}
+	const role = (r: string) =>
+		r === 'admin' ? t('auth.demoRoleAdmin') : r === 'provider' ? t('auth.demoRoleProvider') : r === 'tech' ? t('auth.demoRoleTech') : r;
 </script>
 
-<svelte:head><title>Sign in · OpenVision</title></svelte:head>
+<svelte:head><title>{t('auth.loginTitle')}</title></svelte:head>
 
 <main>
-	<h1>OpenVision</h1>
-	<p class="sub">Sign in to continue.</p>
+	<form class="ov-form lang" method="GET" action="/login">
+		{#if data.next !== '/'}<input type="hidden" name="next" value={data.next} />{/if}
+		<LanguageSelect id="lang" label={t('auth.language')} value={data.locale} onchange={changeLanguage} />
+		{#if !hydrated}<button type="submit">{t('auth.changeLanguage')}</button>{/if}
+	</form>
+
+	<h1>{t('common.appName')}</h1>
+	<p class="sub">{t('auth.signInToContinue')}</p>
 
 	<form
 		class="ov-form"
@@ -28,10 +51,11 @@
 		}}
 	>
 		<input type="hidden" name="next" value={data.next} />
+		<input type="hidden" name="langChosen" value={data.langChosen ? '1' : ''} />
 		<div class="card">
 			{#if form?.message}<p class="summary" role="alert">{form.message}</p>{/if}
 			<div class="field">
-				<label for="username">Username</label>
+				<label for="username">{t('auth.username')}</label>
 				<!-- svelte-ignore a11y_autofocus -->
 				<input
 					id="username"
@@ -47,7 +71,7 @@
 				{#if errors.username}<p class="err" id="username-err">{errors.username}</p>{/if}
 			</div>
 			<div class="field">
-				<label for="password">Password</label>
+				<label for="password">{t('auth.password')}</label>
 				<input
 					id="password"
 					name="password"
@@ -59,22 +83,42 @@
 				{#if errors.password}<p class="err" id="password-err">{errors.password}</p>{/if}
 			</div>
 			<div class="actions">
-				<button type="submit" class="primary wide" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+				<button type="submit" class="primary wide" disabled={busy}>{busy ? t('auth.signingIn') : t('auth.signIn')}</button>
 			</div>
 		</div>
 	</form>
 
+	<details class="forgot">
+		<summary>{t('auth.forgotSummary')}</summary>
+		<p>{t('auth.forgotAskAdmin')}</p>
+		<p>{t('auth.forgotNoAdmin')}</p>
+		<ol>
+			<li>{t('auth.forgotStep1')}</li>
+			<li>
+				<Msg key="auth.forgotStep2">
+					{#snippet command()}<code>node scripts/reset-admin.mjs <var>username</var></code>{/snippet}
+				</Msg>
+			</li>
+			<li>{t('auth.forgotStep3')}</li>
+		</ol>
+		<p>{t('auth.forgotNote')}</p>
+	</details>
+
 	{#if data.demo.length}
 		<section class="demo" aria-labelledby="demo-h">
-			<h2 id="demo-h">Demo accounts</h2>
-			<p>This install still has the fictional demo accounts with their public password. All demo data is made up.</p>
+			<h2 id="demo-h">{t('auth.demoHeading')}</h2>
+			<p>{t('auth.demoIntro')}</p>
 			<dl>
 				{#each data.demo as d (d.username)}
-					<div><dt><code>{d.username}</code></dt><dd>{ROLE[d.role] ?? d.role}</dd></div>
+					<div><dt><code>{d.username}</code></dt><dd>{role(d.role)}</dd></div>
 				{/each}
 			</dl>
-			<p>Password for each: <code>openvision-demo</code></p>
-			<p class="warn">Before real use, an admin should deactivate these accounts or change their passwords (Settings → Users). This box then disappears.</p>
+			<p>
+				<Msg key="auth.demoPassword">
+					{#snippet password()}<code>openvision-demo</code>{/snippet}
+				</Msg>
+			</p>
+			<p class="warn">{t('auth.demoWarn')}</p>
 		</section>
 	{/if}
 </main>
@@ -84,6 +128,24 @@
 		max-width: 420px;
 		margin: 0 auto;
 		padding: var(--space-6) var(--space-4);
+	}
+	.lang {
+		flex-direction: row;
+		align-items: flex-end;
+		justify-content: flex-end;
+		gap: var(--space-2);
+		margin: 0 0 var(--space-3);
+		font-size: var(--text-sm);
+	}
+	.lang :global(select) {
+		width: auto;
+	}
+	.lang :global(label) {
+		font-weight: var(--weight-regular);
+		color: var(--text-2);
+	}
+	.lang button {
+		padding: 0 var(--space-3);
 	}
 	h1 {
 		font-size: var(--text-xl);
@@ -96,6 +158,26 @@
 	}
 	.wide {
 		flex: 1;
+	}
+	.forgot {
+		margin-top: var(--space-4);
+		color: var(--text-2);
+		font-size: var(--text-sm);
+	}
+	.forgot summary {
+		cursor: pointer;
+		color: var(--accent);
+		padding: var(--space-1) 0;
+		min-height: 44px;
+		display: flex;
+		align-items: center;
+	}
+	.forgot p,
+	.forgot ol {
+		margin: var(--space-2) 0;
+	}
+	.forgot ol {
+		padding-left: 1.4em;
 	}
 	.demo {
 		margin-top: var(--space-5);

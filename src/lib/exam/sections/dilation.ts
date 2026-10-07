@@ -11,6 +11,7 @@
 import type { FieldDef } from '../catalog.ts';
 import type { ReportSection } from '../report.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 export interface DilationDrop {
 	/** Field id; the stored value is the strength given ('' = not given). */
@@ -30,6 +31,15 @@ export const DILATION_DROPS: DilationDrop[] = [
 	{ id: 'CYCLOMYDRIL', name: 'Cyclopentolate/phenylephrine', strengths: ['0.2%/1%'] },
 	{ id: 'ATROPINE', name: 'Atropine', strengths: ['1%', '0.5%'] }
 ];
+/** Screen names of DILATION_DROPS by id (D48); the report prints the English `name`. */
+export const DROP_NAME_KEY: Record<string, MessageKey> = {
+	TROPICAMIDE: 'sections.dropTropicamide',
+	NEO25: 'sections.dropPhenylephrine',
+	NEO10: 'sections.dropPhenylephrine',
+	CYCLOGYL: 'sections.dropCyclopentolate',
+	CYCLOMYDRIL: 'sections.dropCyclomydril',
+	ATROPINE: 'sections.dropAtropine'
+};
 export const DROP_IDS = DILATION_DROPS.map((d) => d.id);
 
 /** "Other drops" free text (eye_mag's DIL_MEDS). */

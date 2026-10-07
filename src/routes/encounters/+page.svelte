@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { MAX_PRINT } from '#lib/exam/print.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	const { t } = useI18n();
 
 	let selected = $state(new Set<number>());
 	// A new search starts a fresh selection, so nothing hidden by the filter gets printed.
@@ -47,38 +50,40 @@
 	}
 </script>
 
-<svelte:head><title>Encounters · OpenVision</title></svelte:head>
+<svelte:head><title>{t('visits.encountersTitle')}</title></svelte:head>
 
 <main>
-	<nav class="crumbs"><a href="/">← Patients</a></nav>
-	<h1>Encounters</h1>
+	<nav class="crumbs"><a href="/">{t('patients.backToPatients')}</a></nav>
+	<h1>{t('visits.encountersHeading')}</h1>
 	<p class="sub">
-		Find visits, tick the ones you need, then print them together (each report on its own page) or export them:
-		<strong>CSV</strong> for spreadsheets, <strong>FHIR</strong> for other EHR systems.
+		<Msg key="visits.encountersLead">
+			{#snippet csv()}<strong>CSV</strong>{/snippet}
+			{#snippet fhir()}<strong>FHIR</strong>{/snippet}
+		</Msg>
 	</p>
 
 	<form id="filters" class="filters" method="GET">
-		<label>From <input type="date" name="from" value={data.filter.from} /></label>
-		<label>To <input type="date" name="to" value={data.filter.to} /></label>
-		<label class="grow">Patient <input type="search" name="q" value={data.filter.query} placeholder="Name or MRN" /></label>
-		<button type="submit">Search</button>
-		<span class="quick" role="group" aria-label="Quick ranges">
-			<button type="button" onclick={() => setRange(0)}>Today</button>
-			<button type="button" onclick={() => setRange(7)}>Last 7 days</button>
-			<button type="button" onclick={() => setRange(null)}>All</button>
+		<label>{t('visits.filterFrom')} <input type="date" name="from" value={data.filter.from} /></label>
+		<label>{t('visits.filterTo')} <input type="date" name="to" value={data.filter.to} /></label>
+		<label class="grow">{t('visits.filterPatient')} <input type="search" name="q" value={data.filter.query} placeholder={t('visits.filterPatientPlaceholder')} /></label>
+		<button type="submit">{t('common.search')}</button>
+		<span class="quick" role="group" aria-label={t('visits.quickRanges')}>
+			<button type="button" onclick={() => setRange(0)}>{t('visits.rangeToday')}</button>
+			<button type="button" onclick={() => setRange(7)}>{t('visits.rangeLast7')}</button>
+			<button type="button" onclick={() => setRange(null)}>{t('visits.rangeAll')}</button>
 		</span>
 	</form>
 
 	<div class="actions">
 		<span class="count" aria-live="polite">
-			{selected.size} of {data.encounters.length} selected
-			{#if tooMany}<span class="warn">· at most {MAX_PRINT} per print job</span>{/if}
+			{t('visits.selectedCount', { selected: selected.size, total: data.encounters.length })}
+			{#if tooMany}<span class="warn">{t('visits.printLimit', { max: MAX_PRINT })}</span>{/if}
 		</span>
 		<span class="buttons">
-			<button type="button" disabled={!selected.size} onclick={() => exportSelected('csv')}>Export CSV</button>
-			<button type="button" disabled={!selected.size} onclick={() => exportSelected('fhir')}>Export FHIR</button>
+			<button type="button" disabled={!selected.size} onclick={() => exportSelected('csv')}>{t('visits.exportCsv')}</button>
+			<button type="button" disabled={!selected.size} onclick={() => exportSelected('fhir')}>{t('visits.exportFhir')}</button>
 			<button type="button" class="primary" disabled={!selected.size || tooMany} onclick={printSelected}>
-				Print selected{selected.size ? ` (${selected.size})` : ''}
+				{selected.size ? t('visits.printSelectedCount', { n: selected.size }) : t('visits.printSelected')}
 			</button>
 		</span>
 	</div>
@@ -88,15 +93,15 @@
 			<thead>
 				<tr>
 					<th scope="col" class="check">
-						<input type="checkbox" checked={all} indeterminate={some} onchange={toggleAll} aria-label="Select all shown" />
+						<input type="checkbox" checked={all} indeterminate={some} onchange={toggleAll} aria-label={t('visits.selectAllShown')} />
 					</th>
-					<th scope="col">Date</th>
-					<th scope="col">Patient</th>
-					<th scope="col">MRN</th>
-					<th scope="col">Visit</th>
-					<th scope="col">Provider</th>
-					<th scope="col" class="num">Findings</th>
-					<th scope="col"><span class="visually-hidden">Actions</span></th>
+					<th scope="col">{t('visits.date')}</th>
+					<th scope="col">{t('visits.colPatient')}</th>
+					<th scope="col">{t('patients.mrn')}</th>
+					<th scope="col">{t('visits.colVisit')}</th>
+					<th scope="col">{t('visits.provider')}</th>
+					<th scope="col" class="num">{t('visits.colFindings')}</th>
+					<th scope="col"><span class="visually-hidden">{t('visits.colActions')}</span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -107,25 +112,25 @@
 								type="checkbox"
 								checked={selected.has(e.id)}
 								onchange={() => toggle(e.id)}
-								aria-label="Select {e.patientName}, {e.date}"
+								aria-label={t('visits.selectRow', { name: e.patientName, date: e.date })}
 							/>
 						</td>
 						<td class="num">{e.date}</td>
 						<td>{e.patientName}</td>
 						<td class="num">{e.mrn}</td>
 						<td>{e.visitType}</td>
-						<td>{e.provider}{#if e.technician}<span class="tech"><br />Tech: {e.technician}</span>{/if}</td>
+						<td>{e.provider}{#if e.technician}<span class="tech"><br />{t('visits.techLine', { name: e.technician })}</span>{/if}</td>
 						<td class="num">{e.findingCount || '–'}</td>
 						<td class="links">
-							<a href="/patients/{e.patientId}/encounters/{e.id}">Open</a>
-							<a href="/print?ids={e.id}" target="_blank" rel="noopener">Print</a>
+							<a href="/patients/{e.patientId}/encounters/{e.id}">{t('common.open')}</a>
+							<a href="/print?ids={e.id}" target="_blank" rel="noopener">{t('common.print')}</a>
 						</td>
 					</tr>
 				{/each}
 			</tbody>
 		</table>
 	{:else}
-		<p class="empty">No encounters match. Try a wider date range.</p>
+		<p class="empty">{t('visits.noEncounters')}</p>
 	{/if}
 </main>
 

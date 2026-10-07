@@ -8,6 +8,7 @@
 		COMPLAINTS,
 		HISTORY_FIELDS,
 		HPI_ELEMENTS,
+		HPI_ELEMENT_KEYS,
 		chronicFill,
 		complaintIds,
 		hpiLevel,
@@ -16,8 +17,11 @@
 	import type { PanelProps } from './types.ts';
 	import { cellState } from './workup/cell.ts';
 	import RosGrid from './hpi/RosGrid.svelte';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 
 	let { context, findings, preview, copied, onedit, oncommit }: PanelProps = $props();
+	const { t } = useI18n();
 
 	const cell = (id: string) => cellState(id, findings, preview, copied);
 	const MAX = new Map(HISTORY_FIELDS.map((f) => [f.id, f.maxLength]));
@@ -68,7 +72,7 @@
 		if (key === lastChronic) return;
 		lastChronic = key;
 		const { next, changed } = chronicFill(findings, texts);
-		if (changed.length) oncommit(next, changed, 'Chronic problems from history');
+		if (changed.length) oncommit(next, changed, t('sections.hpiChronicFromHistory'));
 	}
 </script>
 
@@ -115,10 +119,10 @@
 				onclick={() => set(n)}
 				onkeydown={(e) => tabKey(e, cur, set, prefix)}
 			>
-				{#if which === 'cc'}Complaint {n}{:else}<span class="visually-hidden">Complaint</span> {n}{/if}
-				{#if which === 'cc' && done}<span class="tick" aria-hidden="true">✓</span><span class="visually-hidden">(filled)</span>{/if}
-				{#if which === 'el' && done}<span class="badge" aria-hidden="true">{elementCount(n)}/8</span><span class="visually-hidden">({elementCount(n)} of 8 filled)</span>{/if}
-				{#if ghostIn(n, which)}<span class="dot" aria-hidden="true"></span><span class="visually-hidden">(shorthand pending)</span>{/if}
+				{#if which === 'cc'}{t('sections.hpiComplaintN', { n })}{:else}<span class="visually-hidden">{t('sections.hpiComplaint')}</span> {n}{/if}
+				{#if which === 'cc' && done}<span class="tick" aria-hidden="true">✓</span><span class="visually-hidden">{t('sections.hpiTabFilled')}</span>{/if}
+				{#if which === 'el' && done}<span class="badge" aria-hidden="true">{elementCount(n)}/8</span><span class="visually-hidden">{t('sections.hpiTabElementsFilled', { n: elementCount(n) })}</span>{/if}
+				{#if ghostIn(n, which)}<span class="dot" aria-hidden="true"></span><span class="visually-hidden">{t('sections.hpiTabShorthandPending')}</span>{/if}
 			</button>
 		{/each}
 	</div>
@@ -126,23 +130,23 @@
 
 <section aria-labelledby="hpi-title">
 	<div class="head">
-		<h2 id="hpi-title">History of present illness</h2>
+		<h2 id="hpi-title">{t('sections.hpiTitle')}</h2>
 	</div>
 
 	<div class="row">
 		<!-- Complaints: CC + HPI text (+ chronic problems on tab 1) -->
 		<div class="panel" role="group" aria-labelledby="cc-title">
-			<div class="card-head"><h3 id="cc-title">Chief complaints</h3></div>
-			{@render tabs('hpi-cc', 'Chief complaints', ccTab, chooseComplaint, 'cc')}
+			<div class="card-head"><h3 id="cc-title">{t('sections.hpiChiefComplaints')}</h3></div>
+			{@render tabs('hpi-cc', t('sections.hpiChiefComplaints'), ccTab, chooseComplaint, 'cc')}
 			<div class="tabpanel" role="tabpanel" id="hpi-cc-panel" aria-labelledby="hpi-cc-{ccTab}">
-				{@render textBox(ids(ccTab).cc, 'Chief complaint', { placeholder: "In the patient's words" })}
-				{@render textBox(ids(ccTab).hpi, 'HPI', { rows: 4, placeholder: 'History of the present illness' })}
+				{@render textBox(ids(ccTab).cc, t('sections.hpiChiefComplaint'), { placeholder: t('sections.hpiCcPlaceholder') })}
+				{@render textBox(ids(ccTab).hpi, t('sections.hpiHpi'), { rows: 4, placeholder: t('sections.hpiHpiPlaceholder') })}
 				{#if ccTab === 1}
 					<fieldset class="chronic">
-						<legend>Chronic or inactive problems</legend>
-						<p class="help">Past-history problems marked chronic, with a status comment, fill these boxes automatically.</p>
+						<legend>{t('sections.hpiChronicLegend')}</legend>
+						<p class="help">{t('sections.hpiChronicHelp')}</p>
 						{#each CHRONIC_IDS as id, i (id)}
-							{@render textBox(id, `Problem ${i + 1}`, { rows: 2, placeholder: 'Problem and its current status' })}
+							{@render textBox(id, t('sections.hpiProblemN', { n: i + 1 }), { rows: 2, placeholder: t('sections.hpiProblemPlaceholder') })}
 						{/each}
 					</fieldset>
 				{/if}
@@ -150,26 +154,23 @@
 			<div class="level" class:detailed={level.detailed} aria-live="polite">
 				<p class="verdict">
 					<span aria-hidden="true">{level.detailed ? '✓' : '○'}</span>
-					<strong>{level.detailed ? 'Detailed HPI' : 'Limited HPI'}</strong>
-					<span class="counts">{level.elements} element{level.elements === 1 ? '' : 's'} · {level.chronic} chronic</span>
+					<strong>{level.detailed ? t('sections.hpiDetailed') : t('sections.hpiLimited')}</strong>
+					<span class="counts">{t('sections.hpiLevelCounts', { count: level.elements, chronic: level.chronic })}</span>
 				</p>
-				<p class="help">
-					Detailed needs 4 or more element boxes filled (any complaint counts) or the status of 3 chronic problems.
-					A guide only: you choose the visit code.
-				</p>
+				<p class="help">{t('sections.hpiLevelHelp')}</p>
 			</div>
 		</div>
 
 		<!-- HPI elements, one tab per complaint -->
 		<div class="panel" role="group" aria-labelledby="el-title">
-			<div class="card-head"><h3 id="el-title">HPI elements</h3></div>
-			{@render tabs('hpi-el', 'HPI elements for complaint', elTab, (n) => (elTab = n), 'el')}
+			<div class="card-head"><h3 id="el-title">{t('sections.hpiElements')}</h3></div>
+			{@render tabs('hpi-el', t('sections.hpiElementsTabs'), elTab, (n) => (elTab = n), 'el')}
 			<div class="tabpanel elements" role="tabpanel" id="hpi-el-panel" aria-labelledby="hpi-el-{elTab}">
 				{#if elTab > 1 && !filled(ids(elTab).cc)}
-					<p class="help wide">Complaint {elTab} has no chief complaint yet, so these do not print (they still count toward the HPI level).</p>
+					<p class="help wide">{t('sections.hpiNoCcYet', { n: elTab })}</p>
 				{/if}
 				{#each HPI_ELEMENTS as e, i (e.key)}
-					{@render textBox(ids(elTab).elements[i], e.label, { rows: 2, prompt: e.prompt })}
+					{@render textBox(ids(elTab).elements[i], t(HPI_ELEMENT_KEYS[e.key].label), { rows: 2, prompt: t(HPI_ELEMENT_KEYS[e.key].prompt) })}
 				{/each}
 			</div>
 		</div>
@@ -180,8 +181,12 @@
 	<RosGrid {findings} {preview} {copied} {onedit} {oncommit} {maxLength} />
 
 	<p class="legend">
-		<span class="swatch copied" aria-hidden="true"></span> Copied from a prior visit.
-		<span class="sep">Shorthand: <code>CC:blurry vision</code>, <code>HPI:worse at night</code>, <code>TIMING3:mornings</code>, <code>ROSCV:HTN</code>.</span>
+		<span class="swatch copied" aria-hidden="true"></span> {t('sections.legendCopied')}
+		<span class="sep"
+			><Msg key="sections.legendShorthand"
+				>{#snippet codes()}<code>CC:blurry vision</code>, <code>HPI:worse at night</code>, <code>TIMING3:mornings</code>, <code>ROSCV:HTN</code>{/snippet}</Msg
+			></span
+		>
 	</p>
 </section>
 

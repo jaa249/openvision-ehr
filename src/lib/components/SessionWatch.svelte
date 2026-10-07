@@ -7,6 +7,10 @@
 	//   window 'session-expired'   just before leaving for /login
 	import { onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
+
+	const { t } = useI18n();
 
 	const WARN_MS = 60_000;
 	const POLL_MS = 60_000;
@@ -98,9 +102,13 @@
 {#if warning}
 	<div class="session-warn">
 		<!-- The alert is announced once; the per-second countdown is visual only, so it is not re-read every second. -->
-		<p role="alert" class="visually-hidden">You will be signed out in about a minute because of inactivity.</p>
-		<p aria-hidden="true">You'll be signed out in <span class="num">{secondsLeft}</span> s because of inactivity.</p>
-		<button type="button" onclick={stay}>Stay signed in</button>
+		<p role="alert" class="visually-hidden">{t('shell.sessionWarnAnnounce')}</p>
+		<p aria-hidden="true">
+			<Msg key="shell.sessionWarnCountdown">
+				{#snippet seconds()}<span class="num">{secondsLeft}</span>{/snippet}
+			</Msg>
+		</p>
+		<button type="button" onclick={stay}>{t('shell.staySignedIn')}</button>
 	</div>
 {/if}
 

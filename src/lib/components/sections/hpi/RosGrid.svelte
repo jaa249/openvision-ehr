@@ -1,13 +1,15 @@
 <script lang="ts">
 	// Review of systems (spec §7.3): twelve systems, each a Negative toggle plus free text, and comments.
 	// Stored per visit (form_eye_ros). FIX: nothing is implied; an untouched system stays unrecorded.
-	import { ROS_COMMENTS, ROS_NEGATIVE, ROS_SYSTEMS, isRosNegative, rosAllNegative, rosClear } from '#lib/exam/sections/history.ts';
+	import { ROS_COMMENTS, ROS_NEGATIVE, ROS_SYSTEMS, ROS_SYSTEM_LABEL_KEY, isRosNegative, rosAllNegative, rosClear } from '#lib/exam/sections/history.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PanelProps } from '../types.ts';
 	import { cellState, withValues } from '../workup/cell.ts';
 
 	let { findings, preview, copied, onedit, oncommit, maxLength }: Pick<PanelProps, 'findings' | 'preview' | 'copied' | 'onedit' | 'oncommit'> & {
 		maxLength: (id: string) => number;
 	} = $props();
+	const { t } = useI18n();
 
 	const cell = (id: string) => cellState(id, findings, preview, copied);
 	const recorded = $derived(ROS_SYSTEMS.filter((s) => (findings[s.id]?.value ?? '').trim()).length);
@@ -20,54 +22,55 @@
 		if (isRosNegative(cur)) return onedit(id, '');
 		if (!cur) return onedit(id, ROS_NEGATIVE);
 		const { next, changed } = withValues(findings, { [id]: ROS_NEGATIVE });
-		oncommit(next, changed, `${label}: negative`);
+		oncommit(next, changed, t('sections.rosUndoNegative', { label }));
 	}
 
 	function allNegative() {
 		const { next, changed } = rosAllNegative(findings);
-		if (changed.length) oncommit(next, changed, 'ROS: empty systems negative');
+		if (changed.length) oncommit(next, changed, t('sections.rosUndoAllNegative'));
 	}
 
 	function clear() {
 		const { next, changed } = rosClear(findings);
-		if (changed.length) oncommit(next, changed, 'Cleared ROS');
+		if (changed.length) oncommit(next, changed, t('sections.rosUndoCleared'));
 	}
 </script>
 
 <div class="panel" role="group" aria-labelledby="ros-title">
 	<div class="card-head">
-		<h3 id="ros-title">Review of systems</h3>
-		<button type="button" class="act" disabled={recorded === ROS_SYSTEMS.length} onclick={allNegative}>All negative</button>
-		<button type="button" class="act" disabled={!hasAny} onclick={clear}>Clear ROS</button>
+		<h3 id="ros-title">{t('sections.rosTitle')}</h3>
+		<button type="button" class="act" disabled={recorded === ROS_SYSTEMS.length} onclick={allNegative}>{t('sections.rosAllNegative')}</button>
+		<button type="button" class="act" disabled={!hasAny} onclick={clear}>{t('sections.rosClear')}</button>
 	</div>
 	<div class="grid">
 		{#each ROS_SYSTEMS as s (s.id)}
 			{@const c = cell(s.id)}
 			{@const neg = isRosNegative(c.value)}
+			{@const label = t(ROS_SYSTEM_LABEL_KEY[s.id])}
 			<div class="sys" class:ghost={c.ghost} class:copied={c.copied} data-field={s.id}>
-				<span class="name" id="ros-{s.id}">{s.label}<span class="code">{s.short}</span></span>
+				<span class="name" id="ros-{s.id}">{label}<span class="code">{s.short}</span></span>
 				<button
 					type="button"
 					class="neg"
 					aria-pressed={neg}
-					aria-label="{s.label} negative"
-					onclick={() => toggle(s.id, s.label)}
+					aria-label={t('sections.rosSystemNegative', { label })}
+					onclick={() => toggle(s.id, label)}
 				>
-					<span aria-hidden="true">{neg ? '✓' : '○'}</span> Negative
+					<span aria-hidden="true">{neg ? '✓' : '○'}</span> {t('sections.negative')}
 				</button>
 				<input
 					value={neg ? '' : c.value}
 					maxlength={maxLength(s.id)}
 					autocomplete="off"
 					aria-labelledby="ros-{s.id}"
-					placeholder={neg ? 'Negative' : 'Findings'}
+					placeholder={neg ? t('sections.negative') : t('sections.rosFindings')}
 					oninput={(e) => onedit(s.id, e.currentTarget.value)}
 				/>
 			</div>
 		{/each}
 	</div>
 	<label class="comments">
-		<span>ROS comments <span class="code inline">ROSCOM</span></span>
+		<span>{t('sections.rosComments')} <span class="code inline">ROSCOM</span></span>
 		<textarea
 			rows="2"
 			maxlength={maxLength(ROS_COMMENTS)}
@@ -78,8 +81,7 @@
 		></textarea>
 	</label>
 	<p class="hint" aria-live="polite">
-		{recorded} of {ROS_SYSTEMS.length} systems recorded. Only recorded systems print; an untouched system is never reported as negative.
-		"All negative" fills just the empty ones.
+		{t('sections.rosHint', { recorded, total: ROS_SYSTEMS.length })}
 	</p>
 </div>
 

@@ -2,6 +2,7 @@
 // course/outcome options, family and social rows, and the built-in quick-pick titles.
 // Our own short, generic lists (clean room); a provider's own frequent titles take over once they exist.
 import type { IssueType, TitlePick } from './types.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 export interface IssueTypeDef {
 	type: IssueType;
@@ -48,6 +49,23 @@ export const ISSUE_TYPE_DEFS: readonly IssueTypeDef[] = [
 	def({ type: 'ALLERGY', short: 'Allergy', label: 'Allergies', titleLabel: 'Allergic to', begin: 'Start', reaction: true })
 ];
 
+/**
+ * Screen text of ISSUE_TYPE_DEFS (D48): the English strings above stay for the summary text and the report.
+ * A date or provider key is null exactly when the English is null.
+ */
+export const ISSUE_TYPE_KEYS: Record<
+	IssueType,
+	{ short: MessageKey; label: MessageKey; titleLabel: MessageKey; begin: MessageKey | null; end: MessageKey | null; provider: MessageKey | null }
+> = {
+	POH: { short: 'sections.pmTypePohShort', label: 'sections.pmTypePoh', titleLabel: 'sections.pmTitleEyeDiagnosis', begin: 'sections.pmDate', end: null, provider: 'sections.pmCollaborator' },
+	POS: { short: 'sections.pmTypePosShort', label: 'sections.pmTypePos', titleLabel: 'sections.pmTitleProcedure', begin: 'sections.pmDate', end: null, provider: 'sections.pmSurgeon' },
+	EYEMED: { short: 'sections.pmTypeEyeMedShort', label: 'sections.pmTypeEyeMed', titleLabel: 'sections.pmTitleMedication', begin: 'sections.pmStart', end: 'sections.pmFinish', provider: null },
+	PMH: { short: 'sections.pmTypePmhShort', label: 'sections.pmTypePmh', titleLabel: 'sections.pmTitleDiagnosis', begin: 'sections.pmOnset', end: 'sections.pmResolved', provider: null },
+	MED: { short: 'sections.pmTypeMedShort', label: 'sections.pmTypeMed', titleLabel: 'sections.pmTitleMedication', begin: 'sections.pmStart', end: 'sections.pmFinish', provider: null },
+	SURG: { short: 'sections.pmTypeSurgShort', label: 'sections.pmTypeSurg', titleLabel: 'sections.pmTitleProcedure', begin: 'sections.pmDate', end: null, provider: 'sections.pmSurgeon' },
+	ALLERGY: { short: 'sections.pmTypeAllergyShort', label: 'sections.pmTypeAllergy', titleLabel: 'sections.pmTitleAllergicTo', begin: 'sections.pmStart', end: null, provider: null }
+};
+
 export const ISSUE_TYPE_DEF = new Map(ISSUE_TYPE_DEFS.map((d) => [d.type, d]));
 
 /** PMH course (§7.2 "occurrence list"). Only 'chronic' feeds the HPI chronic boxes (§7.4). */
@@ -59,6 +77,14 @@ export const OCCURRENCES = [
 	{ value: 'acute on chronic', label: 'Acute on chronic' }
 ] as const;
 
+export const OCCURRENCE_LABEL_KEY: Record<(typeof OCCURRENCES)[number]['value'], MessageKey> = {
+	'': 'sections.pmNotSpecified',
+	first: 'sections.pmOccFirst',
+	recurrent: 'sections.pmOccRecurrent',
+	chronic: 'sections.pmOccChronic',
+	'acute on chronic': 'sections.pmOccAcuteOnChronic'
+};
+
 /** Surgery outcome; "resolved" also sets the end date in the editor (§7.2). */
 export const OUTCOMES = [
 	{ value: '', label: 'Not specified' },
@@ -68,6 +94,15 @@ export const OUTCOMES = [
 	{ value: 'worse', label: 'Worse' },
 	{ value: 'complication', label: 'Complication' }
 ] as const;
+
+export const OUTCOME_LABEL_KEY: Record<(typeof OUTCOMES)[number]['value'], MessageKey> = {
+	'': 'sections.pmNotSpecified',
+	resolved: 'sections.pmOutResolved',
+	improved: 'sections.pmOutImproved',
+	unchanged: 'sections.pmOutUnchanged',
+	worse: 'sections.pmOutWorse',
+	complication: 'sections.pmOutComplication'
+};
 
 // ---------- family history (§7.5) ----------
 
@@ -93,6 +128,25 @@ export const FH_ROWS: readonly { key: string; label: string; group: 'eye' | 'gen
 	{ key: 'psych', label: 'Psychiatric', group: 'summary' },
 	{ key: 'suicide', label: 'Suicide', group: 'summary' }
 ];
+/** Screen labels of FH_ROWS by key (D48). */
+export const FH_ROW_LABEL_KEY: Record<string, MessageKey> = {
+	glaucoma: 'sections.fhGlaucoma',
+	cataract: 'sections.fhCataract',
+	amd: 'sections.fhAmd',
+	rd: 'sections.fhRetinalDetachment',
+	blindness: 'sections.fhBlindness',
+	amblyopia: 'sections.fhAmblyopia',
+	strabismus: 'sections.fhStrabismus',
+	other: 'sections.fhOtherEye',
+	epilepsy: 'sections.fhEpilepsy',
+	cancer: 'sections.fhCancer',
+	diabetes: 'sections.fhDiabetes',
+	htn: 'sections.fhHypertension',
+	cardiac: 'sections.fhHeartDisease',
+	stroke: 'sections.fhStroke',
+	psych: 'sections.fhPsychiatric',
+	suicide: 'sections.fhSuicide'
+};
 export const FH_KEYS = new Set(FH_ROWS.map((r) => r.key));
 
 // ---------- social history (§7.6) ----------
@@ -103,6 +157,13 @@ export const SOCIAL_STATUSES = [
 	{ value: 'never', label: 'Never' },
 	{ value: 'na', label: 'N/A' }
 ] as const;
+
+export const SOCIAL_STATUS_LABEL_KEY: Record<(typeof SOCIAL_STATUSES)[number]['value'], MessageKey> = {
+	current: 'sections.shCurrent',
+	quit: 'sections.shQuit',
+	never: 'sections.shNever',
+	na: 'sections.shNa'
+};
 
 /** Habits with note + status + date, in editor order; `short` is the summary label (§7.6). */
 export const SOCIAL_HABITS: readonly { key: string; label: string; short: string }[] = [
@@ -121,6 +182,20 @@ export const SOCIAL_TEXT: readonly { key: string; label: string; short: string }
 	{ key: 'sleep', label: 'Sleep', short: 'Sleep' },
 	{ key: 'seatbelt', label: 'Seatbelt use', short: 'Seatbelt' }
 ];
+/** Screen labels of SOCIAL_HABITS and SOCIAL_TEXT by key (D48); the summary keeps the English `short`. */
+export const SOCIAL_LABEL_KEY: Record<string, MessageKey> = {
+	tobacco: 'sections.shTobacco',
+	coffee: 'sections.shCaffeine',
+	alcohol: 'sections.shAlcohol',
+	drugs: 'sections.shDrugs',
+	counseling: 'sections.shCounseling',
+	exercise: 'sections.shExercise',
+	risky: 'sections.shRisky',
+	marital: 'sections.shMarital',
+	occupation: 'sections.shOccupation',
+	sleep: 'sections.shSleep',
+	seatbelt: 'sections.shSeatbelt'
+};
 /** Every storable social key: text fields plus <habit>, <habit>_status, <habit>_date. */
 export const SOCIAL_KEYS = new Set([
 	...SOCIAL_TEXT.map((f) => f.key),

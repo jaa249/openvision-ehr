@@ -4,6 +4,7 @@
 	import {
 		NEURO_EYE_ROWS,
 		NEURO_PAIRS,
+		NEURO_ROW_LABEL_KEY,
 		motilityClick,
 		motilityIsNormal,
 		motilityNormalValues,
@@ -14,8 +15,12 @@
 	import { cellState, withValues } from './workup/cell.ts';
 	import MotilityDiagram from './neuro/MotilityDiagram.svelte';
 	import CoverTest from './neuro/CoverTest.svelte';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 
 	let { findings, preview, copied, onedit, oncommit }: PanelProps = $props();
+	const { t } = useI18n();
+	const rowLabel = (key: keyof typeof NEURO_ROW_LABEL_KEY) => t(NEURO_ROW_LABEL_KEY[key]);
 
 	const cell = (id: string) => cellState(id, findings, preview, copied);
 
@@ -26,21 +31,21 @@
 
 	function step(id: string, dir: 1 | -1) {
 		const { next, changed } = withValues(findings, motilityClick(findings, id, dir));
-		oncommit(next, changed, 'Motility');
+		oncommit(next, changed, t('sections.motility'));
 	}
 	function setCount(id: string, n: number) {
 		const { next, changed } = withValues(findings, motilitySet(id, n));
-		oncommit(next, changed, 'Motility');
+		oncommit(next, changed, t('sections.motility'));
 	}
 	function setMotilityNormal(on: boolean) {
 		const { next, changed } = on ? withValues(findings, motilityNormalValues()) : withValues(findings, { MOTILITYNORMAL: '' });
-		oncommit(next, changed, on ? 'Motility normal' : 'Motility normal off');
+		oncommit(next, changed, on ? t('sections.motilityUndoNormal') : t('sections.motilityUndoNormalOff'));
 	}
 
 	// ---------- other fields ----------
 	function rowNormal(r: (typeof NEURO_EYE_ROWS)[number]) {
 		const { next, changed } = withValues(findings, { [r.od]: r.normal, [r.os]: r.normal }, true);
-		oncommit(next, changed, `${r.label} normal`);
+		oncommit(next, changed, t('sections.neuroUndoRowNormal', { label: rowLabel(r.key) }));
 	}
 
 	/** Advisory only (§9.4 FIX); the coding panel will offer it with an include checkbox. */
@@ -54,7 +59,7 @@
 			class={opts.size ?? 's'}
 			value={c.value}
 			autocomplete="off"
-			aria-label="{label}{c.isDefault ? ' (default)' : ''}"
+			aria-label={c.isDefault ? t('sections.labelDefault', { label }) : label}
 			placeholder={opts.placeholder ?? '–'}
 			oninput={(e) => onedit(id, e.currentTarget.value)}
 		/>
@@ -63,9 +68,9 @@
 
 <section aria-labelledby="neuro-title">
 	<div class="head">
-		<h2 id="neuro-title">Neuro</h2>
+		<h2 id="neuro-title">{t('sections.neuroTitle')}</h2>
 		{#if suggest92060}
-			<span class="advice" role="status">92060 sensorimotor exam may apply (stereo + multi-position cover test)</span>
+			<span class="advice" role="status">{t('sections.neuroSensorimotorAdvice', { code: '92060' })}</span>
 		{/if}
 	</div>
 
@@ -73,13 +78,13 @@
 		<!-- Motility -->
 		<div class="panel" role="group" aria-labelledby="motility-title">
 			<div class="card-head">
-				<h3 id="motility-title">Motility</h3>
+				<h3 id="motility-title">{t('sections.motility')}</h3>
 				<button type="button" class="mini" aria-pressed={removeMode} onclick={() => (removeMode = !removeMode)}>
-					<span aria-hidden="true">−</span> Remove mode
+					<span aria-hidden="true">−</span> {t('sections.motilityRemoveMode')}
 				</button>
 				<label class="check">
 					<input type="checkbox" checked={motNormal} onchange={(e) => setMotilityNormal(e.currentTarget.checked)} />
-					Normal <span class="unit">D&amp;V full</span>
+					{t('sections.normal')} <span class="unit">{t('sections.motilityDvFull')}</span>
 				</label>
 			</div>
 			<div class="motility">
@@ -88,67 +93,73 @@
 				{/each}
 			</div>
 			<p class="hint">
-				{removeMode ? 'Remove mode: each tap takes a mark away.' : 'Tap a gaze to add a mark (4 wraps to 0).'}
-				Shift+click, long-press or the − key removes one; keys 0–4 set it. Drawn as you face the patient.
+				{removeMode ? t('sections.motilityHintRemove') : t('sections.motilityHintAdd')}
+				{t('sections.motilityHintKeys')}
 			</p>
 		</div>
 
 		<!-- Other neuro fields -->
 		<div class="panel" role="group" aria-labelledby="measures-title">
-			<div class="card-head"><h3 id="measures-title">Sensory and vergence</h3></div>
+			<div class="card-head"><h3 id="measures-title">{t('sections.neuroSensory')}</h3></div>
 			<table>
 				<thead>
 					<tr>
-						<th scope="col" class="rowhead"><span class="visually-hidden">Measure</span></th>
-						<th scope="col"><span class="eye od">OD (R)</span></th>
-						<th scope="col"><span class="eye os">OS (L)</span></th>
+						<th scope="col" class="rowhead"><span class="visually-hidden">{t('sections.measure')}</span></th>
+						<th scope="col"><span class="eye od">{t('sections.eyeOdR')}</span></th>
+						<th scope="col"><span class="eye os">{t('sections.eyeOsL')}</span></th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each NEURO_EYE_ROWS as r (r.key)}
+						{@const label = rowLabel(r.key)}
 						<tr>
 							<th scope="row">
 								<span class="rowname">
-									{r.label}
+									{label}
 									{#if r.normal}
-										<button type="button" class="mini normal" aria-label="{r.label} normal, both eyes {r.normal}" title="Both eyes {r.normal}" onclick={() => rowNormal(r)}
-											>Normal</button
+										<button
+											type="button"
+											class="mini normal"
+											aria-label={t('sections.neuroRowNormalLabel', { label, value: r.normal })}
+											title={t('sections.neuroBothEyes', { value: r.normal })}
+											onclick={() => rowNormal(r)}>{t('sections.normal')}</button
 										>
 									{/if}
 								</span>
 							</th>
-							<td class="cell">{@render text(r.od, `${r.label} OD`)}</td>
-							<td class="cell">{@render text(r.os, `${r.label} OS`)}</td>
+							<td class="cell">{@render text(r.od, t('sections.neuroEyeCell', { label, eye: 'OD' }))}</td>
+							<td class="cell">{@render text(r.os, t('sections.neuroEyeCell', { label, eye: 'OS' }))}</td>
 						</tr>
 					{/each}
 					<tr class="divider"><td colspan="3"></td></tr>
 					<tr>
-						<th scope="col" class="sub"><span class="visually-hidden">Binocular measure</span></th>
-						<th scope="col" class="sub">Distance</th>
-						<th scope="col" class="sub">Near</th>
+						<th scope="col" class="sub"><span class="visually-hidden">{t('sections.neuroBinocularMeasure')}</span></th>
+						<th scope="col" class="sub">{t('sections.visionGroupDistance')}</th>
+						<th scope="col" class="sub">{t('sections.visionGroupNear')}</th>
 					</tr>
 					{#each NEURO_PAIRS as p (p.key)}
+						{@const label = rowLabel(p.key)}
 						<tr>
-							<th scope="row">{p.label}</th>
-							<td class="cell">{@render text(p.dist, `${p.label} distance`)}</td>
-							<td class="cell">{@render text(p.near, `${p.label} near`)}</td>
+							<th scope="row">{label}</th>
+							<td class="cell">{@render text(p.dist, t('sections.neuroPairDistance', { label }))}</td>
+							<td class="cell">{@render text(p.near, t('sections.neuroPairNear', { label }))}</td>
 						</tr>
 					{/each}
 					<tr>
-						<th scope="row">Divergence amplitudes</th>
-						<td class="cell" colspan="2">{@render text('DIVERGENCEAMPS', 'Divergence amplitudes', { size: 'l', placeholder: 'dist / near' })}</td>
+						<th scope="row">{t('sections.neuroDivergence')}</th>
+						<td class="cell" colspan="2">{@render text('DIVERGENCEAMPS', t('sections.neuroDivergence'), { size: 'l', placeholder: t('sections.neuroDistNear') })}</td>
 					</tr>
 					<tr>
-						<th scope="row">Vertical fusional amps</th>
-						<td class="cell" colspan="2">{@render text('VERTFUSAMPS', 'Vertical fusional amplitudes', { size: 'l' })}</td>
+						<th scope="row">{t('sections.neuroVertFusionalShort')}</th>
+						<td class="cell" colspan="2">{@render text('VERTFUSAMPS', t('sections.neuroVertFusional'), { size: 'l' })}</td>
 					</tr>
 					<tr>
-						<th scope="row">NPC</th>
-						<td class="cell" colspan="2">{@render text('NPC', 'Near point of convergence', { size: 'l' })}</td>
+						<th scope="row">{t('sections.neuroNpc')}</th>
+						<td class="cell" colspan="2">{@render text('NPC', t('sections.neuroNpcLong'), { size: 'l' })}</td>
 					</tr>
 					<tr>
-						<th scope="row">Stereopsis</th>
-						<td class="cell" colspan="2">{@render text('STEREOPSIS', 'Stereopsis', { size: 'l' })}</td>
+						<th scope="row">{t('sections.neuroStereopsis')}</th>
+						<td class="cell" colspan="2">{@render text('STEREOPSIS', t('sections.neuroStereopsis'), { size: 'l' })}</td>
 					</tr>
 				</tbody>
 			</table>
@@ -164,7 +175,7 @@
 			{#snippet comments()}
 				{@const c = cell('NEURO_COMMENTS')}
 				<label class="comments">
-					<span>Neuro comments <span class="code">NCOM</span></span>
+					<span>{t('sections.neuroComments')} <span class="code">NCOM</span></span>
 					<textarea
 						rows="2"
 						class:ghost={c.ghost}
@@ -179,9 +190,13 @@
 		</div>
 	</div>
 	<p class="legend">
-		<span class="swatch" aria-hidden="true"></span> Tinted: still the default "normal" value.
-		<span class="swatch copied" aria-hidden="true"></span> Copied from a prior visit.
-		<span class="sep">Shorthand: <code>RCOL:11/11</code>, <code>NPA:8 cm</code>, <code>STEREO:40 sec</code>, <code>CCDIST:6 XT</code>.</span>
+		<span class="swatch" aria-hidden="true"></span> {t('sections.legendDefault')}
+		<span class="swatch copied" aria-hidden="true"></span> {t('sections.legendCopied')}
+		<span class="sep"
+			><Msg key="sections.legendShorthand"
+				>{#snippet codes()}<code>RCOL:11/11</code>, <code>NPA:8 cm</code>, <code>STEREO:40 sec</code>, <code>CCDIST:6 XT</code>{/snippet}</Msg
+			></span
+		>
 	</p>
 </section>
 

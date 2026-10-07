@@ -9,16 +9,19 @@
 	import {
 		DOC_ACCEPT,
 		DOC_ZONES,
-		DOC_ZONE_LABEL,
+		DOC_ZONE_LABEL_KEY,
 		docUrl,
 		formatBytes,
 		isImage,
 		type DocMeta,
 		type DocZone
 	} from '#lib/components/documents/types.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	const { t } = useI18n();
 
 	// svelte-ignore state_referenced_locally
 	let docs = $state<DocMeta[]>(data.documents);
@@ -63,6 +66,8 @@
 	let fileInput: HTMLInputElement;
 	let uploading = $state(false);
 	let upError = $state('');
+	/** Which upload field the error is about (marks the category box invalid). */
+	let upErrorField = $state<'category' | 'file' | ''>('');
 	let status = $state('');
 	$effect(() => {
 		// Follow the category filter so "upload" lands where the user is looking.
@@ -72,22 +77,29 @@
 	async function upload(e: SubmitEvent) {
 		e.preventDefault();
 		upError = '';
-		if (!upCategory) return (upError = 'Choose a category.');
-		if (!upFiles?.length) return (upError = 'Choose a file to upload.');
+		upErrorField = '';
+		if (!upCategory) {
+			upErrorField = 'category';
+			return (upError = t('documents.chooseCategory'));
+		}
+		if (!upFiles?.length) {
+			upErrorField = 'file';
+			return (upError = t('documents.chooseFile'));
+		}
 		uploading = true;
 		const saved: DocMeta[] = [];
 		for (const f of upFiles) {
-			status = `Uploading ${f.name}…`;
+			status = t('documents.uploadingFile', { name: f.name });
 			try {
 				saved.push(await uploadDocumentFile(pid, f, { category: upCategory, takenOn: upDate, notes: upNotes }));
 			} catch (err) {
-				upError = `${f.name}: ${(err as Error).message}`;
+				upError = t('documents.fileProblem', { name: f.name, error: (err as Error).message });
 			}
 		}
 		uploading = false;
 		if (saved.length) {
 			docs = sortDocs([...saved, ...docs]);
-			status = `Uploaded ${saved.length === 1 ? saved[0].filename : `${saved.length} files`}.`;
+			status = saved.length === 1 ? t('documents.uploadedOne', { name: saved[0].filename }) : t('documents.uploadedMany', { count: saved.length });
 			upNotes = '';
 			fileInput.value = '';
 			upFiles = null;
@@ -113,7 +125,7 @@
 			const u = await updateDocumentMeta(pid, d.id, { notes: draftNotes, takenOn: draftDate });
 			docs = sortDocs(docs.map((x) => (x.id === u.id ? u : x)));
 			editing = null;
-			status = `Saved notes for ${u.filename}.`;
+			status = t('documents.savedNotes', { name: u.filename });
 			requestAnimationFrame(() => document.getElementById(`doc-edit-${u.id}`)?.focus());
 		} catch (err) {
 			editError = (err as Error).message;
@@ -136,7 +148,7 @@
 			await deleteDocumentFile(pid, d.id);
 			docs = docs.filter((x) => x.id !== d.id);
 			confirmDialog.close();
-			status = `Deleted ${d.filename}.`;
+			status = t('documents.deletedFile', { name: d.filename });
 		} catch (err) {
 			deleteError = (err as Error).message;
 		}
@@ -145,7 +157,7 @@
 	let viewing = $state<DocMeta | null>(null);
 </script>
 
-<svelte:head><title>Documents · {data.patient.name} · OpenVision</title></svelte:head>
+<svelte:head><title>{t('documents.pageTitle', { name: data.patient.name })}</title></svelte:head>
 
 <header class="top">
 	<a href="/patients/{pid}">← {data.patient.name}</a>
@@ -154,23 +166,23 @@
 
 <main>
 	<div class="title">
-		<h1>Documents and images</h1>
-		<p class="meta num">{data.patient.name} · DOB {data.patient.dob} · MRN {data.patient.mrn}</p>
+		<h1>{t('documents.heading')}</h1>
+		<p class="meta num">{t('report.patientLine', { name: data.patient.name, dob: data.patient.dob, mrn: data.patient.mrn })}</p>
 	</div>
 
 	<p class="visually-hidden" role="status" aria-live="polite">{status}</p>
 
 	<section class="card" aria-labelledby="up-h">
-		<h2 id="up-h">Upload</h2>
+		<h2 id="up-h">{t('documents.upload')}</h2>
 		<form class="upload" onsubmit={upload} novalidate>
 			<div class="field">
-				<label for="up-cat">Category</label>
-				<select id="up-cat" bind:value={upCategory} required aria-invalid={upError === 'Choose a category.' ? 'true' : undefined}>
-					<option value="" disabled>Choose…</option>
+				<label for="up-cat">{t('documents.category')}</label>
+				<select id="up-cat" bind:value={upCategory} required aria-invalid={upError && upErrorField === 'category' ? 'true' : undefined}>
+					<option value="" disabled>{t('documents.choose')}</option>
 					{#each DOC_ZONES as z (z)}
 						{@const list = data.categories.filter((c) => (z === 'OTHER' ? c.zones.length === 0 : c.zones[0] === z))}
 						{#if list.length}
-							<optgroup label={DOC_ZONE_LABEL[z]}>
+							<optgroup label={t(DOC_ZONE_LABEL_KEY[z])}>
 								{#each list as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
 							</optgroup>
 						{/if}
@@ -178,65 +190,62 @@
 				</select>
 			</div>
 			<div class="field">
-				<label for="up-date">Date taken</label>
+				<label for="up-date">{t('documents.dateTaken')}</label>
 				<input id="up-date" type="date" bind:value={upDate} max={data.today} required />
 			</div>
 			<div class="field grow">
-				<label for="up-notes">Notes <span class="opt">(optional)</span></label>
+				<label for="up-notes"><Msg key="documents.notesOptional">{#snippet optional()}<span class="opt">{t('documents.optional')}</span>{/snippet}</Msg></label>
 				<input id="up-notes" bind:value={upNotes} maxlength="2000" autocomplete="off" />
 			</div>
 			<div class="field grow">
-				<label for="up-file">File</label>
+				<label for="up-file">{t('documents.file')}</label>
 				<input id="up-file" type="file" accept={DOC_ACCEPT} multiple bind:files={upFiles} bind:this={fileInput} aria-describedby="up-help" />
 			</div>
-			<button type="submit" class="primary" disabled={uploading}>{uploading ? 'Uploading…' : 'Upload'}</button>
+			<button type="submit" class="primary" disabled={uploading}>{uploading ? t('documents.uploading') : t('documents.upload')}</button>
 		</form>
-		<p class="help" id="up-help">
-			PNG, JPEG or PDF, up to 15 MB each. On a tablet the file button also offers the camera. Files uploaded here belong to the
-			patient, not to one visit; files added from an exam are tied to that visit.
-		</p>
+		<p class="help" id="up-help">{t('documents.uploadHelp')}</p>
 		{#if upError}<p class="err" role="alert">{upError}</p>{/if}
 	</section>
 
 	<section class="card" aria-labelledby="list-h">
 		<div class="row">
-			<h2 id="list-h">Stored documents</h2>
-			<span class="meta" aria-live="polite">Showing {shown.length} of {docs.length}</span>
+			<h2 id="list-h">{t('documents.stored')}</h2>
+			<span class="meta" aria-live="polite">{t('documents.showingCount', { shown: shown.length, total: docs.length })}</span>
 		</div>
-		<div class="filters" role="search" aria-label="Filter documents">
+		<div class="filters" role="search" aria-label={t('documents.filterLabel')}>
 			<div class="field">
-				<label for="f-zone">Exam area</label>
+				<label for="f-zone">{t('documents.examArea')}</label>
 				<select id="f-zone" bind:value={zone}>
-					<option value="">All areas</option>
-					{#each DOC_ZONES as z (z)}<option value={z}>{DOC_ZONE_LABEL[z]}</option>{/each}
+					<option value="">{t('documents.allAreas')}</option>
+					{#each DOC_ZONES as z (z)}<option value={z}>{t(DOC_ZONE_LABEL_KEY[z])}</option>{/each}
 				</select>
 			</div>
 			<div class="field">
-				<label for="f-cat">Category</label>
+				<label for="f-cat">{t('documents.category')}</label>
 				<select id="f-cat" bind:value={category}>
-					<option value="">All categories</option>
+					<option value="">{t('documents.allCategories')}</option>
 					{#each zoneCats as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
 				</select>
 			</div>
 			<div class="field grow">
-				<label for="f-q">Search names and notes</label>
+				<label for="f-q">{t('documents.searchLabel')}</label>
 				<input id="f-q" type="search" bind:value={search} autocomplete="off" />
 			</div>
 			{#if zone || category || search}
-				<button type="button" class="clear" onclick={() => ((zone = ''), (category = ''), (search = ''))}>Clear filters</button>
+				<button type="button" class="clear" onclick={() => ((zone = ''), (category = ''), (search = ''))}>{t('documents.clearFilters')}</button>
 			{/if}
 		</div>
 
 		{#if docs.length === 0}
-			<p class="empty">No documents yet. Upload photos, scans, visual fields or letters above.</p>
+			<p class="empty">{t('documents.emptyAll')}</p>
 		{:else if shown.length === 0}
-			<p class="empty">No documents match these filters.</p>
+			<p class="empty">{t('documents.emptyFiltered')}</p>
 		{:else}
 			<ul class="list">
 				{#each shown as d (d.id)}
 					{@const visit = d.encounterId ? visitById.get(d.encounterId) : null}
 					<li class="doc">
-						<button type="button" class="thumb" onclick={() => (viewing = d)} aria-label="View {d.categoryName}, {d.takenOn}">
+						<button type="button" class="thumb" onclick={() => (viewing = d)} aria-label={t('documents.viewAria', { category: d.categoryName, date: d.takenOn })}>
 							{#if isImage(d.mime)}
 								<img src={docUrl(pid, d.id)} alt="" loading="lazy" decoding="async" />
 							{:else}
@@ -247,32 +256,32 @@
 							<p class="cat">{d.categoryName} <span class="num date">{d.takenOn}</span></p>
 							<p class="file" title={d.filename}>{d.filename}</p>
 							<p class="meta num">
-								{formatBytes(d.size)} · by {d.createdBy}{#if visit}{' · '}<a href="/patients/{pid}/encounters/{visit.id}">visit {visit.date}</a>{/if}
-								{#if catById.get(d.category)?.flow}{' · on the glaucoma flow sheet'}{/if}
+								{t('documents.sizeBy', { size: formatBytes(d.size), name: d.createdBy })}{#if visit}{' · '}<a href="/patients/{pid}/encounters/{visit.id}">{t('documents.visitLink', { date: visit.date })}</a>{/if}
+								{#if catById.get(d.category)?.flow}{' · '}{t('documents.onFlowSheet')}{/if}
 							</p>
 							{#if editing === d.id}
 								<div class="edit">
 									<div class="field">
-										<label for="doc-date-{d.id}">Date taken</label>
+										<label for="doc-date-{d.id}">{t('documents.dateTaken')}</label>
 										<input id="doc-date-{d.id}" type="date" bind:value={draftDate} max={data.today} />
 									</div>
 									<div class="field">
-										<label for="doc-notes-{d.id}">Notes</label>
+										<label for="doc-notes-{d.id}">{t('documents.notes')}</label>
 										<textarea id="doc-notes-{d.id}" bind:value={draftNotes} maxlength="2000" rows="3"></textarea>
 									</div>
 									{#if editError}<p class="err" role="alert">{editError}</p>{/if}
 									<div class="actions">
-										<button type="button" class="primary" onclick={() => saveEdit(d)}>Save</button>
-										<button type="button" onclick={() => (editing = null)}>Cancel</button>
+										<button type="button" class="primary" onclick={() => saveEdit(d)}>{t('documents.save')}</button>
+										<button type="button" onclick={() => (editing = null)}>{t('documents.cancel')}</button>
 									</div>
 								</div>
 							{:else}
-								<p class="notes" class:none={!d.notes}>{d.notes || 'No notes'}</p>
+								<p class="notes" class:none={!d.notes}>{d.notes || t('documents.noNotes')}</p>
 								<div class="actions">
-									<button type="button" onclick={() => (viewing = d)}>View</button>
-									<a class="btn" href={docUrl(pid, d.id, true)} download={d.filename}>Download</a>
-									<button type="button" id="doc-edit-{d.id}" onclick={() => startEdit(d)}>Edit notes</button>
-									<button type="button" class="danger" onclick={() => askDelete(d)}>Delete</button>
+									<button type="button" onclick={() => (viewing = d)}>{t('documents.view')}</button>
+									<a class="btn" href={docUrl(pid, d.id, true)} download={d.filename}>{t('documents.download')}</a>
+									<button type="button" id="doc-edit-{d.id}" onclick={() => startEdit(d)}>{t('documents.editNotes')}</button>
+									<button type="button" class="danger" onclick={() => askDelete(d)}>{t('documents.delete')}</button>
 								</div>
 							{/if}
 						</div>
@@ -285,15 +294,16 @@
 
 <dialog bind:this={confirmDialog} class="confirm" aria-labelledby="del-h" aria-describedby="del-body">
 	{#if toDelete}
-		<h2 id="del-h">Delete this document?</h2>
+		<h2 id="del-h">{t('documents.deleteTitle')}</h2>
 		<p id="del-body">
-			<strong>{toDelete.filename}</strong> ({toDelete.categoryName}, {toDelete.takenOn}) will be removed from the chart.
-			The record of who deleted it and when is kept.
+			<Msg key="documents.deleteBody" params={{ category: toDelete.categoryName, date: toDelete.takenOn }}
+				>{#snippet file()}<strong>{toDelete?.filename}</strong>{/snippet}</Msg
+			>
 		</p>
 		{#if deleteError}<p class="err" role="alert">{deleteError}</p>{/if}
 		<div class="actions">
-			<button type="button" class="danger-solid" onclick={confirmDelete}>Delete document</button>
-			<button type="button" onclick={() => confirmDialog.close()}>Keep it</button>
+			<button type="button" class="danger-solid" onclick={confirmDelete}>{t('documents.deleteConfirm')}</button>
+			<button type="button" onclick={() => confirmDialog.close()}>{t('documents.keepIt')}</button>
 		</div>
 	{/if}
 </dialog>

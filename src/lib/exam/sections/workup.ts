@@ -6,6 +6,7 @@
 import type { Eye, FieldDef, SectionId } from '../catalog.ts';
 import type { ReportRow, ReportSection } from '../report.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
 // Refraction imports only types, so importing its values here is not circular. Some acuity columns
 // (MR/AR/CR/CTL VA, wearing VA, post-dilation IOP) are shown in both panels; whichever module defines
 // a field first owns it, so the catalog never holds the same id twice.
@@ -42,6 +43,25 @@ export const VA_ROWS: VaRow[] = [
 	{ key: 'LI', label: 'LI', od: 'LIODVA', os: 'LIOSVA' }
 ];
 
+/** Screen labels of VA_ROWS by key (D48). The English labels above stay for the report and field labels. */
+export const VA_ROW_LABEL_KEY: Record<string, MessageKey> = {
+	SC: 'sections.vaRowSc',
+	CC: 'sections.vaRowCc',
+	AR: 'sections.vaRowAr',
+	MR: 'sections.vaRowMr',
+	CR: 'sections.vaRowCr',
+	PH: 'sections.vaRowPh',
+	CTL: 'sections.vaRowCtl',
+	SCNEAR: 'sections.vaRowScNear',
+	CCNEAR: 'sections.vaRowCcNear',
+	ARNEAR: 'sections.vaRowArNear',
+	MRNEAR: 'sections.vaRowMrNear',
+	PAM: 'sections.vaRowPam',
+	GLARE: 'sections.vaRowGlare',
+	CONTRAST: 'sections.vaRowContrast',
+	LI: 'sections.vaRowLi'
+};
+
 export const IOP_METHODS = [
 	{ key: 'AP', label: 'Applanation', short: 'App', od: 'ODIOPAP', os: 'OSIOPAP', numeric: true },
 	{ key: 'TPN', label: 'Tono-Pen', short: 'Tpn', od: 'ODIOPTPN', os: 'OSIOPTPN', numeric: true },
@@ -58,6 +78,18 @@ export const VF_QUADRANTS = [
 	{ n: 3, label: 'Inferior temporal', short: 'IT' },
 	{ n: 4, label: 'Inferior nasal', short: 'IN' }
 ] as const;
+/** Screen labels of IOP_METHODS, VF_QUADRANTS (by n) and MENTAL_STATUS (D48). */
+export const IOP_METHOD_LABEL_KEY: Record<(typeof IOP_METHODS)[number]['key'], MessageKey> = {
+	AP: 'sections.iopMethodApplanation',
+	TPN: 'sections.iopMethodTonoPen',
+	FTN: 'sections.iopMethodFinger'
+};
+export const VF_QUADRANT_LABEL_KEY: Record<(typeof VF_QUADRANTS)[number]['n'], MessageKey> = {
+	1: 'sections.vfSuperiorTemporal',
+	2: 'sections.vfSuperiorNasal',
+	3: 'sections.vfInferiorTemporal',
+	4: 'sections.vfInferiorNasal'
+};
 export const VF_IDS = (['OD', 'OS'] as const).flatMap((e) => VF_QUADRANTS.map((q) => `${e}VF${q.n}`));
 
 export const PUPIL_IDS = {
@@ -76,6 +108,12 @@ export const MENTAL_STATUS = [
 	// eye_mag stores this in a column named `confused`; we keep the meaning, not the name (§1.4).
 	{ id: 'MOOD_AFFECT', label: 'Mood / affect normal', on: 'nml' }
 ] as const;
+
+export const MENTAL_STATUS_LABEL_KEY: Record<(typeof MENTAL_STATUS)[number]['id'], MessageKey> = {
+	ALERT: 'sections.mentalAlert',
+	ORIENTED: 'sections.mentalOriented',
+	MOOD_AFFECT: 'sections.mentalMood'
+};
 
 // ---------- fields ----------
 

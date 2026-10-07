@@ -5,21 +5,23 @@
 	import { onMount } from 'svelte';
 	import { History } from './history.ts';
 	import { DrawingSaver } from './saver.svelte.ts';
-	import { BLANK_BASE, baseFor, ZONE_LABEL } from '#lib/drawings/bases.ts';
+	import { BLANK_BASE, baseFor, ZONE_LABEL_KEY } from '#lib/drawings/bases.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let { patientId, encounterId, zone }: { patientId: number; encounterId: number; zone: string } = $props();
 
 	/** Logical canvas size (§5.1). The backing store is 2-3× this for crisp lines on HiDPI screens. */
 	const W = 450;
 	const H = 250;
-	const PENCILS = [
-		{ name: 'Blue', color: '#1f5fd6' },
-		{ name: 'Yellow', color: '#f2c200' },
-		{ name: 'Orange', color: '#f07a12' },
-		{ name: 'Brown', color: '#7a4a1e' },
-		{ name: 'Red', color: '#d42020' },
-		{ name: 'Black', color: '#111111' },
-		{ name: 'White (eraser)', color: '#ffffff' }
+	const PENCILS: { name: MessageKey; color: string }[] = [
+		{ name: 'drawing.pencilBlue', color: '#1f5fd6' },
+		{ name: 'drawing.pencilYellow', color: '#f2c200' },
+		{ name: 'drawing.pencilOrange', color: '#f07a12' },
+		{ name: 'drawing.pencilBrown', color: '#7a4a1e' },
+		{ name: 'drawing.pencilRed', color: '#d42020' },
+		{ name: 'drawing.pencilBlack', color: '#111111' },
+		{ name: 'drawing.pencilWhite', color: '#ffffff' }
 	];
 	const WIDTHS = [1, 3, 5, 10, 15];
 
@@ -32,8 +34,11 @@
 
 	// svelte-ignore state_referenced_locally
 	const api = `/api/patients/${patientId}/encounters/${encounterId}/drawings/${encodeURIComponent(zone)}`;
+	const i18n = useI18n();
+	const { t } = i18n;
 	// svelte-ignore state_referenced_locally
-	const label = ZONE_LABEL[zone] ?? zone;
+	const zoneKey = ZONE_LABEL_KEY[zone as keyof typeof ZONE_LABEL_KEY];
+	const label = $derived(zoneKey ? t(zoneKey) : zone);
 
 	let color = $state('#111111');
 	let width = $state(1);
@@ -47,7 +52,7 @@
 	let canRedo = $state(false);
 	let ready = $state(false);
 	let busy = $state(false);
-	let loadError = $state<string | null>(null);
+	let loadError = $state(false);
 	/** What Revert redraws: the drawing or base loaded when the panel opened, or a chosen prior. */
 	let loaded: CanvasImageSource | null = null;
 
@@ -122,9 +127,9 @@
 		try {
 			const res = await fetch(api, { cache: 'no-store' });
 			if (res.ok) img = await imageFromBlob(await res.blob());
-			else if (res.status !== 404) loadError = 'The saved drawing could not be loaded. Showing the base image.';
+			else if (res.status !== 404) loadError = true;
 		} catch {
-			loadError = 'The saved drawing could not be loaded. Showing the base image.';
+			loadError = true;
 		}
 		if (loadError) saver.disable(); // never overwrite a drawing we failed to read
 		img ??= await imageFromUrl(baseFor(zone));
@@ -285,20 +290,36 @@
 		};
 	});
 
-	function fmt(date: string) {
-		return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+	const fmt = (date: string) => i18n.date(date);
+
+	/** The saver's failure in the page language (the server's own detail text stays as sent). */
+	function problemText(): string {
+		const p = saver.problem;
+		if (!p) return saver.message ?? t('drawing.notSaved');
+		switch (p.kind) {
+			case 'readonly':
+				return p.detail ? t('drawing.notSavedBecause', { reason: p.detail }) : t('drawing.notSavedReadOnly');
+			case 'signedOut':
+				return t('drawing.signedOut');
+			case 'tooLarge':
+				return t('drawing.notSavedTooLarge');
+			case 'refused':
+				return p.detail ? t('drawing.notSavedBecause', { reason: p.detail }) : t('drawing.notSavedError', { status: p.status });
+			case 'retrying':
+				return t('drawing.notSavedRetrying');
+		}
 	}
 
 	const status = $derived.by(() => {
 		switch (saver.status) {
 			case 'pending':
 			case 'saving':
-				return 'Saving…';
+				return t('drawing.saving');
 			case 'saved':
-				return `Saved ${saver.savedAt?.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) ?? ''}`.trim();
+				return saver.savedAt ? t('drawing.savedAt', { time: i18n.time(saver.savedAt) }) : t('drawing.saved');
 			case 'retrying':
 			case 'failed':
-				return saver.message ?? 'Not saved';
+				return problemText();
 			default:
 				return '';
 		}
@@ -307,9 +328,9 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<section class="drawing" aria-label="{label} drawing" {onkeydown}>
+<section class="drawing" aria-label={t('drawing.heading', { zone: label })} {onkeydown}>
 	<header class="head">
-		<h2>{label} drawing</h2>
+		<h2>{t('drawing.heading', { zone: label })}</h2>
 		<span
 			class="status"
 			class:warn={saver.status === 'retrying' || saver.status === 'failed'}
@@ -319,28 +340,28 @@
 	</header>
 
 	{#if priors.length > 0}
-		<div class="nav" role="group" aria-label="Drawings from other visits">
-			<button type="button" onclick={() => (view = priors.length)} disabled={view === priors.length} aria-label="Oldest drawing">⏮</button>
-			<button type="button" onclick={() => view++} disabled={view === priors.length} aria-label="Older drawing">◀</button>
-			<select bind:value={view} aria-label="Choose a drawing by visit date">
-				<option value={0}>This visit</option>
+		<div class="nav" role="group" aria-label={t('drawing.navGroup')}>
+			<button type="button" onclick={() => (view = priors.length)} disabled={view === priors.length} aria-label={t('drawing.navOldest')}>⏮</button>
+			<button type="button" onclick={() => view++} disabled={view === priors.length} aria-label={t('drawing.navOlder')}>◀</button>
+			<select bind:value={view} aria-label={t('drawing.navChoose')}>
+				<option value={0}>{t('drawing.thisVisit')}</option>
 				{#each priors as p, i (p.id)}
 					<option value={i + 1}>{fmt(p.date)} · {p.visitType}</option>
 				{/each}
 			</select>
-			<button type="button" onclick={() => view--} disabled={view === 0} aria-label="Newer drawing">▶</button>
-			<button type="button" onclick={() => (view = 0)} disabled={view === 0} aria-label="Newest (this visit)">⏭</button>
+			<button type="button" onclick={() => view--} disabled={view === 0} aria-label={t('drawing.navNewer')}>▶</button>
+			<button type="button" onclick={() => (view = 0)} disabled={view === 0} aria-label={t('drawing.navNewest')}>⏭</button>
 		</div>
 	{/if}
 
 	{#if prior}
 		<figure class="prior">
-			<img src="{api}/priors/{prior.id}" width={W} height={H} alt="{label} drawing from the visit on {fmt(prior.date)}" />
-			<figcaption>Previous visit drawing ({fmt(prior.date)})</figcaption>
+			<img src="{api}/priors/{prior.id}" width={W} height={H} alt={t('drawing.priorAlt', { zone: label, date: fmt(prior.date) })} />
+			<figcaption>{t('drawing.priorCaption', { date: fmt(prior.date) })}</figcaption>
 		</figure>
 		<div class="row">
-			<button type="button" class="primary" onclick={() => usePrior(prior)} disabled={!ready}>Use this image</button>
-			<button type="button" onclick={() => (view = 0)}>Back to this visit</button>
+			<button type="button" class="primary" onclick={() => usePrior(prior)} disabled={!ready}>{t('drawing.useThisImage')}</button>
+			<button type="button" onclick={() => (view = 0)}>{t('drawing.backToThisVisit')}</button>
 		</div>
 	{/if}
 
@@ -349,46 +370,46 @@
 			<canvas
 				bind:this={canvas}
 				tabindex="0"
-				aria-label="{label} drawing canvas. Draw with a mouse, pen or finger. Ctrl+Z undoes, Ctrl+Y redoes."
+				aria-label={t('drawing.canvasLabel', { zone: label })}
 				{onpointerdown}
 				{onpointermove}
 				{onpointerup}
 				onpointercancel={onpointerup}
 				oncontextmenu={(e) => e.preventDefault()}
 			></canvas>
-			{#if !ready}<p class="loading">Loading drawing…</p>{/if}
+			{#if !ready}<p class="loading">{t('drawing.loading')}</p>{/if}
 		</div>
-		{#if loadError}<p class="error" role="alert">{loadError} Changes will not be saved until the page is reloaded.</p>{/if}
+		{#if loadError}<p class="error" role="alert">{t('drawing.loadError')}</p>{/if}
 
-		<div class="tools" role="group" aria-label="Pencil colour">
+		<div class="tools" role="group" aria-label={t('drawing.pencilGroup')}>
 			{#each PENCILS as p (p.color)}
 				<button
 					type="button"
 					class="pencil"
 					class:on={color === p.color}
 					aria-pressed={color === p.color}
-					aria-label="{p.name} pencil"
-					title="{p.name} pencil"
+					aria-label={t('drawing.pencil', { colour: t(p.name) })}
+					title={t('drawing.pencil', { colour: t(p.name) })}
 					onclick={() => (color = p.color)}
 				>
 					<span class="swatch" style:background={p.color}></span>
 				</button>
 			{/each}
-			<label class="pencil picker" class:on={customActive} title="Pick any colour">
+			<label class="pencil picker" class:on={customActive} title={t('drawing.pickColour')}>
 				<input type="color" value={customActive ? color : '#2e7d32'} oninput={(e) => (color = e.currentTarget.value)} />
-				<span class="visually-hidden">Custom colour</span>
+				<span class="visually-hidden">{t('drawing.customColour')}</span>
 			</label>
 		</div>
 
-		<div class="tools" role="group" aria-label="Line width">
+		<div class="tools" role="group" aria-label={t('drawing.lineWidthGroup')}>
 			{#each WIDTHS as w (w)}
 				<button
 					type="button"
 					class="width"
 					class:on={width === w}
 					aria-pressed={width === w}
-					aria-label="Line width {w}"
-					title="Line width {w}"
+					aria-label={t('drawing.lineWidth', { width: w })}
+					title={t('drawing.lineWidth', { width: w })}
 					onclick={() => (width = w)}
 				>
 					<span class="sample" style:height="{Math.min(w, 12)}px"></span>
@@ -398,11 +419,11 @@
 		</div>
 
 		<div class="row actions">
-			<button type="button" onclick={undo} disabled={!canUndo} aria-keyshortcuts="Control+Z" title="Undo (Ctrl+Z)">Undo</button>
-			<button type="button" onclick={redo} disabled={!canRedo} aria-keyshortcuts="Control+Y Control+Shift+Z" title="Redo (Ctrl+Y)">Redo</button>
-			<button type="button" onclick={revert} disabled={!ready} title="Back to the image loaded when this panel opened">Revert</button>
-			<button type="button" onclick={() => loadBase(baseFor(zone))} disabled={!ready} title="Start again from the {label} base drawing">New</button>
-			<button type="button" onclick={() => loadBase(BLANK_BASE)} disabled={!ready} title="Start again on a blank page">Blank</button>
+			<button type="button" onclick={undo} disabled={!canUndo} aria-keyshortcuts="Control+Z" title={t('drawing.undoTitle')}>{t('drawing.undo')}</button>
+			<button type="button" onclick={redo} disabled={!canRedo} aria-keyshortcuts="Control+Y Control+Shift+Z" title={t('drawing.redoTitle')}>{t('drawing.redo')}</button>
+			<button type="button" onclick={revert} disabled={!ready} title={t('drawing.revertTitle')}>{t('drawing.revert')}</button>
+			<button type="button" onclick={() => loadBase(baseFor(zone))} disabled={!ready} title={t('drawing.newTitle', { zone: label })}>{t('drawing.new')}</button>
+			<button type="button" onclick={() => loadBase(BLANK_BASE)} disabled={!ready} title={t('drawing.blankTitle')}>{t('drawing.blank')}</button>
 		</div>
 	</div>
 </section>

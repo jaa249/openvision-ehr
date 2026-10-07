@@ -8,14 +8,17 @@
 	import { onMount } from 'svelte';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { ExamLock, lockHeaders } from '#lib/exam/lock.svelte.ts';
-	import { TARGET_SOURCE_LABEL } from '#lib/exam/sections/glaucoma.ts';
 	import type { Findings } from '#lib/shorthand/parse.ts';
 	import type { FlowMarker } from '#lib/server/flowsheet.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import { MARKER_KIND_KEY, METHOD_SHORT_KEY, TARGET_SOURCE_KEY } from './labels.ts';
 	import DateChart from './DateChart.svelte';
 	import HourChart from './HourChart.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	const { t } = useI18n();
 
 	const s = $derived(data.sheet);
 	const pid = $derived(data.patient.id);
@@ -110,14 +113,14 @@
 			if (res.status === 423) {
 				const body = await res.json().catch(() => ({}));
 				lock?.lost(body);
-				throw new Error(body.message ?? 'This exam cannot be changed right now.');
+				throw new Error(body.message ?? t('flowsheet.cannotChange'));
 			}
-			if (!res.ok) throw new Error(`Not saved (the server answered ${res.status}).`);
+			if (!res.ok) throw new Error(t('flowsheet.notSavedStatus', { status: res.status }));
 			saveState = 'saved';
 			saveError = '';
 		} catch (e) {
 			saveState = 'error';
-			saveError = `${(e as Error).message} The targets shown were not saved.`;
+			saveError = t('flowsheet.targetsNotSaved', { error: (e as Error).message });
 		}
 	}
 
@@ -133,34 +136,34 @@
 		viewing = [...s.vf, ...s.oct].find((d) => d.id === m.ref && m.kind !== 'GONIO') ?? null;
 	}
 
-	const METHOD = { AP: 'App', TPN: 'Tpn' } as const;
-	const asOfLabel = $derived(data.exam ? `as of the visit on ${data.exam.date}` : `as of today, ${s.asOf}`);
+	const asOfLabel = $derived(data.exam ? t('flowsheet.asOfVisit', { date: data.exam.date }) : t('flowsheet.asOfToday', { date: s.asOf }));
+	const docGroups = $derived([
+		{ id: 'vf', title: t('flowsheet.visualFields'), list: s.vf },
+		{ id: 'oct', title: t('flowsheet.oct'), list: s.oct }
+	]);
 </script>
 
-<svelte:head><title>Glaucoma flow sheet · {data.patient.name} · OpenVision</title></svelte:head>
+<svelte:head><title>{t('flowsheet.pageTitle', { name: data.patient.name })}</title></svelte:head>
 
 <header class="top">
-	<nav aria-label="Back">
+	<nav aria-label={t('flowsheet.backNav')}>
 		<a href="/patients/{pid}">← {data.patient.name}</a>
-		{#if data.exam}<a href="/patients/{pid}/encounters/{data.exam.id}">Back to the exam of {data.exam.date}</a>{/if}
+		{#if data.exam}<a href="/patients/{pid}/encounters/{data.exam.id}">{t('flowsheet.backToExam', { date: data.exam.date })}</a>{/if}
 	</nav>
 	<ThemeToggle />
 </header>
 
 <main>
 	<div class="title">
-		<h1>Glaucoma flow sheet</h1>
-		<p class="meta num">{data.patient.name} · DOB {data.patient.dob} · MRN {data.patient.mrn} · {asOfLabel}</p>
-		<p class="help">
-			IOP uses applanation when recorded, otherwise Tono-Pen (finger tension is not charted). The last 20 visits are shown;
-			{#if data.exam}visits after this exam are left out.{:else}open it from an exam to edit that exam's targets.{/if}
-		</p>
+		<h1>{t('flowsheet.heading')}</h1>
+		<p class="meta num">{t('flowsheet.metaLine', { name: data.patient.name, dob: data.patient.dob, mrn: data.patient.mrn, asOf: asOfLabel })}</p>
+		<p class="help">{data.exam ? t('flowsheet.helpFromExam') : t('flowsheet.helpNoExam')}</p>
 	</div>
 
 	<div class="layout">
 		<div class="left">
 			<section class="card" aria-labelledby="t-h">
-				<h2 id="t-h">Current targets</h2>
+				<h2 id="t-h">{t('flowsheet.currentTargets')}</h2>
 				{#if data.exam && lock && !lock.readonly}
 					<IopTargets
 						context={{ patientId: pid, encounterId: data.exam.id }}
@@ -170,37 +173,37 @@
 						bind:effective
 					/>
 					<p class="save" role="status" aria-live="polite">
-						{#if saveState === 'saving'}Saving…{:else if saveState === 'saved'}Saved to the exam of {data.exam.date}.{/if}
+						{#if saveState === 'saving'}{t('flowsheet.saving')}{:else if saveState === 'saved'}{t('flowsheet.savedToExam', { date: data.exam.date })}{/if}
 					</p>
 					{#if saveState === 'error'}<p class="err" role="alert">{saveError}</p>{/if}
 				{:else if s.targets}
 					{#if lock?.readonly}
 						<p class="note-locked" role="status">
 							{lock.mode === 'signed'
-								? 'This exam is signed, so its targets are read-only.'
+								? t('flowsheet.lockedSigned')
 								: lock.holder
-									? `${lock.holder.holderName} is editing this exam, so its targets are read-only here.`
-									: (lock.message ?? 'Targets are read-only right now.')}
+									? t('flowsheet.lockedHolder', { name: lock.holder.holderName })
+									: (lock.message ?? t('flowsheet.lockedOther'))}
 						</p>
 					{/if}
 					<dl class="targets">
 						{#each ['OD', 'OS'] as const as eye (eye)}
 							<div>
 								<dt><span class="eye {eye.toLowerCase()}">{eye}</span></dt>
-								<dd><strong class="num">{s.targets[eye].value}</strong> mmHg <span class="src">{TARGET_SOURCE_LABEL[s.targets[eye].source]}{s.targets[eye].from ? ` (${s.targets[eye].from})` : ''}</span></dd>
+								<dd><strong class="num">{s.targets[eye].value}</strong> mmHg <span class="src">{t(TARGET_SOURCE_KEY[s.targets[eye].source])}{s.targets[eye].from ? ` (${s.targets[eye].from})` : ''}</span></dd>
 							</div>
 						{/each}
 					</dl>
 				{:else}
-					<p class="empty">No visits yet.</p>
+					<p class="empty">{t('flowsheet.noVisits')}</p>
 				{/if}
 			</section>
 
 			<section class="card" aria-labelledby="m-h">
-				<h2 id="m-h">Current eye medicines</h2>
+				<h2 id="m-h">{t('flowsheet.currentMeds')}</h2>
 				{#if s.meds.current.length}
 					<table class="mini">
-						<thead><tr><th scope="col">Medicine</th><th scope="col">Started</th></tr></thead>
+						<thead><tr><th scope="col">{t('flowsheet.medicine')}</th><th scope="col">{t('flowsheet.started')}</th></tr></thead>
 						<tbody>
 							{#each s.meds.current as m (m.id)}
 								<tr><td>{m.title}{#if m.comments}<span class="sub block">{m.comments}</span>{/if}</td><td class="num">{m.begin || '—'}</td></tr>
@@ -208,13 +211,13 @@
 						</tbody>
 					</table>
 				{:else}
-					<p class="empty">None recorded.</p>
+					<p class="empty">{t('flowsheet.noneRecorded')}</p>
 				{/if}
 				{#if s.meds.prior.length}
 					<details>
-						<summary>Prior eye medicines ({s.meds.prior.length})</summary>
+						<summary>{t('flowsheet.priorMeds', { count: s.meds.prior.length })}</summary>
 						<table class="mini">
-							<thead><tr><th scope="col">Medicine</th><th scope="col">Started</th><th scope="col">Stopped</th></tr></thead>
+							<thead><tr><th scope="col">{t('flowsheet.medicine')}</th><th scope="col">{t('flowsheet.started')}</th><th scope="col">{t('flowsheet.stopped')}</th></tr></thead>
 							<tbody>
 								{#each s.meds.prior as m (m.id)}
 									<tr><td>{m.title}</td><td class="num">{m.begin || '—'}</td><td class="num">{m.end}</td></tr>
@@ -225,7 +228,7 @@
 				{/if}
 			</section>
 
-			{#each [{ id: 'vf', title: 'Visual fields', list: s.vf }, { id: 'oct', title: 'OCT optic nerve / RNFL', list: s.oct }] as g (g.id)}
+			{#each docGroups as g (g.id)}
 				<section class="card" aria-labelledby="{g.id}-h">
 					<h2 id="{g.id}-h">{g.title}</h2>
 					{#if g.list.length}
@@ -235,7 +238,7 @@
 						</button>
 						{#if older.length}
 							<details>
-								<summary>Older ({older.length})</summary>
+								<summary>{t('flowsheet.older', { count: older.length })}</summary>
 								<ul class="docs">
 									{#each older as d (d.id)}
 										<li><button type="button" class="doc" onclick={() => (viewing = d)}><span class="num">{d.takenOn}</span> <span class="sub">{d.notes || d.filename}</span></button></li>
@@ -244,71 +247,71 @@
 							</details>
 						{/if}
 					{:else}
-						<p class="empty">None stored. <a href="/patients/{pid}/documents?zone=GLAUCOMA">Upload on the documents page</a>.</p>
+						<p class="empty"><Msg key="flowsheet.noneStored">{#snippet link()}<a href="/patients/{pid}/documents?zone=GLAUCOMA">{t('flowsheet.uploadOnDocuments')}</a>{/snippet}</Msg></p>
 					{/if}
 				</section>
 			{/each}
 
 			<section class="card" aria-labelledby="g-h">
-				<h2 id="g-h">Gonioscopy</h2>
+				<h2 id="g-h">{t('flowsheet.gonioscopy')}</h2>
 				{#if gonio.length}
 					<table class="mini">
-						<thead><tr><th scope="col">Visit</th><th scope="col" class="od">OD</th><th scope="col" class="os">OS</th></tr></thead>
+						<thead><tr><th scope="col">{t('flowsheet.visit')}</th><th scope="col" class="od">OD</th><th scope="col" class="os">OS</th></tr></thead>
 						<tbody>
 							{#each gonio as v (v.id)}<tr><th scope="row" class="num">{v.date}</th><td>{v.gonio.OD}</td><td>{v.gonio.OS}</td></tr>{/each}
 						</tbody>
 					</table>
 				{:else}
-					<p class="empty">Not recorded at any visit shown.</p>
+					<p class="empty">{t('flowsheet.notRecordedShown')}</p>
 				{/if}
 			</section>
 
 			<section class="card" aria-labelledby="d-h">
-				<h2 id="d-h">Optic discs (C/D)</h2>
+				<h2 id="d-h">{t('flowsheet.discs')}</h2>
 				{#if discs.length}
 					<table class="mini">
-						<thead><tr><th scope="col">Visit</th><th scope="col" class="od">OD cup</th><th scope="col" class="os">OS cup</th></tr></thead>
+						<thead><tr><th scope="col">{t('flowsheet.visit')}</th><th scope="col" class="od">{t('flowsheet.odCup')}</th><th scope="col" class="os">{t('flowsheet.osCup')}</th></tr></thead>
 						<tbody>
 							{#each discs as v (v.id)}<tr><th scope="row" class="num">{v.date}</th><td class="num">{v.cup.OD}</td><td class="num">{v.cup.OS}</td></tr>{/each}
 						</tbody>
 					</table>
 				{:else}
-					<p class="empty">Not recorded at any visit shown.</p>
+					<p class="empty">{t('flowsheet.notRecordedShown')}</p>
 				{/if}
 			</section>
 		</div>
 
 		<div class="right">
 			<section class="card" aria-labelledby="cd-h">
-				<h2 id="cd-h">IOP by date</h2>
+				<h2 id="cd-h">{t('flowsheet.iopByDate')}</h2>
 				{#if visits.length}
 					<DateChart {visits} markers={s.markers} dates={s.dates} onmarker={openMarker} />
 					<details>
-						<summary>Table of these values</summary>
+						<summary>{t('flowsheet.tableOfValues')}</summary>
 						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-						<div class="scroll" role="region" aria-label="IOP by date table" tabindex="0">
+						<div class="scroll" role="region" aria-label={t('flowsheet.iopByDateTable')} tabindex="0">
 							<table class="mini">
 								<thead>
 									<tr>
-										<th scope="col">Date</th>
-										<th scope="col" class="od">IOP OD</th>
-										<th scope="col" class="os">IOP OS</th>
-										<th scope="col" class="od">Target OD</th>
-										<th scope="col" class="os">Target OS</th>
-										<th scope="col">Tests performed</th>
+										<th scope="col">{t('flowsheet.date')}</th>
+										<th scope="col" class="od">{t('flowsheet.iopOd')}</th>
+										<th scope="col" class="os">{t('flowsheet.iopOs')}</th>
+										<th scope="col" class="od">{t('flowsheet.targetOd')}</th>
+										<th scope="col" class="os">{t('flowsheet.targetOs')}</th>
+										<th scope="col">{t('flowsheet.testsPerformed')}</th>
 									</tr>
 								</thead>
 								<tbody>
 									{#each s.dates as date (date)}
 										{@const vs = visits.filter((v) => v.date === date)}
-										{@const tests = s.markers.filter((m) => m.date === date).map((m) => (m.kind === 'GONIO' ? 'Gonio' : m.kind))}
+										{@const tests = s.markers.filter((m) => m.date === date).map((m) => t(MARKER_KIND_KEY[m.kind]))}
 										{#if vs.length}
 											{#each vs as v (v.id)}
 												<tr class:current={v.current}>
-													<th scope="row" class="num">{date}{v.current ? ' (this visit)' : ''}</th>
+													<th scope="row" class="num">{v.current ? t('flowsheet.thisVisitDate', { date }) : date}</th>
 													{#each ['OD', 'OS'] as const as eye (eye)}
 														{@const r = v.iop[eye]}
-														<td class="num">{#if r}{r.value} <span class="sub">{METHOD[r.method]}</span>{#if r.value > v.target[eye]} <span class="high">above target</span>{/if}{:else}—{/if}</td>
+														<td class="num">{#if r}{r.value} <span class="sub">{t(METHOD_SHORT_KEY[r.method])}</span>{#if r.value > v.target[eye]} <span class="high">{t('flowsheet.aboveTarget')}</span>{/if}{:else}—{/if}</td>
 													{/each}
 													<td class="num">{v.target.OD}</td>
 													<td class="num">{v.target.OS}</td>
@@ -324,18 +327,18 @@
 						</div>
 					</details>
 				{:else}
-					<p class="empty">No visits to chart yet.</p>
+					<p class="empty">{t('flowsheet.noVisitsToChart')}</p>
 				{/if}
 			</section>
 
 			<section class="card" aria-labelledby="ch-h">
-				<h2 id="ch-h">IOP by time of day</h2>
+				<h2 id="ch-h">{t('flowsheet.iopByTime')}</h2>
 				<HourChart {visits} />
 				{#if visits.some((v) => v.time && (v.iop.OD || v.iop.OS))}
 					<details>
-						<summary>Table of these values</summary>
+						<summary>{t('flowsheet.tableOfValues')}</summary>
 						<table class="mini">
-							<thead><tr><th scope="col">Time</th><th scope="col">Date</th><th scope="col" class="od">OD</th><th scope="col" class="os">OS</th></tr></thead>
+							<thead><tr><th scope="col">{t('flowsheet.time')}</th><th scope="col">{t('flowsheet.date')}</th><th scope="col" class="od">OD</th><th scope="col" class="os">OS</th></tr></thead>
 							<tbody>
 								{#each [...visits].filter((v) => v.time && (v.iop.OD || v.iop.OS)).sort((a, b) => a.time!.localeCompare(b.time!)) as v (v.id)}
 									<tr><th scope="row" class="num">{v.time}</th><td class="num">{v.date}</td><td class="num">{v.iop.OD?.value ?? '—'}</td><td class="num">{v.iop.OS?.value ?? '—'}</td></tr>

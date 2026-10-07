@@ -1,15 +1,19 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const { t } = useI18n();
 
 	const MODES = [
-		['add', 'Add (join with a comma)'],
-		['replace', 'Replace the field'],
-		['append', 'Append (no separator)']
-	] as const;
-	const MODE_SHORT: Record<string, string> = { add: 'add', replace: 'replace', append: 'append' };
+		['add', 'settings.qpModeAdd'],
+		['replace', 'settings.qpModeReplace'],
+		['append', 'settings.qpModeAppend']
+	] as const satisfies readonly (readonly [string, MessageKey])[];
+	const MODE_SHORT: Record<string, MessageKey> = { add: 'settings.qpModeShortAdd', replace: 'settings.qpModeShortReplace', append: 'settings.qpModeShortAppend' };
+	const modeShort = (m: string) => (MODE_SHORT[m] ? t(MODE_SHORT[m]) : m);
 	const rowLabel = $derived(new Map(data.rows.map((r) => [r.id, r.label])));
 
 	// Drag to reorder (pointer); the ↑ ↓ buttons are the keyboard way and do the same thing.
@@ -62,15 +66,12 @@
 	const desc = (errs: Record<string, string>, prefix: string, k: string) => (errs[k] ? `${prefix}-${k}-err` : undefined);
 </script>
 
-<svelte:head><title>My quick picks · Settings · OpenVision</title></svelte:head>
+<svelte:head><title>{t('settings.quickPicksTitle')}</title></svelte:head>
 
-<h2>My quick picks</h2>
-<p class="lead">
-	The one-tap findings in the exam's Quick picks panel. Each pick writes its text into one row, for the right eye, the left eye or both. The mode
-	decides what happens to text already in the field.
-</p>
+<h2>{t('settings.quickPicksHeading')}</h2>
+<p class="lead">{t('settings.quickPicksLead')}</p>
 
-<nav class="zones" aria-label="Quick-pick lists">
+<nav class="zones" aria-label={t('settings.qpLists')}>
 	{#each data.zones as z (z.id)}
 		<a href="?zone={z.id}" aria-current={data.zone === z.id ? 'page' : undefined}>{z.label}</a>
 	{/each}
@@ -79,29 +80,29 @@
 	{#snippet editor(prefix: string, errs: Record<string, string>, v: { row: string; label: string; text: string; mode: string })}
 		<div class="grid">
 			<div class="field">
-				<label for="{prefix}-label">Label</label>
+				<label for="{prefix}-label">{t('settings.qpLabel')}</label>
 				<input id="{prefix}-label" name="label" maxlength="40" value={v.label} autocomplete="off"
 					aria-invalid={errs.label ? 'true' : undefined} aria-describedby={desc(errs, prefix, 'label')} />
 				{#if errs.label}<p class="err" id="{prefix}-label-err">{errs.label}</p>{/if}
 			</div>
 			<div class="field">
-				<label for="{prefix}-row">Row</label>
+				<label for="{prefix}-row">{t('settings.qpRow')}</label>
 				<select id="{prefix}-row" name="row" aria-invalid={errs.row ? 'true' : undefined} aria-describedby={desc(errs, prefix, 'row')}>
 					{#each data.rows as r (r.id)}<option value={r.id} selected={v.row === r.id}>{r.label}</option>{/each}
 				</select>
 				{#if errs.row}<p class="err" id="{prefix}-row-err">{errs.row}</p>{/if}
 			</div>
 			<div class="field">
-				<label for="{prefix}-text">Text written</label>
+				<label for="{prefix}-text">{t('settings.qpText')}</label>
 				<input id="{prefix}-text" name="text" maxlength="200" value={v.text} autocomplete="off"
 					aria-invalid={errs.text ? 'true' : undefined} aria-describedby={[desc(errs, prefix, 'text'), `${prefix}-text-hint`].filter(Boolean).join(' ')} />
-				<p class="hint" id="{prefix}-text-hint">Leave empty with "Replace" to make a "clear field" pick.</p>
+				<p class="hint" id="{prefix}-text-hint">{t('settings.qpTextHint')}</p>
 				{#if errs.text}<p class="err" id="{prefix}-text-err">{errs.text}</p>{/if}
 			</div>
 			<div class="field">
-				<label for="{prefix}-mode">Mode</label>
+				<label for="{prefix}-mode">{t('settings.qpMode')}</label>
 				<select id="{prefix}-mode" name="mode" aria-invalid={errs.mode ? 'true' : undefined} aria-describedby={desc(errs, prefix, 'mode')}>
-					{#each MODES as [m, label] (m)}<option value={m} selected={v.mode === m}>{label}</option>{/each}
+					{#each MODES as [m, label] (m)}<option value={m} selected={v.mode === m}>{t(label)}</option>{/each}
 				</select>
 				{#if errs.mode}<p class="err" id="{prefix}-mode-err">{errs.mode}</p>{/if}
 			</div>
@@ -111,20 +112,20 @@
 <div class="ov-form">
 	<form method="POST" action="?/add" novalidate use:enhance={keep()} class="card">
 		<input type="hidden" name="zone" value={data.zone} />
-		<h3>Add a pick</h3>
+		<h3>{t('settings.qpAddHeading')}</h3>
 		{@render editor('new', addErr, addVals ?? { row: data.rows[0]?.id ?? '', label: '', text: '', mode: 'add' })}
 		<div class="actions">
-			<button type="submit" class="primary">Add pick</button>
+			<button type="submit" class="primary">{t('settings.qpAdd')}</button>
 			{#if form?.section === 'add' && form.ok}<p class="saved" role="status">{form.message}</p>{/if}
 		</div>
 	</form>
 
 	<section class="card" aria-labelledby="list-h">
 		<div class="list-head">
-			<h3 id="list-h">{data.zones.find((z) => z.id === data.zone)?.label}: {data.picks.length} picks</h3>
-			<form method="POST" action="?/reset" use:enhance={keep('Replace this whole list with the starter list? Your own picks here will be removed.')}>
+			<h3 id="list-h">{t('settings.qpListCount', { zone: data.zones.find((z) => z.id === data.zone)?.label ?? '', count: data.picks.length })}</h3>
+			<form method="POST" action="?/reset" use:enhance={keep(t('settings.qpResetConfirm'))}>
 				<input type="hidden" name="zone" value={data.zone} />
-				<button type="submit" class="danger">Reset to starter list</button>
+				<button type="submit" class="danger">{t('settings.qpReset')}</button>
 			</form>
 		</div>
 		{#if form && (form.section === 'list' || form.section === 'form')}
@@ -134,7 +135,7 @@
 			<input type="hidden" name="zone" value={data.zone} />
 			<input type="hidden" name="ids" value={order.join(',')} />
 		</form>
-		<p class="hint">Drag a row by its handle, or use the arrow buttons, to change the order.</p>
+		<p class="hint">{t('settings.qpDragHint')}</p>
 		<ol class="picks">
 			{#each order as id, i (id)}
 				{@const p = byId.get(id)}
@@ -146,26 +147,33 @@
 						ondrop={onDrop}
 					>
 						<div class="line">
-							<span class="handle" draggable="true" ondragstart={(e) => onDragStart(e, p.id)} ondragend={() => (dragging = null)} aria-hidden="true" title="Drag to reorder">⠿</span>
+							<span class="handle" draggable="true" ondragstart={(e) => onDragStart(e, p.id)} ondragend={() => (dragging = null)} aria-hidden="true" title={t('settings.qpDragTitle')}>⠿</span>
 							<span class="what">
 								<strong class:clear={p.label.includes('clear field')}>{p.label}</strong>
-								<span class="meta">{rowLabel.get(p.row) ?? p.row} · {MODE_SHORT[p.mode]}{p.text && p.text !== p.label ? ` · "${p.text}"` : ''}</span>
+								<span class="meta">{p.text && p.text !== p.label
+										? t('settings.qpMetaText', { row: rowLabel.get(p.row) ?? p.row, mode: modeShort(p.mode), text: p.text })
+										: t('settings.qpMeta', { row: rowLabel.get(p.row) ?? p.row, mode: modeShort(p.mode) })}</span>
 							</span>
 							<span class="btns">
 								<form method="POST" action="?/up" use:enhance={keep()}>
 									<input type="hidden" name="zone" value={data.zone} /><input type="hidden" name="id" value={p.id} />
-									<button type="submit" disabled={i === 0} aria-label="Move {p.label} ({rowLabel.get(p.row)}) up">↑</button>
+									<button type="submit" disabled={i === 0} aria-label={t('settings.qpMoveUp', { label: p.label, row: rowLabel.get(p.row) ?? '' })}>↑</button>
 								</form>
 								<form method="POST" action="?/down" use:enhance={keep()}>
 									<input type="hidden" name="zone" value={data.zone} /><input type="hidden" name="id" value={p.id} />
-									<button type="submit" disabled={i === order.length - 1} aria-label="Move {p.label} ({rowLabel.get(p.row)}) down">↓</button>
+									<button type="submit" disabled={i === order.length - 1} aria-label={t('settings.qpMoveDown', { label: p.label, row: rowLabel.get(p.row) ?? '' })}>↓</button>
 								</form>
-								<button type="button" aria-expanded={editing === p.id || !!Object.keys(errs).length} onclick={() => (editing = editing === p.id ? null : p.id)}>
-									Edit<span class="visually-hidden"> {p.label}</span>
+								<button
+									type="button"
+									aria-expanded={editing === p.id || !!Object.keys(errs).length}
+									aria-label={t('settings.editItem', { name: p.label })}
+									onclick={() => (editing = editing === p.id ? null : p.id)}
+								>
+									{t('common.edit')}
 								</button>
-								<form method="POST" action="?/delete" use:enhance={keep(`Delete the pick "${p.label}"?`)}>
+								<form method="POST" action="?/delete" use:enhance={keep(t('settings.qpDeleteConfirm', { label: p.label }))}>
 									<input type="hidden" name="zone" value={data.zone} /><input type="hidden" name="id" value={p.id} />
-									<button type="submit" class="danger">Delete<span class="visually-hidden"> {p.label}</span></button>
+									<button type="submit" class="danger" aria-label={t('settings.deleteItem', { name: p.label })}>{t('common.delete')}</button>
 								</form>
 							</span>
 						</div>
@@ -174,12 +182,12 @@
 								<input type="hidden" name="zone" value={data.zone} /><input type="hidden" name="id" value={p.id} />
 								{@render editor(`e${p.id}`, errs, (form?.section === 'row' && form.id === p.id ? valuesOf(form) : null) ?? p)}
 								<div class="actions">
-									<button type="submit" class="primary">Save pick</button>
-									<button type="button" onclick={() => (editing = null)}>Cancel</button>
+									<button type="submit" class="primary">{t('settings.qpSave')}</button>
+									<button type="button" onclick={() => (editing = null)}>{t('common.cancel')}</button>
 								</div>
 							</form>
 						{/if}
-						{#if form?.section === 'row' && form.id === p.id && form.ok}<p class="saved" role="status">Saved.</p>{/if}
+						{#if form?.section === 'row' && form.id === p.id && form.ok}<p class="saved" role="status">{t('common.saved')}</p>{/if}
 					</li>
 				{/if}
 			{/each}

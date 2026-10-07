@@ -1,27 +1,29 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import '#lib/components/settings/forms.css';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
+	const { t } = useI18n();
 	const role = $derived(data.user?.role);
 	// Links are hidden by role here; every settings route also checks the role on the server (403).
 	const sections = $derived(
 		[
-			{ href: '/settings/me', label: 'My settings', show: true },
-			{ href: '/settings/normals', label: 'My normal values', show: role === 'provider' || role === 'admin' },
-			{ href: '/settings/quick-picks', label: 'My quick picks', show: role === 'provider' || role === 'admin' },
-			{ href: '/settings/practice', label: 'Practice', show: role === 'admin' },
-			{ href: '/settings/users', label: 'Users', show: role === 'admin' },
-			{ href: '/settings/visit-types', label: 'Visit types', show: role === 'admin' },
-			{ href: '/settings/audit', label: 'Audit log', show: role === 'admin' }
+			{ href: '/settings/me', label: t('shell.mySettings'), show: true },
+			{ href: '/settings/normals', label: t('settings.normalsHeading'), show: role === 'provider' || role === 'admin' },
+			{ href: '/settings/quick-picks', label: t('settings.quickPicksHeading'), show: role === 'provider' || role === 'admin' },
+			{ href: '/settings/practice', label: t('settings.practiceHeading'), show: role === 'admin' },
+			{ href: '/settings/users', label: t('settings.usersHeading'), show: role === 'admin' },
+			{ href: '/settings/visit-types', label: t('settings.visitTypesHeading'), show: role === 'admin' },
+			{ href: '/settings/audit', label: t('settings.auditHeading'), show: role === 'admin' }
 		].filter((s) => s.show)
 	);
 </script>
 
 <div class="settings">
-	<nav aria-label="Settings">
-		<h1>Settings</h1>
+	<nav aria-label={t('shell.navSettings')}>
+		<h1>{t('shell.navSettings')}</h1>
 		<ul>
 			{#each sections as s (s.href)}
 				<li><a href={s.href} aria-current={page.url.pathname === s.href ? 'page' : undefined}>{s.label}</a></li>

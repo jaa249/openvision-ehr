@@ -2,10 +2,12 @@
 	// "Codes for your billing system" on the printed report (D46): the codes the provider CHOSE in the
 	// Codes section, to copy into the practice's billing system. OpenVision does not bill. Printed only
 	// when something is chosen and US code suggestions are on (the server leaves `codes` null otherwise).
-	// Paper colours, like ReportPlan.
+	// Paper colours, like ReportPlan. Headings translate (D48); codes and their descriptions do not.
 	import type { ChosenCodes } from '#lib/coding/types.ts';
 	import { codeSetsShort } from '#lib/codesets/index.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 	let { codes }: { codes: ChosenCodes | null | undefined } = $props();
+	const { t } = useI18n();
 	const visit = $derived(codes?.cpt.find((l) => l.kind === 'visit'));
 	const tests = $derived(codes?.cpt.filter((l) => l.kind !== 'visit') ?? []);
 	const mods = (m: string[]) => (m.length ? `-${m.join('-')}` : '');
@@ -13,24 +15,24 @@
 
 {#if codes && codes.cpt.length}
 	<section class="rcodes">
-		<h2>Codes for your billing system</h2>
+		<h2>{t('report.codesTitle')}</h2>
 		<dl>
 			{#if visit}
-				<dt>Visit</dt>
-				<dd><span class="code">{visit.code}{mods(visit.modifiers)}</span> {visit.description}{#if visit.pointers.length}<span class="ptr"> · Dx {visit.pointers.join(', ')}</span>{/if}</dd>
+				<dt>{t('report.visit')}</dt>
+				<dd><span class="code">{visit.code}{mods(visit.modifiers)}</span> {visit.description}{#if visit.pointers.length}<span class="ptr"> {t('report.codesPointers', { pointers: visit.pointers.join(', ') })}</span>{/if}</dd>
 			{/if}
 			{#if tests.length}
-				<dt>Tests performed (CPT)</dt>
+				<dt>{t('report.codesTests')}</dt>
 				<dd>
 					<ul>
-						{#each tests as t, i (i)}
-							<li><span class="code">{t.code}{mods(t.modifiers)}</span> {t.description}{#if t.pointers.length}<span class="ptr"> · Dx {t.pointers.join(', ')}</span>{/if}</li>
+						{#each tests as test, i (i)}
+							<li><span class="code">{test.code}{mods(test.modifiers)}</span> {test.description}{#if test.pointers.length}<span class="ptr"> {t('report.codesPointers', { pointers: test.pointers.join(', ') })}</span>{/if}</li>
 						{/each}
 					</ul>
 				</dd>
 			{/if}
 			{#if codes.dx.length}
-				<dt>Diagnoses ({codeSetsShort(codes.dx.map((d) => d.code))})</dt>
+				<dt>{t('report.codesDiagnoses', { sets: codeSetsShort(codes.dx.map((d) => d.code)) })}</dt>
 				<dd>
 					<ul>
 						{#each codes.dx as d (d.letter)}
@@ -40,7 +42,7 @@
 				</dd>
 			{/if}
 		</dl>
-		<p class="note">Suggested by OpenVision and chosen by the provider. OpenVision does not create bills.</p>
+		<p class="note">{t('report.codesNote')}</p>
 	</section>
 {/if}
 

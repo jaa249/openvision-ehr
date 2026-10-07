@@ -4,6 +4,7 @@
 // Rule: import only TYPES from catalog.ts here (it imports values from this file).
 import type { FieldDef } from '../catalog.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
 // workup imports nothing from here, so importing its values is not circular.
 import { DEFAULT_IOP_TARGET, WORKUP_FIELDS } from './workup.ts';
 
@@ -87,4 +88,12 @@ export const TARGET_SOURCE_LABEL: Record<TargetSource, string> = {
 	prior: 'from the last visit that set one',
 	provider: 'your default',
 	default: 'standard 21'
+};
+
+/** Screen text of TARGET_SOURCE_LABEL (D48), for pages that show where a target came from. */
+export const TARGET_SOURCE_LABEL_KEY: Record<TargetSource, MessageKey> = {
+	exam: 'sections.tgtSourceLabelExam',
+	prior: 'sections.tgtSourceLabelPrior',
+	provider: 'sections.tgtSourceLabelProvider',
+	default: 'sections.tgtSourceLabelDefault'
 };

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { fieldId, type Row, type SectionDef } from '#lib/exam/catalog.ts';
+	import { fieldId, fieldLabel, rowLabel, sectionTitle, type Row, type SectionDef } from '#lib/exam/catalog.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { Findings } from '#lib/shorthand/parse.ts';
 	import { page } from '$app/state';
 	import ZoneDocuments from '#lib/components/documents/ZoneDocuments.svelte';
@@ -42,6 +43,9 @@
 	const titleId = $derived(`${sec.id.toLowerCase()}-title`);
 	const comments = $derived(cell(sec.comments.field));
 
+	const { t } = useI18n();
+	const aria = (label: string, isDefault: boolean) => (isDefault ? t('exam.fieldDefault', { field: label }) : label);
+
 	function cell(id: string) {
 		const ghost = preview?.[id];
 		const real = findings[id];
@@ -56,10 +60,10 @@
 
 {#snippet eyeHead(eye: 'OD' | 'OS')}
 	<th scope="col" class="eyecol">
-		<span class="eye {eye.toLowerCase()}">{eye} ({eye === 'OD' ? 'R' : 'L'})</span>
+		<span class="eye {eye.toLowerCase()}">{eye === 'OD' ? t('exam.eyeHeadOd') : t('exam.eyeHeadOs')}</span>
 		<span class="side-actions">
-			<button type="button" class="mini" onclick={() => ondefaults(eye)}>Normal</button>
-			<button type="button" class="mini" onclick={() => onclear(eye)}>Clear</button>
+			<button type="button" class="mini" onclick={() => ondefaults(eye)}>{t('exam.normal')}</button>
+			<button type="button" class="mini" onclick={() => onclear(eye)}>{t('exam.clear')}</button>
 		</span>
 	</th>
 {/snippet}
@@ -72,7 +76,7 @@
 				class="short"
 				value={c.value}
 				inputmode={numeric ? 'decimal' : 'text'}
-				aria-label="{label}{c.isDefault ? ' (default)' : ''}"
+				aria-label={aria(label, c.isDefault)}
 				placeholder="–"
 				oninput={(e) => onedit(id, e.currentTarget.value)}
 			/>
@@ -81,7 +85,7 @@
 				rows="1"
 				placeholder="–"
 				value={c.value}
-				aria-label="{label}{c.isDefault ? ' (default)' : ''}"
+				aria-label={aria(label, c.isDefault)}
 				oninput={(e) => onedit(id, e.currentTarget.value)}
 			></textarea>
 		{/if}
@@ -90,25 +94,25 @@
 
 {#snippet rowHead(row: Row)}
 	<th scope="row">
-		{row.label}
+		{rowLabel(row, t)}
 		{#if row.measure}<span class="unit">{row.measure}</span>{/if}
-		<span class="code" title="Shorthand codes">{row.hint}</span>
+		<span class="code" title={t('exam.shorthandCodes')}>{row.hint}</span>
 	</th>
 {/snippet}
 
 <section aria-labelledby={titleId}>
 	<div class="head">
-		<h2 id={titleId}>{sec.title}</h2>
-		<button type="button" onclick={() => ondefaults('OU')}>Normal OU</button>
-		<button type="button" onclick={() => oncopy('OD')} aria-label="Copy right eye to left eye">OD → OS</button>
-		<button type="button" onclick={() => oncopy('OS')} aria-label="Copy left eye to right eye">OS → OD</button>
+		<h2 id={titleId}>{sectionTitle(sec, t)}</h2>
+		<button type="button" onclick={() => ondefaults('OU')}>{t('exam.normalOu')}</button>
+		<button type="button" onclick={() => oncopy('OD')} aria-label={t('exam.copyOdToOs')}>OD → OS</button>
+		<button type="button" onclick={() => oncopy('OS')} aria-label={t('exam.copyOsToOd')}>OS → OD</button>
 	</div>
 
 	<div class="panel">
 		<table>
 			<thead>
 				<tr>
-					<th scope="col" class="rowhead"><span class="visually-hidden">Finding</span></th>
+					<th scope="col" class="rowhead"><span class="visually-hidden">{t('exam.finding')}</span></th>
 					{@render eyeHead('OD')}
 					{@render eyeHead('OS')}
 				</tr>
@@ -117,30 +121,30 @@
 				{#each textRows as row (row.id)}
 					<tr>
 						{@render rowHead(row)}
-						{@render input(fieldId('OD', row), `${row.label} OD`, false)}
-						{@render input(fieldId('OS', row), `${row.label} OS`, false)}
+						{@render input(fieldId('OD', row), fieldLabel(fieldId('OD', row), t), false)}
+						{@render input(fieldId('OS', row), fieldLabel(fieldId('OS', row), t), false)}
 					</tr>
 				{/each}
 				<tr class="divider"><td colspan="3"></td></tr>
 				{#each measureRows as row (row.id)}
 					<tr>
 						{@render rowHead(row)}
-						{@render input(fieldId('OD', row), `${row.label} OD`, true, !!row.measure)}
-						{@render input(fieldId('OS', row), `${row.label} OS`, true, !!row.measure)}
+						{@render input(fieldId('OD', row), fieldLabel(fieldId('OD', row), t), true, !!row.measure)}
+						{@render input(fieldId('OS', row), fieldLabel(fieldId('OS', row), t), true, !!row.measure)}
 					</tr>
 				{/each}
 				{#if sec.hertel}
 					{@const base = cell('HERTELBASE')}
 					<tr>
 						<th scope="row">
-							Hertel <span class="unit">mm</span>
-							<span class="code" title="Shorthand codes">HERT:15-100-16</span>
+							{t('catalog.rowHertel')} <span class="unit">mm</span>
+							<span class="code" title={t('exam.shorthandCodes')}>HERT:15-100-16</span>
 						</th>
-						{@render input('ODHERTEL', 'Hertel OD', true, true)}
-						{@render input('OSHERTEL', 'Hertel OS', true, true)}
+						{@render input('ODHERTEL', fieldLabel('ODHERTEL', t), true, true)}
+						{@render input('OSHERTEL', fieldLabel('OSHERTEL', t), true, true)}
 					</tr>
 					<tr>
-						<th scope="row">Hertel base <span class="code">BHERT</span></th>
+						<th scope="row">{t('catalog.hertelBase')} <span class="code">BHERT</span></th>
 						<td
 							class="cell"
 							colspan="2"
@@ -152,7 +156,7 @@
 								class="short"
 								value={base.value}
 								inputmode="decimal"
-								aria-label="Hertel base"
+								aria-label={t('catalog.hertelBase')}
 								placeholder="–"
 								oninput={(e) => onedit('HERTELBASE', e.currentTarget.value)}
 							/>
@@ -164,7 +168,7 @@
 	</div>
 
 	<label class="comments">
-		<span>Comments <span class="code">{sec.comments.hint}</span></span>
+		<span>{t('exam.comments')} <span class="code">{sec.comments.hint}</span></span>
 		<textarea
 			rows="2"
 			class:ghost={comments.ghost}
@@ -174,8 +178,8 @@
 		></textarea>
 	</label>
 	<p class="legend">
-		<span class="swatch" aria-hidden="true"></span> Tinted: still the default "normal" value.
-		<span class="swatch copied" aria-hidden="true"></span> Copied from a prior visit.
+		<span class="swatch" aria-hidden="true"></span> {t('exam.legendDefault')}
+		<span class="swatch copied" aria-hidden="true"></span> {t('exam.legendCopied')}
 	</p>
 	{#if docZone && chart.patientId > 0 && chart.encounterId > 0}
 		<ZoneDocuments patientId={chart.patientId} encounterId={chart.encounterId} zone={docZone} />

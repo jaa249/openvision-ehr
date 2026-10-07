@@ -26,6 +26,9 @@
 	//   <IopTargets {context} {findings} {preview} {copied} {onedit} bind:effective={targets} />
 	// then flag a reading with iopHigh(value, String(targets.OD)) plus highLabel() as the text cue.
 	import { cellState } from './cell.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let {
 		context,
@@ -51,6 +54,7 @@
 	} = $props();
 
 	const uid = $props.id();
+	const { t } = useI18n();
 	let fetched = $state<Fallback | null>(null);
 	const fallback = $derived(fallbackOverride ?? fetched);
 
@@ -71,23 +75,25 @@
 		if (next.OD !== effective.OD || next.OS !== effective.OS) effective = next;
 	});
 
-	const SOURCE: Record<ResolvedTarget['source'], string> = {
-		exam: 'this visit',
-		prior: 'last visit',
-		provider: 'your default',
-		default: 'standard'
+	const SOURCE: Record<ResolvedTarget['source'], MessageKey> = {
+		exam: 'sections.tgtSourceExam',
+		prior: 'sections.tgtSourcePrior',
+		provider: 'sections.tgtSourceProvider',
+		default: 'sections.tgtSourceDefault'
 	};
 	function note(eye: TargetEye): string {
 		const own = iopNumber(findings[`${eye}IOPTARGET`]?.value);
-		if (own !== null) return 'Set at this visit';
+		if (own !== null) return t('sections.tgtSetHere');
 		const f = fallback?.[eye];
-		if (!f) return `Using ${DEFAULT_IOP_TARGET} until set`;
-		return f.source === 'prior' ? `Using ${f.value} from ${f.from}` : `Using ${f.value} (${SOURCE[f.source]})`;
+		if (!f) return t('sections.tgtUntilSet', { value: DEFAULT_IOP_TARGET });
+		return f.source === 'prior'
+			? t('sections.tgtUsingFrom', { value: f.value, from: f.from ?? '' })
+			: t('sections.tgtUsingSource', { value: f.value, source: t(SOURCE[f.source]) });
 	}
 </script>
 
 <div class="targets" class:compact role="group" aria-labelledby="{uid}-h" aria-describedby="{uid}-help">
-	<span class="title" id="{uid}-h">Target IOP <span class="unit">mmHg</span></span>
+	<span class="title" id="{uid}-h">{t('sections.tgtTitle')} <span class="unit">mmHg</span></span>
 	{#each ['OD', 'OS'] as const as eye (eye)}
 		{@const id = `${eye}IOPTARGET`}
 		{@const c = cellState(id, findings, preview, copied)}
@@ -103,7 +109,7 @@
 				maxlength="10"
 				autocomplete="off"
 				placeholder={String(fallback?.[eye].value ?? DEFAULT_IOP_TARGET)}
-				aria-label="Target IOP {eye}"
+				aria-label={t('sections.tgtEyeLabel', { eye })}
 				aria-describedby={noteId}
 				oninput={(e) => onedit(id, e.currentTarget.value.trim())}
 			/>
@@ -111,8 +117,7 @@
 		</label>
 	{/each}
 	<p class="help" id="{uid}-help">
-		Readings above the target are flagged. Empty boxes use the last visit's target, then your default, then 21.
-		Shorthand <code>TGT:15</code>, <code>RTGT</code>, <code>LTGT</code>.
+		<Msg key="sections.tgtHelp">{#snippet codes()}<code>TGT:15</code>, <code>RTGT</code>, <code>LTGT</code>{/snippet}</Msg>
 	</p>
 </div>
 

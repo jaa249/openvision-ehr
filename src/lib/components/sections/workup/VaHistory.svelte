@@ -2,7 +2,9 @@
 	// Visual acuity history (spec §8.2 with FIXes). Opened from the Vision panel's "History" button.
 	// The table is the primary view; the chart plots logMAR with better vision HIGHER (inverted axis),
 	// one line per correction type and eye, with the recorded Snellen value on hover and focus.
-	import { buildVaHistory, snellenFor, vaSeries, VA_GROUPS, type VaGroup, type VaPoint, type VaSeries, type VaVisitInput } from '#lib/exam/va_history.ts';
+	import { buildVaHistory, snellenFor, vaSeries, VA_GROUPS, VA_GROUP_LONG_KEY, type VaGroup, type VaPoint, type VaSeries, type VaVisitInput } from '#lib/exam/va_history.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { Findings } from '#lib/shorthand/parse.ts';
 	import { onMount } from 'svelte';
 
@@ -16,6 +18,8 @@
 		findings: Findings;
 		onclose: () => void;
 	} = $props();
+	const { t } = useI18n();
+	const long = (g: VaGroup) => t(VA_GROUP_LONG_KEY[g.key]);
 
 	let dialog: HTMLDialogElement;
 	let loaded = $state<{ current: { id: number; date: string; visitType: string }; visits: VaVisitInput[] } | null>(null);
@@ -28,7 +32,7 @@
 		const ctrl = new AbortController();
 		fetch(`/api/patients/${context.patientId}/encounters/${context.encounterId}/va-history`, { signal: ctrl.signal })
 			.then(async (r) => {
-				if (!r.ok) throw new Error(`The server answered ${r.status}`);
+				if (!r.ok) throw new Error(t('sections.vahServerAnswered', { status: r.status }));
 				loaded = await r.json();
 			})
 			.catch((e: Error) => {
@@ -94,7 +98,7 @@
 	}
 
 	const fmt = (v: number) => (v > 0 ? `+${v.toFixed(2)}` : v.toFixed(2));
-	const pointLabel = (s: VaSeries, p: VaPoint) => `${s.group.label} ${s.eye} ${p.date}: ${p.raw} (logMAR ${fmt(p.logmar)})`;
+	const pointLabel = (s: VaSeries, p: VaPoint) => t('sections.vahPointLabel', { group: s.group.label, eye: s.eye, date: p.date, value: p.raw, logmar: fmt(p.logmar) });
 
 	function close() {
 		dialog.close();
@@ -115,43 +119,41 @@
 
 <dialog bind:this={dialog} class="va-history" aria-labelledby="vah-title" onclose={onclose}>
 	<div class="head">
-		<h2 id="vah-title">Visual acuity history</h2>
-		<button type="button" class="close" onclick={close}>Close</button>
+		<h2 id="vah-title">{t('sections.vahTitle')}</h2>
+		<button type="button" class="close" onclick={close}>{t('sections.close')}</button>
 	</div>
 
 	{#if failed}
-		<p class="err" role="alert">Could not load earlier visits: {failed}.</p>
+		<p class="err" role="alert">{t('sections.vahLoadFailed', { error: failed })}</p>
 	{:else if !history}
-		<p class="muted" role="status">Loading earlier visits…</p>
+		<p class="muted" role="status">{t('sections.vahLoading')}</p>
 	{:else if history.groups.length === 0}
-		<p class="muted">No acuity has been recorded at this or any earlier visit.</p>
+		<p class="muted">{t('sections.vahEmpty')}</p>
 	{:else}
 		<p class="help">
-			Every visit up to this one, oldest first. Later visits are never shown. The chart plots logMAR:
-			<strong>higher on the chart = better vision</strong> (0.0 = 20/20, 0.3 = 20/40, 1.0 = 20/200; CF 1.9, HM 2.3, LP 2.7, NLP 3.0).
-			Focus or point at a dot to see the recorded value.
+			<Msg key="sections.vahHelp">{#snippet better()}<strong>{t('sections.vahHelpBetter')}</strong>{/snippet}</Msg>
 		</p>
 
-		<div class="toggles" role="group" aria-label="Lines shown in the chart">
+		<div class="toggles" role="group" aria-label={t('sections.vahLinesShown')}>
 			{#each history.groups as g (g.key)}
-				<button type="button" class="toggle" aria-pressed={on[g.key]} title={g.long} onclick={() => (on[g.key] = !on[g.key])}>
+				<button type="button" class="toggle" aria-pressed={on[g.key]} title={long(g)} onclick={() => (on[g.key] = !on[g.key])}>
 					<svg width="34" height="14" aria-hidden="true" class="swatch">
 						<line x1="2" y1="7" x2="32" y2="7" stroke-dasharray={DASH[g.key]} />
 						{@render marker(SHAPE[g.key], 17, 7, 3.5, HOLLOW.has(g.key), 'mk')}
 					</svg>
-					{g.label}<span class="visually-hidden"> ({g.long})</span>
+					{g.label}<span class="visually-hidden"> ({long(g)})</span>
 				</button>
 			{/each}
-			<span class="eyes"><span class="eye od">OD</span> <span class="eye os">OS</span> by colour</span>
+			<span class="eyes"><Msg key="sections.vahEyesByColour">{#snippet od()}<span class="eye od">OD</span>{/snippet}{#snippet os()}<span class="eye os">OS</span>{/snippet}</Msg></span>
 		</div>
 
 		<figure class="chart">
-			<svg viewBox="0 0 {W} {H}" role="group" aria-label="Acuity chart, logMAR by visit date. The same values are in the table below.">
+			<svg viewBox="0 0 {W} {H}" role="group" aria-label={t('sections.vahChartLabel')}>
 				{#each ticks as t (t)}
 					<line class="grid" class:zero={t === 0} x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} />
 					<text class="tick" x={PAD.l - 8} y={y(t) + 4} text-anchor="end">{t.toFixed(1)} · {snellenFor(t)}</text>
 				{/each}
-				<text class="axis" x="12" y={PAD.t + plotH / 2} transform="rotate(-90 12 {PAD.t + plotH / 2})" text-anchor="middle">logMAR · better ↑</text>
+				<text class="axis" x="12" y={PAD.t + plotH / 2} transform="rotate(-90 12 {PAD.t + plotH / 2})" text-anchor="middle">{t('sections.vahAxis')}</text>
 				{#each history.visits as v, i (v.id)}
 					{#if i % labelEvery === 0 || i === n - 1}
 						<text class="tick" class:cur={v.current} x={x(i)} y={H - PAD.b + 18} text-anchor="middle">{v.date}</text>
@@ -188,19 +190,19 @@
 				{/if}
 			</svg>
 			{#if shown.length === 0}
-				<figcaption class="muted">All lines are turned off. Use the buttons above to show some.</figcaption>
+				<figcaption class="muted">{t('sections.vahAllOff')}</figcaption>
 			{/if}
 		</figure>
 
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-		<div class="table-wrap" role="region" aria-label="Acuity table (scrolls sideways when wide)" tabindex="0">
+		<div class="table-wrap" role="region" aria-label={t('sections.vahTableRegion')} tabindex="0">
 			<table>
-				<caption class="visually-hidden">Visual acuity by visit, oldest first</caption>
+				<caption class="visually-hidden">{t('sections.vahTableCaption')}</caption>
 				<thead>
 					<tr>
-						<th scope="col" rowspan="2">Visit</th>
+						<th scope="col" rowspan="2">{t('sections.vahVisit')}</th>
 						{#each history.groups as g (g.key)}
-							<th scope="colgroup" colspan="2" title={g.long}>{g.label}</th>
+							<th scope="colgroup" colspan="2" title={long(g)}>{g.label}</th>
 						{/each}
 					</tr>
 					<tr>
@@ -215,7 +217,7 @@
 						<tr class:current={v.current}>
 							<th scope="row">
 								<span class="num">{v.date}</span>
-								{#if v.current}<span class="badge">this visit</span>{/if}
+								{#if v.current}<span class="badge">{t('sections.vahThisVisit')}</span>{/if}
 							</th>
 							{#each history.groups as g (g.key)}
 								{#each ['OD', 'OS'] as const as eye (eye)}

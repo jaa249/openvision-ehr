@@ -2,9 +2,11 @@
 	// Flow sheet chart "by hour" (spec §8.3): each visit's IOP OD / OS against the time of day it was
 	// measured, to show diurnal variation. Hours print as "08:30" (FIX). Visits without a time are left out.
 	import type { FlowVisit } from '#lib/server/flowsheet.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import { fmtHour, hourDomain, hourTicks, iopMax } from './chart.ts';
 
 	let { visits }: { visits: FlowVisit[] } = $props();
+	const { t } = useI18n();
 
 	const W = 720;
 	const H = 274;
@@ -16,26 +18,28 @@
 	const ymax = $derived(iopMax(timed.flatMap((v) => [v.iop.OD?.value, v.iop.OS?.value].filter((n): n is number => n != null))));
 	const y = (v: number) => H - PAD.b - (v / ymax) * (H - PAD.t - PAD.b);
 	const yTicks = $derived(Array.from({ length: ymax / 5 + 1 }, (_, i) => i * 5));
+	const pointLabel = (v: FlowVisit, eye: 'OD' | 'OS', value: number) =>
+		t('flowsheet.hourPoint', { time: v.time ?? '', date: v.current ? t('flowsheet.thisVisitDate', { date: v.date }) : v.date, eye, value });
 	let tip = $state<{ x: number; y: number; text: string } | null>(null);
 </script>
 
 {#if timed.length === 0}
-	<p class="empty">No IOP readings with a time recorded yet.</p>
+	<p class="empty">{t('flowsheet.noTimedReadings')}</p>
 {:else}
 	<div class="legend" aria-hidden="true">
 		<span><svg width="12" height="12"><circle class="mk od" cx="6" cy="6" r="4" /></svg>OD</span>
 		<span><svg width="12" height="12"><rect class="mk os" x="2" y="2" width="8" height="8" /></svg>OS</span>
-		<span>Larger mark = this visit</span>
+		<span>{t('flowsheet.largerMark')}</span>
 	</div>
-	<svg viewBox="0 0 {W} {H}" role="group" aria-label="IOP by time of day chart. The same values are in the table below.">
-		{#each yTicks as t (t)}
-			<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} />
-			<text class="tick" x={PAD.l - 6} y={y(t) + 4} text-anchor="end">{t}</text>
+	<svg viewBox="0 0 {W} {H}" role="group" aria-label={t('flowsheet.hourChartLabel')}>
+		{#each yTicks as tick (tick)}
+			<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={y(tick)} y2={y(tick)} />
+			<text class="tick" x={PAD.l - 6} y={y(tick) + 4} text-anchor="end">{tick}</text>
 		{/each}
 		<text class="tick" x={PAD.l - 6} y="12" text-anchor="end">mmHg</text>
-		{#each hourTicks(domain) as t (t)}
-			<line class="grid v" x1={x(t)} x2={x(t)} y1={PAD.t} y2={H - PAD.b} />
-			<text class="tick" x={x(t)} y={H - PAD.b + 18} text-anchor="middle">{fmtHour(t)}</text>
+		{#each hourTicks(domain) as tick (tick)}
+			<line class="grid v" x1={x(tick)} x2={x(tick)} y1={PAD.t} y2={H - PAD.b} />
+			<text class="tick" x={x(tick)} y={H - PAD.b + 18} text-anchor="middle">{fmtHour(tick)}</text>
 		{/each}
 		{#each timed as v (v.id)}
 			{#each ['OD', 'OS'] as const as eye (eye)}
@@ -43,7 +47,7 @@
 				{#if r}
 					{@const px = x(mins(v.time!))}
 					{@const py = y(r.value)}
-					{@const text = `${v.time} on ${v.date}${v.current ? ' (this visit)' : ''}: IOP ${eye} ${r.value} mmHg`}
+					{@const text = pointLabel(v, eye, r.value)}
 					<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 					<g class="pt {eye.toLowerCase()}" class:cur={v.current} role="img" tabindex="0" aria-label={text}
 						onfocus={() => (tip = { x: px, y: py, text })}

@@ -4,7 +4,8 @@
 	// Doctor's view facing the patient (as the fields grid, D9): gaze to the patient's right is drawn on the left.
 	// Our addition to the click-to-wrap parity: Shift+click, long-press, the "-" / Backspace keys or the
 	// panel's Remove mode take a mark away; keys 0-4 set the count directly.
-	import { gazeName, hashOrientation, motilityCell, motilityCount, type GazeH, type GazeV } from '#lib/exam/sections/neuro.ts';
+	import { gazeKey, hashOrientation, motilityCell, motilityCount, type GazeH, type GazeV } from '#lib/exam/sections/neuro.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { CellState } from '../workup/cell.ts';
 
 	let {
@@ -22,7 +23,8 @@
 		onset: (id: string, count: number) => void;
 	} = $props();
 
-	const eyeName = $derived(eye === 'OD' ? 'Right eye' : 'Left eye');
+	const { t } = useI18n();
+	const eyeName = $derived(eye === 'OD' ? t('sections.motRightEye') : t('sections.motLeftEye'));
 	const ROWS: GazeV[] = [-1, 0, 1];
 	const COLS: GazeH[] = ['R', null, 'L'];
 
@@ -64,7 +66,7 @@
 	}
 </script>
 
-<div class="diagram" role="group" aria-label="{eyeName} motility">
+<div class="diagram" role="group" aria-label={t('sections.motDiagramLabel', { eye: eyeName })}>
 	<svg class="spokes" viewBox="0 0 90 90" aria-hidden="true" focusable="false">
 		<g>
 			<line x1="45" y1="5" x2="45" y2="85" />
@@ -79,6 +81,7 @@
 			{#if c}
 				{@const s = cell(c.id)}
 				{@const n = motilityCount(s.value)}
+				{@const gaze = t(gazeKey(c))}
 				<button
 					type="button"
 					class="gaze {hashOrientation(c)}"
@@ -86,8 +89,8 @@
 					class:ghost={s.ghost}
 					class:copied={s.copied}
 					data-field={c.id}
-					aria-label="{eyeName}, {gazeName(c)}: {n}"
-					title="{gazeName(c)}: {n} (tap adds, Shift+click or long-press removes)"
+					aria-label={t('sections.motCellLabel', { eye: eyeName, gaze, n })}
+					title={t('sections.motCellTitle', { gaze, n })}
 					onclick={(e) => click(e, c.id)}
 					onkeydown={(e) => keydown(e, c.id)}
 					onpointerdown={(e) => pointerDown(e, c.id)}

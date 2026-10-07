@@ -1,15 +1,16 @@
 import { fail } from '@sveltejs/kit';
 import { getDb } from '#lib/server/db.ts';
 import { requireRole } from '#lib/server/auth.ts';
-import { getCodeSettings, getPractice, SettingsError, updateCodeSettings, updatePractice } from '#lib/server/settings.ts';
+import { getCodeSettings, getDefaultLocale, getPractice, setDefaultLocale, SettingsError, updateCodeSettings, updatePractice } from '#lib/server/settings.ts';
+import { serverT } from '#lib/server/i18n.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 // Admin only: the header printed on reports and spectacle / contact lens Rx, and the diagnosis code
-// set and US code suggestions switch (D44, D45).
+// set and US code suggestions switch (D44, D45), and the default language (D48).
 export const load: PageServerLoad = ({ locals, url }) => {
 	requireRole(locals, 'admin');
 	const db = getDb();
-	return { practice: getPractice(db), codes: getCodeSettings(db), welcome: url.searchParams.get('welcome') === '1' };
+	return { practice: getPractice(db), codes: getCodeSettings(db), locale: getDefaultLocale(db), welcome: url.searchParams.get('welcome') === '1' };
 };
 
 const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : '');
@@ -18,6 +19,16 @@ export const actions: Actions = {
 	default: async ({ request, locals }) => {
 		requireRole(locals, 'admin');
 		const f = await request.formData();
+		if (f.get('form') === 'locale') {
+			// Its own form: the language for users on "Practice default" and the sign-in page.
+			try {
+				setDefaultLocale(getDb(), str(f.get('locale')), locals.userId);
+			} catch (e) {
+				if (e instanceof SettingsError) return fail(400, { localeErrors: { locale: serverT(locals.locale).t('settings.chooseLanguage') } });
+				throw e;
+			}
+			return { localeOk: true };
+		}
 		if (f.get('form') === 'codes') {
 			// Its own form on the page: code set and US code suggestions.
 			try {

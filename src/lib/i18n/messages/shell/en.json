@@ -1,0 +1,16 @@
+{
+	"mainNav": "Main",
+	"navPatients": "Patients",
+	"navVisits": "Visits",
+	"navSettings": "Settings",
+	"mySettings": "My settings",
+	"signOut": "Sign out",
+	"colorMode": "Color mode",
+	"themeLight": "Light",
+	"themeDark": "Dark",
+	"themeDim": "Dim room",
+	"sessionWarnAnnounce": "You will be signed out in about a minute because of inactivity.",
+	"sessionWarnCountdown": "You'll be signed out in {seconds} s because of inactivity.",
+	"staySignedIn": "Stay signed in",
+	"signingOut": "Signing out…"
+}

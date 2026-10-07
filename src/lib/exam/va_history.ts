@@ -6,6 +6,7 @@
 // CF / HM / LP / NLP get their conventional values. Lower logMAR is better, so the chart's y axis is
 // INVERTED: better vision is higher on the chart. The Snellen value is shown on hover and focus.
 import type { Findings } from '#lib/shorthand/parse.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 export type VaEye = 'OD' | 'OS';
 
@@ -29,6 +30,17 @@ export const VA_GROUPS: VaGroup[] = [
 	{ key: 'CR', label: 'CR', long: 'with cycloplegic refraction', od: 'CRODVA', os: 'CROSVA', defaultOn: false },
 	{ key: 'CTL', label: 'CTL', long: 'with contact lenses', od: 'CTLODVA', os: 'CTLOSVA', defaultOn: true }
 ];
+
+/** Screen text of VA_GROUPS' `long` descriptions (D48); the short labels are notation and stay as they are. */
+export const VA_GROUP_LONG_KEY: Record<VaGroup['key'], MessageKey> = {
+	SC: 'sections.vaLongSc',
+	CC: 'sections.vaLongCcCurrent',
+	PH: 'sections.vaLongPh',
+	AR: 'sections.vaLongAr',
+	MR: 'sections.vaLongMr',
+	CR: 'sections.vaLongCr',
+	CTL: 'sections.vaLongCtl'
+};
 
 /** Every field the history reads (the API sends only these). */
 export const VA_HISTORY_FIELDS: string[] = VA_GROUPS.flatMap((g) => [g.od, g.os]);

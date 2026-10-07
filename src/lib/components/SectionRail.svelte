@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { SECTIONS, FIELDS, type Section, type SectionId } from '#lib/exam/catalog.ts';
+	import { SECTIONS, FIELDS, sectionLabel, type Section, type SectionId } from '#lib/exam/catalog.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { Findings } from '#lib/shorthand/parse.ts';
 
 	let {
@@ -12,9 +13,10 @@
 	function state(id: SectionId): 'empty' | 'started' {
 		return FIELDS.some((f) => f.section === id && findings[f.id]?.value) ? 'started' : 'empty';
 	}
+	const { t } = useI18n();
 </script>
 
-<nav class="rail" aria-label="Exam sections">
+<nav class="rail" aria-label={t('exam.railLabel')}>
 	{#each sections as s (s.id)}
 		<button
 			type="button"
@@ -24,9 +26,9 @@
 			onclick={() => onselect(s.id)}
 		>
 			<span class="key">{s.key}</span>
-			<span class="label">{s.label}</span>
+			<span class="label">{sectionLabel(s.id, t)}</span>
 			{#if s.available}
-				<span class="dot" data-state={state(s.id)}><span class="visually-hidden">{state(s.id)}</span></span>
+				<span class="dot" data-state={state(s.id)}><span class="visually-hidden">{state(s.id) === 'started' ? t('exam.railStarted') : t('exam.railEmpty')}</span></span>
 			{/if}
 		</button>
 	{/each}

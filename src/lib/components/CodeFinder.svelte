@@ -7,6 +7,8 @@
 	// be saved, so picking one lists the codes under it instead. WHO's citation is shown under the box.
 	import { onMount } from 'svelte';
 	import { CODE_SETS, ICD11_CITATION, withLaterality, type CodeSetId, type DxCode, type DxSearchResult, type LateralitySide } from '#lib/codesets/index.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let {
 		id,
@@ -21,6 +23,7 @@
 		oncancel: () => void;
 		autofocus?: boolean;
 	} = $props();
+	const { t } = useI18n();
 
 	let query = $state('');
 	let results = $state<DxCode[]>([]);
@@ -34,11 +37,13 @@
 	const listId = $derived(`${id}-list`);
 	const optId = (i: number) => `${id}-opt-${i}`;
 	const icd11 = $derived(system === 'icd11');
-	const EYES: { side: LateralitySide; label: string; name: string }[] = [
-		{ side: 'R', label: 'OD', name: 'right eye' },
-		{ side: 'L', label: 'OS', name: 'left eye' },
-		{ side: 'B', label: 'OU', name: 'both eyes' }
+	// OD / OS / OU are international and stay as they are; the eye's name and the help sentence translate.
+	const EYES: { side: LateralitySide; label: string; name: MessageKey; added: MessageKey }[] = [
+		{ side: 'R', label: 'OD', name: 'codes.finderEyeRight', added: 'codes.finderEyeAddedRight' },
+		{ side: 'L', label: 'OS', name: 'codes.finderEyeLeft', added: 'codes.finderEyeAddedLeft' },
+		{ side: 'B', label: 'OU', name: 'codes.finderEyeBoth', added: 'codes.finderEyeAddedBoth' }
 	];
+	const eyeAdded = $derived(EYES.find((x) => x.side === eye)?.added);
 
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let requestId = 0;
@@ -144,22 +149,22 @@
 		aria-describedby="{id}-help"
 		autocomplete="off"
 		spellcheck="false"
-		placeholder={icd11 ? 'Search code or words, e.g. 9C61 or glaucoma' : 'Search code or words, e.g. H40.11 or nuclear cataract'}
+		placeholder={icd11 ? t('codes.finderPlaceholderIcd11') : t('codes.finderPlaceholderIcd10')}
 		bind:value={query}
 		oninput={() => search(query)}
 		onkeydown={keydown}
 		onblur={() => (open = false)}
 	/>
-	<button type="button" class="cancel" onclick={oncancel} aria-label="Close code search">Cancel</button>
+	<button type="button" class="cancel" onclick={oncancel} aria-label={t('codes.finderClose')}>{t('codes.finderCancel')}</button>
 	{#if icd11}
-		<div class="eyes" role="group" aria-label="Eye added to the code">
-			<span class="eyes-label" aria-hidden="true">Eye:</span>
+		<div class="eyes" role="group" aria-label={t('codes.finderEyeGroup')}>
+			<span class="eyes-label" aria-hidden="true">{t('codes.finderEyeLabel')}</span>
 			{#each EYES as x (x.side)}
 				<button
 					type="button"
 					class="eye"
 					aria-pressed={eye === x.side}
-					aria-label="{x.label}, {x.name}"
+					aria-label={t('codes.finderEyeAria', { eye: x.label, name: t(x.name) })}
 					onpointerdown={(e) => e.preventDefault()}
 					onclick={() => (eye = eye === x.side ? null : x.side)}>{x.label}</button
 				>
@@ -167,16 +172,16 @@
 		</div>
 	{/if}
 	<p class="help" id="{id}-help">
-		Arrows choose, Enter picks, Esc closes.
-		{#if system === 'icd10cm'}Billable {CODE_SETS.icd10cm.short} 2027 codes only.{:else if icd11}{CODE_SETS.icd11.label}, 2026-01 release.
-			{eye ? `The ${EYES.find((x) => x.side === eye)?.name} is added to the code.` : 'Choose OD, OS or OU to add the eye.'}{/if}
+		{t('codes.finderKeys')}
+		{#if system === 'icd10cm'}{t('codes.finderBillableOnly', { set: CODE_SETS.icd10cm.short })}{:else if icd11}{t('codes.finderIcd11Release', { set: t('codes.setIcd11') })}
+			{eyeAdded ? t(eyeAdded) : t('codes.finderChooseEye')}{/if}
 	</p>
-	{#if icd11}<p class="cite">{ICD11_CITATION}. Licence: CC BY-ND 3.0 IGO.</p>{/if}
+	{#if icd11}<p class="cite">{t('codes.finderCitation', { citation: ICD11_CITATION })}</p>{/if}
 	<p class="visually-hidden" role="status">
-		{#if open && !searching}{failed ? 'Search failed.' : `${results.length} code${results.length === 1 ? '' : 's'} found.`}{/if}
+		{#if open && !searching}{failed ? t('codes.finderFailed') : t('codes.finderFound', { count: results.length })}{/if}
 	</p>
 	{#if open}
-		<ul id={listId} role="listbox" aria-label="Matching codes">
+		<ul id={listId} role="listbox" aria-label={t('codes.finderMatching')}>
 			{#each results as c, i (c.code)}
 				<!-- Keyboard choice happens in the combobox input (aria-activedescendant); a click here is the pointer path. -->
 				<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -190,11 +195,11 @@
 					onpointerenter={() => (active = i)}
 				>
 					<span class="code">{c.code}</span>
-					<span class="desc">{c.description}{#if !c.leaf}<span class="cat"> · category: pick to see the codes under it</span>{/if}</span>
+					<span class="desc">{c.description}{#if !c.leaf}<span class="cat"> · {t('codes.finderCategory')}</span>{/if}</span>
 				</li>
 			{:else}
 				<li class="empty" role="presentation">
-					{failed ? 'Search failed: check the connection.' : icd11 ? 'No ICD-11 code matches. Try other words.' : 'No billable code matches. Try other words.'}
+					{failed ? t('codes.finderFailedConnection') : icd11 ? t('codes.finderNoIcd11') : t('codes.finderNoBillable')}
 				</li>
 			{/each}
 		</ul>

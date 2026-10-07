@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 	let { data }: PageProps = $props();
+	const { t } = useI18n();
 
 	let q = $state(untrack(() => data.q));
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -11,30 +14,30 @@
 	function onInput() {
 		clearTimeout(timer);
 		timer = setTimeout(() => {
-			const t = q.trim();
-			goto(t ? `/?q=${encodeURIComponent(t)}` : '/', { reset: false, replace: true });
+			const term = q.trim();
+			goto(term ? `/?q=${encodeURIComponent(term)}` : '/', { reset: false, replace: true });
 		}, 200);
 	}
 </script>
 
 <main>
-	<h1>OpenVision</h1>
+	<h1>{t('common.appName')}</h1>
 	<p class="sub">
-		Patients <span class="note">(all demo data is fictional)</span>
-		<a class="enc" href="/encounters">All encounters &amp; printing →</a>
+		{t('patients.listHeading')} <span class="note">{t('patients.listDemoNote')}</span>
+		<a class="enc" href="/encounters">{t('patients.listAllEncounters')}</a>
 	</p>
 
 	<div class="tools">
 		<form method="GET" role="search" onsubmit={() => clearTimeout(timer)}>
-			<label class="visually-hidden" for="q">Search patients by name, preferred name, MRN or date of birth</label>
-			<input id="q" name="q" type="search" placeholder="Search name, MRN or DOB" autocomplete="off" bind:value={q} oninput={onInput} />
-			<button type="submit">Search</button>
+			<label class="visually-hidden" for="q">{t('patients.searchLabel')}</label>
+			<input id="q" name="q" type="search" placeholder={t('patients.searchPlaceholder')} autocomplete="off" bind:value={q} oninput={onInput} />
+			<button type="submit">{t('common.search')}</button>
 		</form>
-		<a class="new" href="/patients/new">New patient</a>
+		<a class="new" href="/patients/new">{t('patients.newPatient')}</a>
 	</div>
 
 	<p class="count" role="status" aria-live="polite">
-		{#if data.q}{data.patients.length} {data.patients.length === 1 ? 'match' : 'matches'} for “{data.q}”{:else}{data.patients.length} {data.patients.length === 1 ? 'patient' : 'patients'}{/if}
+		{#if data.q}{t('patients.matchCount', { count: data.patients.length, query: data.q })}{:else}{t('patients.patientCount', { count: data.patients.length })}{/if}
 	</p>
 
 	{#if data.patients.length}
@@ -43,13 +46,13 @@
 				<li>
 					<a class="who" href="/patients/{p.id}">
 						<span class="name">{p.name}</span>
-						{#if p.name !== p.legalName}<span class="legal">legal: {p.legalName}</span>{/if}
-						<span class="meta num">DOB {p.dob} · {p.age} y · MRN {p.mrn}</span>
+						{#if p.name !== p.legalName}<span class="legal">{t('patients.legalShort', { name: p.legalName })}</span>{/if}
+						<span class="meta num">{t('patients.listMeta', { dob: p.dob, age: p.age, mrn: p.mrn })}</span>
 					</a>
 					<span class="acts">
 						{#if p.latestEncounter}
-							<a href="/patients/{p.id}/encounters/{p.latestEncounter}">Open exam<span class="visually-hidden"> for {p.name}</span></a>
-							<a href="/print?ids={p.latestEncounter}" target="_blank" rel="noopener">Print<span class="visually-hidden"> latest visit of {p.name}</span></a>
+							<a href="/patients/{p.id}/encounters/{p.latestEncounter}" aria-label={t('patients.openExamFor', { name: p.name })}>{t('patients.openExam')}</a>
+							<a href="/print?ids={p.latestEncounter}" target="_blank" rel="noopener" aria-label={t('patients.printLatestOf', { name: p.name })}>{t('common.print')}</a>
 						{/if}
 					</span>
 				</li>
@@ -57,7 +60,7 @@
 		</ul>
 	{:else}
 		<p class="empty">
-			{#if data.q}No patients match “{data.q}”. <a href="/patients/new">Add a new patient</a>.{:else}No patients yet. <a href="/patients/new">Add the first one</a>.{/if}
+			{#if data.q}<Msg key="patients.emptySearch" params={{ query: data.q }}>{#snippet link()}<a href="/patients/new">{t('patients.emptySearchLink')}</a>{/snippet}</Msg>{:else}<Msg key="patients.emptyNone">{#snippet link()}<a href="/patients/new">{t('patients.emptyNoneLink')}</a>{/snippet}</Msg>{/if}
 		</p>
 	{/if}
 </main>

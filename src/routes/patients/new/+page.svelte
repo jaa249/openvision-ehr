@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import PatientFields from '#lib/components/PatientFields.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const { t } = useI18n();
 
 	let rows = $state<{ title: string; reaction: string }[]>([]);
 	// Re-seed the rows from the server's copy after a failed submit; otherwise one blank row.
@@ -20,12 +22,12 @@
 	let busy = $state(false);
 </script>
 
-<svelte:head><title>New patient · OpenVision</title></svelte:head>
+<svelte:head><title>{t('patients.newTitle')}</title></svelte:head>
 
 <main>
-	<nav aria-label="Breadcrumb"><a href="/">← Patients</a></nav>
-	<h1>New patient</h1>
-	<p class="note">All demo data is fictional. Do not enter real patient information in this release.</p>
+	<nav aria-label={t('patients.breadcrumb')}><a href="/">{t('patients.backToPatients')}</a></nav>
+	<h1>{t('patients.newPatient')}</h1>
+	<p class="note">{t('patients.newDemoNote')}</p>
 
 	<form
 		method="POST"
@@ -40,7 +42,7 @@
 	>
 		{#if errorList.length}
 			<div class="summary" role="alert">
-				<strong>Please fix {errorList.length === 1 ? 'this problem' : `these ${errorList.length} problems`}:</strong>
+				<strong>{t('patients.fixProblems', { count: errorList.length })}</strong>
 				<ul>
 					{#each errorList as msg}<li>{msg}</li>{/each}
 				</ul>
@@ -48,12 +50,12 @@
 		{/if}
 
 		<fieldset>
-			<legend>Demographics</legend>
+			<legend>{t('patients.demographics')}</legend>
 			<PatientFields values={form?.values ?? {}} {errors} today={data.today} />
 		</fieldset>
 
 		<fieldset>
-			<legend>Allergies</legend>
+			<legend>{t('patients.allergies')}</legend>
 			<!-- Explicit choice: leaving everything blank records "not recorded", never "no known allergies". -->
 			<label class="nkda">
 				<input
@@ -64,14 +66,14 @@
 					disabled={hasAllergy}
 					aria-describedby={errors.nkda ? 'nkda-err' : 'nkda-hint'}
 				/>
-				No known allergies
+				{t('patients.noKnownAllergies')}
 			</label>
 			{#if errors.nkda}<p class="err" id="nkda-err">{errors.nkda}</p>{/if}
 			{#if !nkda}
 				{#each rows as row, i (i)}
 					<div class="arow">
 						<div class="field">
-							<label for="at{i}">Substance</label>
+							<label for="at{i}">{t('patients.substance')}</label>
 							<input
 								id="at{i}"
 								name="allergy_title"
@@ -84,7 +86,7 @@
 							{#if errors[`allergy${i}_title`]}<p class="err" id="at{i}-err">{errors[`allergy${i}_title`]}</p>{/if}
 						</div>
 						<div class="field">
-							<label for="ar{i}">Reaction</label>
+							<label for="ar{i}">{t('patients.reaction')}</label>
 							<input
 								id="ar{i}"
 								name="allergy_reaction"
@@ -97,22 +99,22 @@
 							{#if errors[`allergy${i}_reaction`]}<p class="err" id="ar{i}-err">{errors[`allergy${i}_reaction`]}</p>{/if}
 						</div>
 						{#if rows.length > 1}
-							<button type="button" class="rm" onclick={() => rows.splice(i, 1)} aria-label="Remove allergy row {i + 1}">Remove</button>
+							<button type="button" class="rm" onclick={() => rows.splice(i, 1)} aria-label={t('patients.removeAllergyRow', { n: i + 1 })}>{t('common.remove')}</button>
 						{/if}
 					</div>
 				{/each}
 				{#if rows.length < 20}
-					<button type="button" class="add" onclick={() => rows.push({ title: '', reaction: '' })}>+ Add another allergy</button>
+					<button type="button" class="add" onclick={() => rows.push({ title: '', reaction: '' })}>{t('patients.addAnotherAllergy')}</button>
 				{/if}
 			{/if}
 			<p class="hint" id="nkda-hint">
-				{#if hasAllergy}Clear the allergies above to mark "No known allergies".{:else}Left blank, allergies show as "not recorded" until someone records them.{/if}
+				{#if hasAllergy}{t('patients.nkdaHintClear')}{:else}{t('patients.nkdaHintBlank')}{/if}
 			</p>
 		</fieldset>
 
 		<div class="actions">
-			<button type="submit" class="primary" disabled={busy}>{busy ? 'Creating…' : 'Create patient'}</button>
-			<a href="/">Cancel</a>
+			<button type="submit" class="primary" disabled={busy}>{busy ? t('patients.creating') : t('patients.createPatient')}</button>
+			<a href="/">{t('common.cancel')}</a>
 		</div>
 	</form>
 </main>

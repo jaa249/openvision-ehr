@@ -3,6 +3,8 @@ import type { Handle } from '@sveltejs/kit/hooks';
 import { getDb } from '#lib/server/db.ts';
 import { SESSION_COOKIE, isBackgroundRequest, needsSetup, resolveSession, routeKind } from '#lib/server/auth.ts';
 import { securityAudit } from '#lib/server/security_audit.ts';
+import { LANG_COOKIE, resolveLocale } from '#lib/server/i18n.ts';
+import { localeDir } from '#lib/i18n/locales.ts';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const CHART_PAGE = /^\/patients\/(\d+)$/;
@@ -60,6 +62,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 		event.locals.sessionToken = token;
 		event.locals.mustChangePassword = user.mustChangePassword;
 	}
+	// The page language (D48): signed in, the user's choice, else the practice default; signed out, the
+	// ov_lang cookie, else the browser's language during first-run setup, else the practice default.
+	const locale = resolveLocale(db, user ? user.id : null, event.request.headers.get('accept-language'), event.cookies.get(LANG_COOKIE));
+	event.locals.locale = locale;
 
 	const kind = routeKind(path);
 	if (!user && kind !== 'public') {
@@ -74,7 +80,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(303, '/settings/me?required=1');
 	}
 
-	const response = await resolve(event);
+	const response = await resolve(event, {
+		transformPageChunk: ({ html }) => html.replace('<html lang="en">', `<html lang="${locale}" dir="${localeDir(locale)}">`)
+	});
 	if (user && kind === 'page' && event.request.method === 'GET' && response.status === 200) auditChartView(db, user.id, path);
 	return secure(response, !!user);
 };

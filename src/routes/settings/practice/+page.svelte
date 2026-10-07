@@ -1,31 +1,37 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { CODE_SETS, CODE_SET_IDS, ICD11_CITATION, ICD11_LICENCE, type CodeSetId } from '#lib/codesets/index.ts';
+	import { CODE_SET_IDS, ICD11_CITATION, ICD11_LICENCE, ICD11_RELEASE, type CodeSetId } from '#lib/codesets/index.ts';
+	import LanguageSelect from '#lib/components/settings/LanguageSelect.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const { t } = useI18n();
 	const errors = $derived<Record<string, string>>(form?.errors ?? {});
 	const v = $derived(form?.values ?? data.practice);
 	let busy = $state(false);
 	let codesBusy = $state(false);
 	const codesErrors = $derived<Record<string, string>>(form?.codesErrors ?? {});
+	let localeBusy = $state(false);
+	const localeErrors = $derived<Record<string, string>>(form?.localeErrors ?? {});
 	// The radio follows the saved value until the admin picks another (so the citation shows at once).
 	let picked = $state<CodeSetId | null>(null);
 	const codeSet = $derived(picked ?? data.codes.codeSet);
-	const FIELDS = [
-		{ id: 'name', label: 'Practice name', max: 100, auto: 'organization', hint: 'Printed at the top of reports and prescriptions.' },
-		{ id: 'address', label: 'Address', max: 200, auto: 'street-address', hint: 'One line, e.g. "100 Main Street, Anytown, ST 00000".' },
-		{ id: 'phone', label: 'Phone', max: 30, auto: 'tel', hint: '' },
-		{ id: 'fax', label: 'Fax', max: 30, auto: 'off', hint: '' }
-	] as const;
+	const FIELDS = $derived([
+		{ id: 'name', label: t('settings.practiceName'), max: 100, auto: 'organization', hint: t('settings.practiceNameHint') },
+		{ id: 'address', label: t('settings.address'), max: 200, auto: 'street-address', hint: t('settings.addressHint') },
+		{ id: 'phone', label: t('settings.phone'), max: 30, auto: 'tel', hint: '' },
+		{ id: 'fax', label: t('settings.fax'), max: 30, auto: 'off', hint: '' }
+	] as const);
+	const codeSetLabel = (id: CodeSetId) => (id === 'icd11' ? t('codes.setIcd11') : t('codes.setIcd10cm'));
 </script>
 
-<svelte:head><title>Practice · Settings · OpenVision</title></svelte:head>
+<svelte:head><title>{t('settings.practiceTitle')}</title></svelte:head>
 
-<h2>Practice</h2>
-<p class="lead">Used on printed reports and spectacle / contact lens prescriptions.</p>
+<h2>{t('settings.practiceHeading')}</h2>
+<p class="lead">{t('settings.practiceLead')}</p>
 {#if data.welcome}
-	<p class="lead" role="status"><strong>Your admin account is ready.</strong> Fill in your practice details, then add users in Users.</p>
+	<p class="lead" role="status"><strong>{t('settings.adminReady')}</strong> {t('settings.adminReadyNext')}</p>
 {/if}
 
 <form
@@ -41,11 +47,11 @@
 	}}
 >
 	<fieldset>
-		<legend>Practice details</legend>
+		<legend>{t('settings.practiceDetails')}</legend>
 		<div class="grid">
 			{#each FIELDS as f (f.id)}
 				<div class="field">
-					<label for={f.id}>{f.label}{f.id === 'name' ? '' : ' (optional)'}</label>
+					<label for={f.id}>{f.id === 'name' ? f.label : t('common.optional', { label: f.label })}</label>
 					<input
 						id={f.id}
 						name={f.id}
@@ -62,8 +68,8 @@
 			{/each}
 		</div>
 		<div class="actions">
-			<button type="submit" class="primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
-			{#if form?.ok}<p class="saved" role="status">Saved.</p>{/if}
+			<button type="submit" class="primary" disabled={busy}>{busy ? t('common.saving') : t('common.save')}</button>
+			{#if form?.ok}<p class="saved" role="status">{t('common.saved')}</p>{/if}
 		</div>
 	</fieldset>
 </form>
@@ -83,35 +89,59 @@
 >
 	<input type="hidden" name="form" value="codes" />
 	<fieldset>
-		<legend>Diagnosis and visit codes</legend>
+		<legend>{t('settings.codesLegend')}</legend>
 		<fieldset class="radios" aria-describedby="codeset-hint">
-			<legend class="label">Diagnosis code set</legend>
+			<legend class="label">{t('settings.diagnosisCodeSet')}</legend>
 			{#each CODE_SET_IDS as id (id)}
 				<label class="check">
 					<input type="radio" name="codeSet" value={id} checked={codeSet === id} onchange={() => (picked = id)} />
-					{CODE_SETS[id].label}
+					{codeSetLabel(id)}
 				</label>
 			{/each}
 		</fieldset>
-		<p class="hint" id="codeset-hint">
-			Existing impression items and history entries keep the codes they have; only codes added from now on use the new set.
-		</p>
+		<p class="hint" id="codeset-hint">{t('settings.codeSetHint')}</p>
 		{#if codesErrors.codeSet}<p class="err">{codesErrors.codeSet}</p>{/if}
 		{#if codeSet === 'icd11'}
-			<p class="hint cite">{ICD11_CITATION}. Licence: {ICD11_LICENCE}. Release 2026-01, English, as published by WHO.</p>
+			<p class="hint cite">{t('settings.icd11Citation', { citation: ICD11_CITATION, licence: ICD11_LICENCE, release: ICD11_RELEASE })}</p>
 		{/if}
 		<label class="check">
 			<input type="checkbox" name="usBilling" checked={data.codes.usBilling} aria-describedby="usbilling-hint" />
-			US code suggestions (CPT)
+			{t('settings.usSuggestions')}
 		</label>
-		<p class="hint" id="usbilling-hint">
-			Suggests visit and test codes to copy into your billing system. OpenVision does not create bills. Off: the Codes section (key 0)
-			is not offered and no codes print on the report. Nothing already saved is deleted; switching it back on shows it again.
-		</p>
+		<p class="hint" id="usbilling-hint">{t('settings.usSuggestionsHint')}</p>
 		{#if codesErrors.usBilling}<p class="err">{codesErrors.usBilling}</p>{/if}
 		<div class="actions">
-			<button type="submit" class="primary" disabled={codesBusy}>{codesBusy ? 'Saving…' : 'Save'}</button>
-			{#if form?.codesOk}<p class="saved" role="status">Saved.</p>{/if}
+			<button type="submit" class="primary" disabled={codesBusy}>{codesBusy ? t('common.saving') : t('common.save')}</button>
+			{#if form?.codesOk}<p class="saved" role="status">{t('common.saved')}</p>{/if}
+		</div>
+	</fieldset>
+</form>
+
+<form
+	class="ov-form codes"
+	method="POST"
+	novalidate
+	use:enhance={() => {
+		localeBusy = true;
+		return async ({ update }) => {
+			await update({ reset: false });
+			localeBusy = false;
+		};
+	}}
+>
+	<input type="hidden" name="form" value="locale" />
+	<fieldset>
+		<legend>{t('common.language')}</legend>
+		<LanguageSelect
+			id="locale"
+			label={t('settings.defaultLanguage')}
+			value={data.locale}
+			hint={t('settings.defaultLanguageHint')}
+			error={localeErrors.locale}
+		/>
+		<div class="actions">
+			<button type="submit" class="primary" disabled={localeBusy}>{localeBusy ? t('common.saving') : t('common.save')}</button>
+			{#if form?.localeOk}<p class="saved" role="status">{t('common.saved')}</p>{/if}
 		</div>
 	</fieldset>
 </form>

@@ -147,7 +147,7 @@ describe('signing hash', () => {
 		migrate(probe);
 		const latest = (probe.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number }).v;
 		const raw = new DatabaseSync(':memory:');
-		migrate(raw, latest - 1);
+		migrate(raw, latest - 2); // the translations migration (D48) follows billing-aid
 		seedDemo(raw, TODAY);
 		const at = `${TODAY}T10:00:00.000Z`;
 		raw

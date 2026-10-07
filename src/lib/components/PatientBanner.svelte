@@ -4,6 +4,7 @@
 	import type { ExamLock } from '#lib/exam/lock.svelte.ts';
 	import ThemeToggle from './ThemeToggle.svelte';
 	import { historyBus } from '#lib/history/bus.svelte.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 
 	let {
 		patient,
@@ -51,8 +52,11 @@
 	);
 	// The history panel publishes changes made during the visit; otherwise the page's copy.
 	const allergies = $derived(historyBus.allergy?.patientId === patient.id ? historyBus.allergy.status : patient.allergyStatus);
-	const time = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-	const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+	// Dates and times in the page language (D48), never the computer's own locale.
+	const i18n = useI18n();
+	const { t } = i18n;
+	const time = (d: Date) => i18n.time(d);
+	const day = (iso: string) => i18n.date(iso);
 
 	// ---------- Download menu (D46: the visit goes into another chart as a PDF or FHIR) ----------
 	// A disclosure (button + list of buttons): Tab moves through the items, Escape closes and
@@ -84,7 +88,7 @@
 
 <svelte:window onpointerdown={onWindowPointer} />
 
-<header class="banner" aria-label="Patient">
+<header class="banner" aria-label={t('exam.bannerLabel')}>
 	{#if patient.photoUrl}
 		<img class="avatar" src={patient.photoUrl} alt="" />
 	{:else}
@@ -92,67 +96,67 @@
 	{/if}
 	<div class="who">
 		<div class="name">
-			<a class="chart" href="/patients/{patient.id}" title="Open patient chart">{patient.name}</a>
-			{#if patient.name !== patient.legalName}<span class="legal">(legal: {patient.legalName})</span>{/if}
+			<a class="chart" href="/patients/{patient.id}" title={t('exam.bannerOpenChart')}>{patient.name}</a>
+			{#if patient.name !== patient.legalName}<span class="legal">{t('exam.bannerLegalName', { name: patient.legalName })}</span>{/if}
 		</div>
-		<div class="meta num">{patient.age} y · DOB {patient.dob} · MRN {patient.mrn}</div>
+		<div class="meta num">{t('exam.bannerAge', { age: patient.age })} · {t('exam.bannerDob', { dob: patient.dob })} · {t('exam.bannerMrn', { mrn: patient.mrn })}</div>
 	</div>
 	<!-- Three states (never "empty = no allergies"): listed (red), confirmed none, not recorded (amber). -->
 	<div class="allergy" data-kind={allergies.kind}>
 		{#if allergies.kind === 'listed'}
-			<span aria-hidden="true">⚠</span> Allergies: {allergies.allergies.map((a) => a.title).join(', ')}
+			<span aria-hidden="true">⚠</span> {t('exam.bannerAllergies', { list: allergies.allergies.map((a) => a.title).join(', ') })}
 		{:else if allergies.kind === 'none'}
-			No known allergies
+			{t('exam.bannerNoAllergies')}
 		{:else}
-			<span aria-hidden="true">!</span> Allergies not recorded
+			<span aria-hidden="true">!</span> {t('exam.bannerAllergiesNotRecorded')}
 		{/if}
 	</div>
 	<div class="meta">
 		{encounter.visitType} ·
 		{#if onstaff}
-			<button type="button" class="staff" onclick={onstaff} title="Change the provider or technician">
-				{encounter.provider}{#if encounter.technician}<span class="tech">{` · Tech: ${encounter.technician}`}</span>{/if}
+			<button type="button" class="staff" onclick={onstaff} title={t('exam.bannerChangeStaff')}>
+				{encounter.provider}{#if encounter.technician}<span class="tech">{` · ${t('exam.bannerTech', { name: encounter.technician })}`}</span>{/if}
 			</button>
 		{:else}
-			{encounter.provider}{#if encounter.technician}<span class="tech">{` · Tech: ${encounter.technician}`}</span>{/if}
+			{encounter.provider}{#if encounter.technician}<span class="tech">{` · ${t('exam.bannerTech', { name: encounter.technician })}`}</span>{/if}
 		{/if}
 		· <span class="num">{encounter.date}</span>
 	</div>
 	<div class="spacer"></div>
 	{#if lock?.mode === 'signed' && lock.signature}
-		<div class="state signed" title="Signed exams are read-only for everyone; corrections go in an addendum.">
-			<span aria-hidden="true">✓</span> Signed by {lock.signature.signedBy} on {day(lock.signature.signedAt)}
+		<div class="state signed" title={t('exam.bannerSignedTitle')}>
+			<span aria-hidden="true">✓</span> {t('exam.bannerSignedBy', { name: lock.signature.signedBy, date: day(lock.signature.signedAt) })}
 		</div>
 	{:else if lock?.mode === 'readonly'}
 		<div class="state readonly">
 			{#if lock.holder}
-				<span aria-hidden="true">🔒</span> Being edited by {lock.holder.holderName} since {time(new Date(lock.holder.acquiredAt))}
-				{#if ontakeover}<button type="button" onclick={ontakeover} disabled={lock.busy}>Take over</button>{/if}
+				<span aria-hidden="true">🔒</span> {t('exam.bannerBeingEdited', { name: lock.holder.holderName, time: time(new Date(lock.holder.acquiredAt)) })}
+				{#if ontakeover}<button type="button" onclick={ontakeover} disabled={lock.busy}>{t('exam.bannerTakeOver')}</button>{/if}
 			{:else}
-				Read-only
-				{#if onedit}<button type="button" onclick={onedit} disabled={lock.busy}>Edit exam</button>{/if}
+				{t('exam.bannerReadOnly')}
+				{#if onedit}<button type="button" onclick={onedit} disabled={lock.busy}>{t('exam.bannerEditExam')}</button>{/if}
 			{/if}
 		</div>
 	{/if}
 	<div class="save" role="status" aria-live="polite" data-status={saver.status}>
 		{#if saver.status === 'locked'}
-			{#if saver.lostFields.length}Not saved: read-only{/if}
+			{#if saver.lostFields.length}{t('exam.saveNotSavedReadOnly')}{/if}
 		{:else if saver.signedOut}
-			Signed out
+			{t('exam.saveSignedOut')}
 		{:else if saver.status === 'error'}
-			Not saved, retrying…
+			{t('exam.saveRetrying')}
 		{:else if saver.showSaving}
-			Saving…
+			{t('common.saving')}
 		{:else if saver.savedAt}
-			Saved {time(saver.savedAt)}
+			{t('exam.saveSavedAt', { time: time(saver.savedAt) })}
 		{/if}
 	</div>
 	{#if cansign && onsign && lock && (lock.mode === 'editing' || lock.mode === 'starting')}
-		<button type="button" class="sign" onclick={onsign} disabled={signing} title="Finalize this exam (it becomes read-only)">
-			{signing ? 'Saving…' : 'Sign exam'}
+		<button type="button" class="sign" onclick={onsign} disabled={signing} title={t('exam.bannerSignTitle')}>
+			{signing ? t('common.saving') : t('exam.bannerSign')}
 		</button>
 	{/if}
-	<button type="button" class="print" onclick={onprint} title="Print this exam (Ctrl+P)">Print</button>
+	<button type="button" class="print" onclick={onprint} title={t('exam.bannerPrintTitle')}>{t('exam.bannerPrint')}</button>
 	{#if ondownloadpdf || ondownloadfhir}
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="download" bind:this={downloadWrap} onkeydown={onDownloadKey} onfocusout={onWrapFocusOut}>
@@ -161,26 +165,26 @@
 				bind:this={downloadButton}
 				aria-expanded={downloadOpen}
 				aria-controls="download-menu"
-				title="Download this visit to add it to another chart"
+				title={t('exam.bannerDownloadTitle')}
 				onclick={() => (downloadOpen = !downloadOpen)}
 			>
-				Download <span aria-hidden="true">▾</span>
+				{t('exam.bannerDownload')} <span aria-hidden="true">▾</span>
 			</button>
 			{#if downloadOpen}
-				<ul id="download-menu" class="menu" aria-label="Download this visit">
+				<ul id="download-menu" class="menu" aria-label={t('exam.bannerDownloadMenu')}>
 					{#if ondownloadpdf}
 						<li>
 							<button type="button" onclick={() => pick(ondownloadpdf)} aria-describedby="download-pdf-hint">
 								<span class="item">PDF</span>
-								<span class="hint" id="download-pdf-hint">Opens the report: choose Save as PDF in the print dialog</span>
+								<span class="hint" id="download-pdf-hint">{t('exam.bannerDownloadPdfHint')}</span>
 							</button>
 						</li>
 					{/if}
 					{#if ondownloadfhir}
 						<li>
 							<button type="button" onclick={() => pick(ondownloadfhir)} aria-describedby="download-fhir-hint">
-								<span class="item">FHIR (for another EHR)</span>
-								<span class="hint" id="download-fhir-hint">FHIR R4 JSON file with the findings and impression/plan</span>
+								<span class="item">{t('exam.bannerDownloadFhir')}</span>
+								<span class="hint" id="download-fhir-hint">{t('exam.bannerDownloadFhirHint')}</span>
 							</button>
 						</li>
 					{/if}
@@ -189,7 +193,7 @@
 		</div>
 	{/if}
 	<ThemeToggle />
-	<a class="close" href="/">Patients</a>
+	<a class="close" href="/">{t('exam.bannerPatients')}</a>
 </header>
 
 <style>

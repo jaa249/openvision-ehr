@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { SectionDef } from '#lib/exam/catalog.ts';
+	import { rowLabel, sectionTitle, type SectionDef } from '#lib/exam/catalog.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PriorVisit } from '#lib/exam/types.ts';
 
 	let {
@@ -17,49 +18,49 @@
 		oncopyall: (prior: PriorVisit) => void;
 	} = $props();
 
+	const i18n = useI18n();
+	const { t } = i18n;
 	const prior = $derived(priors[index]);
 	const v = (id: string) => prior?.findings[id]?.value ?? '';
 	const rows = $derived(
 		prior
-			? sec.rows.filter((r) => v(r.od) || v(r.os)).map((r) => ({ label: r.label, unit: r.measure, od: v(r.od), os: v(r.os) }))
+			? sec.rows.filter((r) => v(r.od) || v(r.os)).map((r) => ({ label: rowLabel(r, t), unit: r.measure, od: v(r.od), os: v(r.os) }))
 			: []
 	);
 	const hertel = $derived(sec.hertel && prior ? [v('ODHERTEL'), v('HERTELBASE'), v('OSHERTEL')] : null);
 	const comments = $derived(prior ? v(sec.comments.field) : '');
 
-	function fmt(date: string) {
-		return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-	}
+	const fmt = (date: string) => i18n.date(date);
 </script>
 
-<section class="priors" aria-label="Prior visits">
+<section class="priors" aria-label={t('exam.priorsLabel')}>
 	{#if priors.length === 0}
-		<p class="empty">No earlier visits for this patient.</p>
+		<p class="empty">{t('exam.priorsNone')}</p>
 	{:else}
 		<div class="nav">
-			<button type="button" onclick={() => (index = priors.length - 1)} disabled={index === priors.length - 1} aria-label="Oldest visit">⏮</button>
-			<button type="button" onclick={() => index++} disabled={index === priors.length - 1} aria-label="Older visit">◀</button>
-			<select bind:value={index} aria-label="Choose a prior visit">
+			<button type="button" onclick={() => (index = priors.length - 1)} disabled={index === priors.length - 1} aria-label={t('exam.priorsOldest')}>⏮</button>
+			<button type="button" onclick={() => index++} disabled={index === priors.length - 1} aria-label={t('exam.priorsOlder')}>◀</button>
+			<select bind:value={index} aria-label={t('exam.priorsChoose')}>
 				{#each priors as p, i (p.id)}
 					<option value={i}>{fmt(p.date)}</option>
 				{/each}
 			</select>
-			<button type="button" onclick={() => index--} disabled={index === 0} aria-label="Newer visit">▶</button>
-			<button type="button" onclick={() => (index = 0)} disabled={index === 0} aria-label="Newest visit">⏭</button>
+			<button type="button" onclick={() => index--} disabled={index === 0} aria-label={t('exam.priorsNewer')}>▶</button>
+			<button type="button" onclick={() => (index = 0)} disabled={index === 0} aria-label={t('exam.priorsNewest')}>⏭</button>
 		</div>
-		<p class="meta">{prior.visitType} · {prior.provider} · {index + 1} of {priors.length} earlier {priors.length === 1 ? 'visit' : 'visits'}</p>
+		<p class="meta">{prior.visitType} · {prior.provider} · {t('exam.priorsPosition', { index: index + 1, count: priors.length })}</p>
 
 		<div class="actions">
 			<button type="button" class="primary" onclick={() => oncopysection(prior)} disabled={!rows.length && !comments && !hertel?.some(Boolean)}>
-				Copy {sec.title.split(' (')[0]} forward
+				{t('exam.priorsCopySection', { section: sectionTitle(sec, t, true) })}
 			</button>
-			<button type="button" onclick={() => oncopyall(prior)}>Copy whole exam forward</button>
+			<button type="button" onclick={() => oncopyall(prior)}>{t('exam.priorsCopyAll')}</button>
 		</div>
 
 		{#if rows.length || comments || hertel?.some(Boolean)}
 			<table>
 				<thead>
-					<tr><th scope="col"><span class="visually-hidden">Finding</span></th><th scope="col" class="od">OD</th><th scope="col" class="os">OS</th></tr>
+					<tr><th scope="col"><span class="visually-hidden">{t('exam.finding')}</span></th><th scope="col" class="od">OD</th><th scope="col" class="os">OS</th></tr>
 				</thead>
 				<tbody>
 					{#each rows as r (r.label)}
@@ -71,7 +72,7 @@
 					{/each}
 					{#if hertel?.some(Boolean)}
 						<tr>
-							<th scope="row">Hertel (base {hertel[1] || '–'})</th>
+							<th scope="row">{t('exam.priorsHertel', { base: hertel[1] || '–' })}</th>
 							<td>{hertel[0] || '–'}</td>
 							<td>{hertel[2] || '–'}</td>
 						</tr>
@@ -80,7 +81,7 @@
 			</table>
 			{#if comments}<p class="comments">{comments}</p>{/if}
 		{:else}
-			<p class="empty">Nothing recorded in this section at that visit.</p>
+			<p class="empty">{t('exam.priorsNothing')}</p>
 		{/if}
 	{/if}
 </section>

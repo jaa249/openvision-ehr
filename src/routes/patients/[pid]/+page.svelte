@@ -2,9 +2,11 @@
 	import { enhance } from '$app/forms';
 	import PatientFields from '#lib/components/PatientFields.svelte';
 	import ThemeToggle from '#lib/components/ThemeToggle.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const { t } = useI18n();
 
 	const p = $derived(data.patient);
 	const display = $derived(p.preferredName || p.legalFirst);
@@ -34,10 +36,10 @@
 	let status = $state('');
 </script>
 
-<svelte:head><title>{display} {p.legalLast} · OpenVision</title></svelte:head>
+<svelte:head><title>{t('patients.chartTitle', { name: `${display} ${p.legalLast}` })}</title></svelte:head>
 
 <header class="top">
-	<a href="/">← Patients</a>
+	<a href="/">{t('patients.backToPatients')}</a>
 	<ThemeToggle />
 </header>
 
@@ -46,23 +48,23 @@
 		<div class="avatar" aria-hidden="true">{display[0]}{p.legalLast[0]}</div>
 		<div>
 			<h1 id="who">{display} {p.legalLast}</h1>
-			{#if display !== p.legalFirst}<p class="legal">Legal name: {legalName}</p>{/if}
-			<p class="meta num">{p.age} y · DOB {p.dob} · MRN {p.mrn}</p>
+			{#if display !== p.legalFirst}<p class="legal">{t('patients.legalNameLine', { name: legalName })}</p>{/if}
+			<p class="meta num">{t('patients.chartMeta', { age: p.age, dob: p.dob, mrn: p.mrn })}</p>
 		</div>
 	</section>
 
 	<!-- Patient records (documents §15.4, glaucoma flow sheet §8.3). -->
-	<nav aria-label="Patient records" style="display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4);">
-		<a href="/patients/{p.id}/documents" style="display: inline-flex; align-items: center; min-height: max(40px, var(--target-min));">Documents and images</a>
-		<a href="/patients/{p.id}/flowsheet" style="display: inline-flex; align-items: center; min-height: max(40px, var(--target-min));">Glaucoma flow sheet</a>
+	<nav aria-label={t('patients.recordsNav')} style="display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4);">
+		<a href="/patients/{p.id}/documents" style="display: inline-flex; align-items: center; min-height: max(40px, var(--target-min));">{t('patients.documentsLink')}</a>
+		<a href="/patients/{p.id}/flowsheet" style="display: inline-flex; align-items: center; min-height: max(40px, var(--target-min));">{t('patients.flowsheetLink')}</a>
 	</nav>
 
 	<p class="visually-hidden" role="status" aria-live="polite">{status}</p>
 
 	<section class="card" aria-labelledby="demo-h">
 		<div class="row">
-			<h2 id="demo-h">Demographics</h2>
-			{#if !editing}<button type="button" onclick={() => (editing = true)}>Edit</button>{/if}
+			<h2 id="demo-h">{t('patients.demographics')}</h2>
+			{#if !editing}<button type="button" onclick={() => (editing = true)}>{t('common.edit')}</button>{/if}
 		</div>
 		{#if editing}
 			<form
@@ -74,50 +76,50 @@
 						await update({ reset: false });
 						if (result.type === 'success') {
 							editing = false;
-							status = 'Demographics saved.';
+							status = t('patients.demographicsSaved');
 						}
 					}}
 			>
 				{#if Object.keys(editErrors).length}
-					<p class="err" role="alert">Please fix the highlighted fields.</p>
+					<p class="err" role="alert">{t('patients.fixHighlighted')}</p>
 				{/if}
 				<PatientFields values={editValues} errors={editErrors} today={data.today} mrnRequired />
 				<div class="actions">
-					<button type="submit" class="primary">Save changes</button>
-					<button type="button" onclick={() => (editing = false)}>Cancel</button>
+					<button type="submit" class="primary">{t('common.saveChanges')}</button>
+					<button type="button" onclick={() => (editing = false)}>{t('common.cancel')}</button>
 				</div>
 			</form>
 		{:else}
 			<dl>
-				<div><dt>Legal name</dt><dd>{legalName}</dd></div>
-				<div><dt>Preferred name</dt><dd>{p.preferredName ?? 'None'}</dd></div>
-				<div><dt>Date of birth</dt><dd class="num">{p.dob} ({p.age} y)</dd></div>
-				<div><dt>MRN</dt><dd class="num">{p.mrn}</dd></div>
+				<div><dt>{t('patients.legalName')}</dt><dd>{legalName}</dd></div>
+				<div><dt>{t('patients.preferredName')}</dt><dd>{p.preferredName ?? t('common.none')}</dd></div>
+				<div><dt>{t('patients.dateOfBirth')}</dt><dd class="num">{t('patients.dobWithAge', { dob: p.dob, age: p.age })}</dd></div>
+				<div><dt>{t('patients.mrn')}</dt><dd class="num">{p.mrn}</dd></div>
 			</dl>
 		{/if}
 	</section>
 
 	<section class="card" aria-labelledby="all-h">
-		<h2 id="all-h">Allergies</h2>
+		<h2 id="all-h">{t('patients.allergies')}</h2>
 		{#if p.allergies.length}
 			<ul class="allergies">
 				{#each p.allergies as a (a.id)}
 					<li>
 						<span><strong>{a.title}</strong>{#if a.reaction} <span class="reaction">· {a.reaction}</span>{/if}</span>
-						<form method="POST" action="?/removeAllergy" use:enhance={() => async ({ update }) => { await update(); status = `Removed ${a.title}.`; }}>
+						<form method="POST" action="?/removeAllergy" use:enhance={() => async ({ update }) => { await update(); status = t('patients.allergyRemoved', { title: a.title }); }}>
 							<input type="hidden" name="allergyId" value={a.id} />
-							<button type="submit" aria-label="Remove allergy {a.title}">Remove</button>
+							<button type="submit" aria-label={t('patients.removeAllergy', { title: a.title })}>{t('common.remove')}</button>
 						</form>
 					</li>
 				{/each}
 			</ul>
 		{:else if p.allergyStatus.kind === 'none'}
 			<p class="nkda">
-				<strong>No known allergies</strong>
-				<span class="reaction">· confirmed by {p.allergyStatus.confirmedBy} on {p.allergyStatus.confirmedAt.slice(0, 10)}</span>
+				<strong>{t('patients.noKnownAllergies')}</strong>
+				<span class="reaction">{t('patients.nkdaConfirmed', { name: p.allergyStatus.confirmedBy, date: p.allergyStatus.confirmedAt.slice(0, 10) })}</span>
 			</p>
 		{:else}
-			<p class="unknown"><span aria-hidden="true">!</span> Allergies not recorded</p>
+			<p class="unknown"><span aria-hidden="true">!</span> {t('patients.allergiesNotRecorded')}</p>
 		{/if}
 		{#if !p.allergies.length}
 			<!-- Only offered while no allergy is listed: adding one clears it, removing the last never sets it. -->
@@ -128,11 +130,11 @@
 				use:enhance={() =>
 					async ({ result, update }) => {
 						await update();
-						if (result.type === 'success') status = p.allergyStatus.kind === 'none' ? 'Marked no known allergies.' : 'No known allergies unmarked.';
+						if (result.type === 'success') status = p.allergyStatus.kind === 'none' ? t('patients.nkdaMarked') : t('patients.nkdaUnmarked');
 					}}
 			>
 				<input type="hidden" name="on" value={p.allergyStatus.kind === 'none' ? '0' : '1'} />
-				<button type="submit">{p.allergyStatus.kind === 'none' ? 'Unmark no known allergies' : 'Mark no known allergies'}</button>
+				<button type="submit">{p.allergyStatus.kind === 'none' ? t('patients.nkdaUnmark') : t('patients.nkdaMark')}</button>
 			</form>
 		{/if}
 		{#if nkdaErrors.nkda}<p class="err" role="alert">{nkdaErrors.nkda}</p>{/if}
@@ -144,11 +146,11 @@
 			use:enhance={() =>
 				async ({ result, update }) => {
 					await update();
-					if (result.type === 'success') status = 'Allergy added.';
+					if (result.type === 'success') status = t('patients.allergyAdded');
 				}}
 		>
 			<div class="field">
-				<label for="al-title">Substance</label>
+				<label for="al-title">{t('patients.substance')}</label>
 				<input
 					id="al-title"
 					name="title"
@@ -161,7 +163,7 @@
 				{#if allergyErrors.title}<p class="err" id="al-title-err">{allergyErrors.title}</p>{/if}
 			</div>
 			<div class="field">
-				<label for="al-reaction">Reaction <span class="opt">(optional)</span></label>
+				<label for="al-reaction">{t('patients.reaction')} <span class="opt">{t('common.optionalTag')}</span></label>
 				<input
 					id="al-reaction"
 					name="reaction"
@@ -173,15 +175,15 @@
 				/>
 				{#if allergyErrors.reaction}<p class="err" id="al-reaction-err">{allergyErrors.reaction}</p>{/if}
 			</div>
-			<button type="submit" class="submit">Add allergy</button>
+			<button type="submit" class="submit">{t('patients.addAllergy')}</button>
 		</form>
 	</section>
 
 	<section class="card" aria-labelledby="new-visit-h">
-		<h2 id="new-visit-h">New visit</h2>
+		<h2 id="new-visit-h">{t('visits.newVisit')}</h2>
 		<form method="POST" action="?/newVisit" class="add" novalidate use:enhance>
 			<div class="field">
-				<label for="v-date">Date</label>
+				<label for="v-date">{t('visits.date')}</label>
 				<input
 					id="v-date"
 					name="date"
@@ -196,21 +198,21 @@
 				{#if visitErrors.date}<p class="err" id="v-date-err">{visitErrors.date}</p>{/if}
 			</div>
 			<div class="field">
-				<label for="v-type">Visit type</label>
+				<label for="v-type">{t('visits.visitType')}</label>
 				<select
 					id="v-type"
 					name="visitType"
 					aria-invalid={visitErrors.visitType ? 'true' : undefined}
 					aria-describedby={visitErrors.visitType ? 'v-type-err' : undefined}
 				>
-					{#each data.visitTypes as t}
-						<option value={t} selected={t === (visitValues.visitType ?? data.visitTypes[0])}>{t}</option>
+					{#each data.visitTypes as vt}
+						<option value={vt} selected={vt === (visitValues.visitType ?? data.visitTypes[0])}>{vt}</option>
 					{/each}
 				</select>
 				{#if visitErrors.visitType}<p class="err" id="v-type-err">{visitErrors.visitType}</p>{/if}
 			</div>
 			<div class="field">
-				<label for="v-provider">Provider</label>
+				<label for="v-provider">{t('visits.provider')}</label>
 				<select
 					id="v-provider"
 					name="providerId"
@@ -218,20 +220,20 @@
 					aria-invalid={visitErrors.provider ? 'true' : undefined}
 					aria-describedby={visitErrors.provider ? 'v-provider-err' : undefined}
 				>
-					{#if !data.defaultProvider}<option value="" selected={!visitValues.providerId}>Choose…</option>{/if}
+					{#if !data.defaultProvider}<option value="" selected={!visitValues.providerId}>{t('common.choose')}</option>{/if}
 					{#each data.providers as pr (pr.id)}
 						<option value={pr.id} selected={String(pr.id) === (visitValues.providerId ?? String(data.defaultProvider))}>{pr.displayName}</option>
 					{/each}
 				</select>
 				{#if visitErrors.provider}<p class="err" id="v-provider-err">{visitErrors.provider}</p>{/if}
-				{#if !data.providers.length}<p class="err">There are no provider accounts yet. An admin adds one in Settings, Users.</p>{/if}
+				{#if !data.providers.length}<p class="err">{t('visits.noProviders')}</p>{/if}
 			</div>
-			<button type="submit" class="submit primary">Start visit</button>
+			<button type="submit" class="submit primary">{t('visits.startVisit')}</button>
 		</form>
 	</section>
 
 	<section class="card" aria-labelledby="visits-h">
-		<h2 id="visits-h">Visits</h2>
+		<h2 id="visits-h">{t('visits.visitsHeading')}</h2>
 		{#if p.visits.length}
 			<ul class="visits">
 				{#each p.visits as v (v.id)}
@@ -239,17 +241,19 @@
 						<div class="vmain">
 							<span class="num vdate">{v.date}</span>
 							<span>{v.visitType}</span>
-							<span class="meta">{v.provider}{v.technician ? ` · Tech: ${v.technician}` : ''} · {v.findingsCount} {v.findingsCount === 1 ? 'finding' : 'findings'}</span>
+							<span class="meta">{v.technician
+									? t('visits.visitMetaTech', { provider: v.provider, tech: v.technician, count: v.findingsCount })
+									: t('visits.visitMeta', { provider: v.provider, count: v.findingsCount })}</span>
 						</div>
 						<div class="vlinks">
-							<a href="/patients/{p.id}/encounters/{v.id}">Open<span class="visually-hidden"> visit of {v.date}</span></a>
-							<a href="/print?ids={v.id}" target="_blank" rel="noopener">Print<span class="visually-hidden"> visit of {v.date}</span></a>
+							<a href="/patients/{p.id}/encounters/{v.id}" aria-label={t('visits.openVisitOf', { date: v.date })}>{t('common.open')}</a>
+							<a href="/print?ids={v.id}" target="_blank" rel="noopener" aria-label={t('visits.printVisitOf', { date: v.date })}>{t('common.print')}</a>
 						</div>
 					</li>
 				{/each}
 			</ul>
 		{:else}
-			<p class="empty">No visits yet. Start one above.</p>
+			<p class="empty">{t('visits.noVisitsYet')}</p>
 		{/if}
 	</section>
 </main>

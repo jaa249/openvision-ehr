@@ -6,6 +6,17 @@
 import { backoff } from './history.ts';
 import { lockHeaders, registerFlush } from '#lib/exam/lock.svelte.ts';
 
+/**
+ * Why the last save failed, for the screen to word in the page language (D48); `message` keeps the
+ * English text. `detail` is the server's own message, if it sent one.
+ */
+export type DrawingSaveProblem =
+	| { kind: 'readonly'; detail?: string }
+	| { kind: 'signedOut' }
+	| { kind: 'tooLarge' }
+	| { kind: 'refused'; detail?: string; status: number }
+	| { kind: 'retrying' };
+
 export type DrawingSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'retrying' | 'failed';
 
 /** Bodies above this size can't use fetch keepalive (browsers cap it at 64 KB in flight). */
@@ -15,6 +26,7 @@ export class DrawingSaver {
 	status = $state<DrawingSaveStatus>('idle');
 	savedAt = $state<Date | null>(null);
 	message = $state<string | null>(null);
+	problem = $state<DrawingSaveProblem | null>(null);
 
 	#url: string;
 	#getImage: () => Promise<Blob>;
@@ -92,6 +104,7 @@ export class DrawingSaver {
 				const body = (await res.json().catch(() => null)) as { message?: string } | null;
 				this.status = 'failed';
 				this.message = `Not saved: ${body?.message || 'this exam is read-only now'}`;
+				this.problem = { kind: 'readonly', detail: body?.message || undefined };
 				this.disable();
 				return;
 			}
@@ -99,15 +112,18 @@ export class DrawingSaver {
 				// Session ended (idle auto-logoff): retrying cannot work until the user signs in again.
 				this.status = 'failed';
 				this.message = 'Signed out. Your last changes may not be saved; sign in again.';
+				this.problem = { kind: 'signedOut' };
 				return;
 			}
 			if (!res.ok) {
 				// The server refused this image; sending it again would only fail again.
 				if (res.status === 400 || res.status === 404 || res.status === 413 || res.status === 415) {
-					const text = res.status === 413 ? 'drawing is too large' : (await res.text().catch(() => '')) || `error ${res.status}`;
+					const detail = res.status === 413 ? '' : await res.text().catch(() => '');
+					const text = res.status === 413 ? 'drawing is too large' : detail || `error ${res.status}`;
 					this.#savedVersion = version; // the next change tries again
 					this.status = 'failed';
 					this.message = `Not saved: ${text}`;
+					this.problem = res.status === 413 ? { kind: 'tooLarge' } : { kind: 'refused', detail: detail || undefined, status: res.status };
 					return;
 				}
 				throw new Error(`Server answered ${res.status}`);
@@ -116,12 +132,14 @@ export class DrawingSaver {
 			this.#savedVersion = version;
 			this.#failures = 0;
 			this.message = null;
+			this.problem = null;
 			this.savedAt = new Date(saved.savedAt);
 			this.status = this.dirty ? 'pending' : 'saved';
 		} catch {
 			this.#failures++;
 			this.status = 'retrying';
 			this.message = 'Not saved, retrying';
+			this.problem = { kind: 'retrying' };
 			retry = true;
 		} finally {
 			this.#inFlight = false;

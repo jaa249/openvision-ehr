@@ -3,7 +3,9 @@
 	// target in force per eye, over real time; VF / OCT / gonioscopy "performed" markers in a strip below,
 	// aligned by date. Missing readings are gaps. y is mmHg from 0 (at least 35).
 	import type { FlowMarker, FlowVisit, MarkerKind } from '#lib/server/flowsheet.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import { dateScale, dateTicks, iopMax, segments } from './chart.ts';
+	import { MARKER_KIND_KEY, METHOD_LONG_KEY } from './labels.ts';
 
 	let {
 		visits,
@@ -17,6 +19,7 @@
 		/** Open a VF / OCT document from its marker. */
 		onmarker?: (m: FlowMarker) => void;
 	} = $props();
+	const { t } = useI18n();
 
 	const uid = $props.id();
 	const W = 720;
@@ -25,7 +28,7 @@
 	const BOTTOM = 236;
 	const STRIP: Record<MarkerKind, number> = { VF: 258, OCT: 276, GONIO: 294 };
 	const H = 334;
-	const KIND_LABEL: Record<MarkerKind, string> = { VF: 'VF', OCT: 'OCT', GONIO: 'Gonio' };
+	const kindLabel = (k: MarkerKind) => t(MARKER_KIND_KEY[k]);
 
 	const x = $derived(dateScale(dates, PAD.l + 24, W - PAD.r - 24));
 	const ymax = $derived(iopMax(visits.flatMap((v) => [v.iop.OD?.value, v.iop.OS?.value, v.target.OD, v.target.OS].filter((n): n is number => n != null))));
@@ -50,35 +53,44 @@
 		tOS: line('OS', 'target')
 	});
 
-	const METHOD = { AP: 'applanation', TPN: 'Tono-Pen' } as const;
 	function label(v: FlowVisit, eye: 'OD' | 'OS'): string {
 		const r = v.iop[eye]!;
-		const high = r.value > v.target[eye] ? ', above target' : '';
-		return `${v.date}${v.current ? ' (this visit)' : ''}: IOP ${eye} ${r.value} mmHg by ${METHOD[r.method]}, target ${v.target[eye]}${high}`;
+		const params = {
+			date: v.current ? t('flowsheet.thisVisitDate', { date: v.date }) : v.date,
+			eye,
+			value: r.value,
+			method: t(METHOD_LONG_KEY[r.method]),
+			target: v.target[eye]
+		};
+		return r.value > v.target[eye] ? t('flowsheet.datePointHigh', params) : t('flowsheet.datePoint', params);
 	}
+	const markerLabel = (m: FlowMarker) =>
+		m.kind !== 'GONIO'
+			? t('flowsheet.markerPerformedOpen', { kind: kindLabel(m.kind), date: m.date })
+			: t('flowsheet.markerPerformed', { kind: kindLabel(m.kind), date: m.date });
 	let tip = $state<{ x: number; y: number; text: string } | null>(null);
 </script>
 
 <div class="legend" aria-hidden="true">
-	<span><svg width="28" height="12"><line class="iop od" x1="2" x2="26" y1="6" y2="6" /><circle class="mk od" cx="14" cy="6" r="3.5" /></svg>IOP OD</span>
-	<span><svg width="28" height="12"><line class="iop os" x1="2" x2="26" y1="6" y2="6" /><rect class="mk os" x="10.5" y="2.5" width="7" height="7" /></svg>IOP OS</span>
-	<span><svg width="28" height="12"><line class="target od" x1="2" x2="26" y1="6" y2="6" /></svg>Target OD</span>
-	<span><svg width="28" height="12"><line class="target os" x1="2" x2="26" y1="6" y2="6" /></svg>Target OS</span>
-	<span><svg width="14" height="12"><rect class="bar" x="4" y="1" width="6" height="10" /></svg>Test performed</span>
+	<span><svg width="28" height="12"><line class="iop od" x1="2" x2="26" y1="6" y2="6" /><circle class="mk od" cx="14" cy="6" r="3.5" /></svg>{t('flowsheet.iopOd')}</span>
+	<span><svg width="28" height="12"><line class="iop os" x1="2" x2="26" y1="6" y2="6" /><rect class="mk os" x="10.5" y="2.5" width="7" height="7" /></svg>{t('flowsheet.iopOs')}</span>
+	<span><svg width="28" height="12"><line class="target od" x1="2" x2="26" y1="6" y2="6" /></svg>{t('flowsheet.targetOd')}</span>
+	<span><svg width="28" height="12"><line class="target os" x1="2" x2="26" y1="6" y2="6" /></svg>{t('flowsheet.targetOs')}</span>
+	<span><svg width="14" height="12"><rect class="bar" x="4" y="1" width="6" height="10" /></svg>{t('flowsheet.testPerformed')}</span>
 </div>
-<svg viewBox="0 0 {W} {H}" role="group" aria-label="IOP by date chart. The same values are in the table below." aria-describedby="{uid}-d">
-	<desc id="{uid}-d">Lines for IOP and target per eye; a gap means no reading at that visit. Markers below show visual field, OCT and gonioscopy dates.</desc>
-	{#each yTicks as t (t)}
-		<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} />
-		<text class="tick" x={PAD.l - 6} y={y(t) + 4} text-anchor="end">{t}</text>
+<svg viewBox="0 0 {W} {H}" role="group" aria-label={t('flowsheet.dateChartLabel')} aria-describedby="{uid}-d">
+	<desc id="{uid}-d">{t('flowsheet.dateChartDesc')}</desc>
+	{#each yTicks as tick (tick)}
+		<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={y(tick)} y2={y(tick)} />
+		<text class="tick" x={PAD.l - 6} y={y(tick) + 4} text-anchor="end">{tick}</text>
 	{/each}
 	<text class="tick" x={PAD.l - 6} y="12" text-anchor="end">mmHg</text>
 	{#each Object.entries(STRIP) as [k, sy] (k)}
-		<text class="tick" x={PAD.l - 6} y={sy + 4} text-anchor="end">{KIND_LABEL[k as MarkerKind]}</text>
+		<text class="tick" x={PAD.l - 6} y={sy + 4} text-anchor="end">{kindLabel(k as MarkerKind)}</text>
 		<line class="grid" x1={PAD.l} x2={W - PAD.r} y1={sy} y2={sy} />
 	{/each}
-	{#each xTicks as t (t)}
-		<text class="tick" x={x(t)} y={H - 14} text-anchor="middle">{t}</text>
+	{#each xTicks as tick (tick)}
+		<text class="tick" x={x(tick)} y={H - 14} text-anchor="middle">{tick}</text>
 	{/each}
 
 	{#each lines.tOD as seg, i (i)}<path class="target od" d={d(seg)} />{/each}
@@ -119,7 +131,7 @@
 	{/each}
 
 	{#each markers as m (`${m.kind}-${m.ref}`)}
-		{@const text = `${KIND_LABEL[m.kind]} performed ${m.date}${m.kind !== 'GONIO' ? '. Press to open.' : ''}`}
+		{@const text = markerLabel(m)}
 		{#if m.kind === 'GONIO' || !onmarker}
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<g class="mark" role="img" tabindex="0" aria-label={text}

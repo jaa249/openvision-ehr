@@ -1,0 +1,16 @@
+{
+	"mainNav": "Principal",
+	"navPatients": "Pacientes",
+	"navVisits": "Consultas",
+	"navSettings": "Configuración",
+	"mySettings": "Mi configuración",
+	"signOut": "Cerrar sesión",
+	"colorMode": "Modo de color",
+	"themeLight": "Claro",
+	"themeDark": "Oscuro",
+	"themeDim": "Sala oscura",
+	"sessionWarnAnnounce": "Su sesión se cerrará en aproximadamente un minuto por inactividad.",
+	"sessionWarnCountdown": "Su sesión se cerrará en {seconds} s por inactividad.",
+	"staySignedIn": "Mantener la sesión",
+	"signingOut": "Cerrando sesión…"
+}

@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 
 	type Mode = 'light' | 'dark' | 'dim';
-	const MODES: { id: Mode; label: string }[] = [
-		{ id: 'light', label: 'Light' },
-		{ id: 'dark', label: 'Dark' },
-		{ id: 'dim', label: 'Dim room' }
-	];
+	const { t } = useI18n();
+	const MODES = $derived<{ id: Mode; label: string }[]>([
+		{ id: 'light', label: t('shell.themeLight') },
+		{ id: 'dark', label: t('shell.themeDark') },
+		{ id: 'dim', label: t('shell.themeDim') }
+	]);
 
 	let mode = $state<Mode>('light');
 
@@ -31,7 +33,7 @@
 	}
 </script>
 
-<div class="theme" role="group" aria-label="Color mode">
+<div class="theme" role="group" aria-label={t('shell.colorMode')}>
 	{#each MODES as m (m.id)}
 		<button type="button" aria-pressed={mode === m.id} onclick={() => setMode(m.id)}>{m.label}</button>
 	{/each}

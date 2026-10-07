@@ -5,15 +5,17 @@
 	import { onMount } from 'svelte';
 	import {
 		COVER_POSITIONS,
+		COVER_POSITION_KEY,
+		COVER_ZONE_KEY,
 		COVER_ZONES,
 		DEFAULT_COVER_ZONE,
 		DEVIATIONS,
 		LATERALITIES,
+		LATERALITY_LABEL_KEY,
 		PRIMARY_POSITION,
 		PRISMS,
 		coverId,
 		coverIsOrtho,
-		coverPositionName,
 		recordCell,
 		type CoverZone,
 		type Laterality
@@ -21,6 +23,9 @@
 	import type { Findings } from '#lib/shorthand/parse.ts';
 	import { withValues, type CellState } from '../workup/cell.ts';
 	import { loadPrefs, savePrefs } from '#lib/prefs/client.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let {
 		findings,
@@ -33,6 +38,8 @@
 		onedit: (field: string, value: string) => void;
 		oncommit: (next: Findings, changed: string[], label: string) => void;
 	} = $props();
+	const { t } = useI18n();
+	const positionName = (n: number) => t(COVER_POSITION_KEY[n - 1]);
 
 	// ---------- remembered view state (per-user prefs; new users: open, "cc distance") ----------
 	let open = $state(true);
@@ -55,7 +62,7 @@
 		remember();
 	}
 
-	const zoneLabel = $derived(COVER_ZONES.find((z) => z.key === zone)!.label);
+	const zoneLabel = $derived(t(COVER_ZONE_KEY[zone].label));
 	const filledIn = (z: CoverZone) => COVER_POSITIONS.filter((n) => (findings[coverId(n, z)]?.value ?? '').trim()).length;
 
 	/** Arrow keys move between tabs (WAI-ARIA tabs pattern). */
@@ -72,7 +79,7 @@
 	const ortho = $derived(coverIsOrtho(findings));
 	function setOrtho(on: boolean) {
 		const { next, changed } = withValues(findings, { ACT: on ? 'on' : '' });
-		oncommit(next, changed, on ? 'Cover test ortho' : 'Cover test ortho off');
+		oncommit(next, changed, on ? t('sections.coverUndoOrtho') : t('sections.coverUndoOrthoOff'));
 	}
 
 	// ---------- builder ----------
@@ -109,13 +116,13 @@
 		const values: Record<string, string> = { [targetId]: text };
 		if (text !== 'Ortho' && ortho) values.ACT = '';
 		const { next, changed } = withValues(findings, values);
-		oncommit(next, changed, `Cover test ${zoneLabel} ${coverPositionName(selected)}`);
+		oncommit(next, changed, t('sections.coverUndoRecord', { zone: zoneLabel, position: positionName(selected) }));
 	}
 
-	const GRID_ROWS = [
-		{ label: 'Up', cells: [1, 2, 3] },
-		{ label: 'Primary', cells: [4, 5, 6] },
-		{ label: 'Down', cells: [7, 8, 9] }
+	const GRID_ROWS: { label: MessageKey; cells: number[] }[] = [
+		{ label: 'sections.coverRowUp', cells: [1, 2, 3] },
+		{ label: 'sections.coverRowPrimary', cells: [4, 5, 6] },
+		{ label: 'sections.coverRowDown', cells: [7, 8, 9] }
 	];
 </script>
 
@@ -131,8 +138,8 @@
 		class:copied={c.copied}
 		data-field={id}
 		maxlength="255"
-		aria-label="Cover test {zoneLabel}, {coverPositionName(n)}"
-		placeholder={n === PRIMARY_POSITION ? 'primary' : n > 9 ? (n === 10 ? 'R tilt' : 'L tilt') : ''}
+		aria-label={t('sections.coverCellLabel', { zone: zoneLabel, position: positionName(n) })}
+		placeholder={n === PRIMARY_POSITION ? t('sections.coverPhPrimary') : n > 9 ? (n === 10 ? t('sections.coverPhRTilt') : t('sections.coverPhLTilt')) : ''}
 		value={c.value}
 		onfocus={() => (selected = n)}
 		oninput={(e) => onedit(id, e.currentTarget.value)}
@@ -143,18 +150,18 @@
 	<div class="card-head">
 		<button type="button" class="disclose" aria-expanded={open} aria-controls="cover-body" onclick={toggle}>
 			<span aria-hidden="true">{open ? '▾' : '▸'}</span>
-			<span id="cover-title">Alternate cover test</span>
+			<span id="cover-title">{t('sections.coverTitle')}</span>
 		</button>
 		<label class="check">
 			<input type="checkbox" checked={ortho} onchange={(e) => setOrtho(e.currentTarget.checked)} />
-			Ortho <span class="code inline">ACT</span>
+			{t('sections.coverOrtho')} <span class="code inline">ACT</span>
 		</label>
 	</div>
 
 	{#if open}
 		<div id="cover-body" class="body">
 			<div class="grid-side">
-				<div class="tabs" role="tablist" aria-label="Cover test condition">
+				<div class="tabs" role="tablist" aria-label={t('sections.coverCondition')}>
 					{#each COVER_ZONES as z, i (z.key)}
 						{@const count = filledIn(z.key)}
 						<button
@@ -167,52 +174,56 @@
 							onclick={() => pickZone(z.key)}
 							onkeydown={(e) => tabKey(e, i)}
 						>
-							{z.short}{#if count}<span class="count" aria-label="{count} filled">{count}</span>{/if}
+							{t(COVER_ZONE_KEY[z.key].short)}{#if count}<span class="count" aria-label={t('sections.coverFilled', { n: count })}>{count}</span>{/if}
 						</button>
 					{/each}
 				</div>
 				<div id="cover-grid" role="tabpanel" aria-labelledby="cover-tab-{zone}" class:dimmed={ortho}>
-					<div class="axis" aria-hidden="true"><span>R</span><span>gaze</span><span>L</span></div>
+					<div class="axis" aria-hidden="true"><span>R</span><span>{t('sections.coverGaze')}</span><span>L</span></div>
 					<div class="cells">
 						{#each GRID_ROWS as r (r.label)}
-							<span class="rowlabel" aria-hidden="true">{r.label}</span>
+							<span class="rowlabel" aria-hidden="true">{t(r.label)}</span>
 							{#each r.cells as n (n)}{@render coverCell(n)}{/each}
 						{/each}
-						<span class="rowlabel" aria-hidden="true">Tilt</span>
+						<span class="rowlabel" aria-hidden="true">{t('sections.coverRowTilt')}</span>
 						{@render coverCell(10)}
 						<span class="tilt-gap" aria-hidden="true"></span>
 						{@render coverCell(11)}
 					</div>
-					{#if ortho}<p class="note">Ortho is checked: the grids are not printed.</p>{/if}
+					{#if ortho}<p class="note">{t('sections.coverOrthoNote')}</p>{/if}
 				</div>
 			</div>
 
 			<div class="builder" role="group" aria-labelledby="builder-title">
-				<h4 id="builder-title">Builder</h4>
-				<div class="opts" role="group" aria-label="Laterality">
+				<h4 id="builder-title">{t('sections.coverBuilder')}</h4>
+				<div class="opts" role="group" aria-label={t('sections.coverLaterality')}>
 					{#each LATERALITIES as l (l.key)}
-						<button type="button" class="opt" aria-pressed={laterality === l.key} onclick={() => pickLaterality(l.key)}>{l.label}</button>
+						<button type="button" class="opt" aria-pressed={laterality === l.key} onclick={() => pickLaterality(l.key)}>{t(LATERALITY_LABEL_KEY[l.key])}</button>
 					{/each}
 				</div>
-				<div class="opts" role="group" aria-label="Deviation">
+				<div class="opts" role="group" aria-label={t('sections.coverDeviation')}>
 					{#each DEVIATIONS as d (d)}
 						<button type="button" class="opt" aria-pressed={deviation === d} onclick={() => pickDeviation(d)}>{d}</button>
 					{/each}
 				</div>
-				<div class="opts" role="group" aria-label="Prism diopters">
+				<div class="opts" role="group" aria-label={t('sections.coverPrismDiopters')}>
 					{#each PRISMS as p (p)}
-						<button type="button" class="opt num" aria-pressed={prism === p} aria-label={p === 'Ortho' ? 'Ortho' : `${p} prism diopters`} onclick={() => pickPrism(p)}
+						<button type="button" class="opt num" aria-pressed={prism === p} aria-label={p === 'Ortho' ? 'Ortho' : t('sections.coverPrismN', { n: p })} onclick={() => pickPrism(p)}
 							>{p === 'Ortho' ? 'Ortho' : `${p}Δ`}</button
 						>
 					{/each}
 				</div>
 				<div class="record">
 					<span class="target" aria-live="polite">
-						Into <strong>{zoneLabel}, {coverPositionName(selected)}</strong>: <span class="preview">{text || '–'}</span>
+						<Msg key="sections.coverInto"
+							>{#snippet target()}<strong>{t('sections.coverTarget', { zone: zoneLabel, position: positionName(selected) })}</strong>{/snippet}{#snippet preview()}<span
+									class="preview">{text || '–'}</span
+								>{/snippet}</Msg
+						>
 					</span>
-					<button type="button" class="primary-btn" disabled={!text} onclick={record}>Record</button>
+					<button type="button" class="primary-btn" disabled={!text} onclick={record}>{t('sections.coverRecord')}</button>
 				</div>
-				<p class="hint">Focus a cell to choose where Record writes. Record replaces the cell's text and saves.</p>
+				<p class="hint">{t('sections.coverHint')}</p>
 			</div>
 		</div>
 	{/if}

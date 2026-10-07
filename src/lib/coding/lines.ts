@@ -17,9 +17,12 @@ import {
 	MAX_POINTERS,
 	MODIFIER_RE,
 	SENSORIMOTOR,
+	SENSORIMOTOR_LABEL_KEY,
 	VISIT_CODE_BY_CODE,
+	VISIT_CODE_LABEL_KEY,
 	VISIT_MODIFIER_CODES
 } from './codes.ts';
+import { english, type Translate } from './english.ts';
 import { splitCodes } from './visit.ts';
 import type { CodingItem, CodingState, CptLine, DxLine } from './types.ts';
 
@@ -43,6 +46,8 @@ export interface BuildInput {
 	items: CodingItem[];
 	/** sensorimotorSuggested(findings): 92060 only counts when this is true. */
 	sensorimotor: boolean;
+	/** Translator for the checks and the visit / 92060 descriptions (D48); English when left out. */
+	t?: Translate;
 }
 
 /** Diagnoses with letters, and each item's pointer letters. */
@@ -78,7 +83,7 @@ export function dxList(items: CodingItem[]): { dx: DxLine[]; pointersFor: Map<nu
 
 const sortLetters = (l: string[]) => [...new Set(l)].sort((a, b) => DX_LETTERS.indexOf(a) - DX_LETTERS.indexOf(b));
 
-export function buildCoding({ state, suggestedCode, items, sensorimotor }: BuildInput): CodingSummary {
+export function buildCoding({ state, suggestedCode, items, sensorimotor, t = english }: BuildInput): CodingSummary {
 	const checks: CodingCheck[] = [];
 	const { dx, pointersFor, invalid, overflow } = dxList(items);
 	const coded = items.filter((i) => (pointersFor.get(i.id) ?? []).length > 0);
@@ -87,14 +92,14 @@ export function buildCoding({ state, suggestedCode, items, sensorimotor }: Build
 	if (uncoded.length) {
 		checks.push({
 			level: 'warning',
-			message: `${uncoded.length} impression item${uncoded.length === 1 ? ' has' : 's have'} no diagnosis code: ${uncoded.map((i) => i.title || 'untitled').join('; ')}.`
+			message: t('codes.checkUncoded', { count: uncoded.length, titles: uncoded.map((i) => i.title || t('codes.untitled')).join('; ') })
 		});
 	}
-	if (invalid.length) checks.push({ level: 'warning', message: `Not a valid diagnosis code, left out: ${invalid.join(', ')}.` });
+	if (invalid.length) checks.push({ level: 'warning', message: t('codes.checkInvalidDx', { codes: invalid.join(', ') }) });
 	if (overflow.length) {
-		checks.push({ level: 'error', message: `More than ${MAX_DX} diagnoses; a claim holds ${MAX_DX}. Left out: ${overflow.join(', ')}. Remove or merge impression items.` });
+		checks.push({ level: 'error', message: t('codes.checkTooManyDx', { max: MAX_DX, codes: overflow.join(', ') }) });
 	}
-	if (!dx.length) checks.push({ level: 'warning', message: 'No coded diagnoses yet: code the impression items in Imp / Plan.' });
+	if (!dx.length) checks.push({ level: 'warning', message: t('codes.checkNoDx') });
 
 	const cpt: CptLine[] = [];
 	const visitDef = VISIT_CODE_BY_CODE.get(state.visitCode ?? suggestedCode);
@@ -103,51 +108,46 @@ export function buildCoding({ state, suggestedCode, items, sensorimotor }: Build
 		cpt.push({
 			kind: 'visit',
 			code: visitDef.code,
-			description: visitDef.label,
+			description: t(VISIT_CODE_LABEL_KEY[visitDef.code]),
 			modifiers: state.modifiers.filter((m) => VISIT_MODIFIER_CODES.includes(m)),
 			pointers: visitPointers,
 			units: 1
 		});
-	} else checks.push({ level: 'error', message: 'Choose a visit code.' });
+	} else checks.push({ level: 'error', message: t('codes.checkChooseVisit') });
 
 	if (state.include92060 && sensorimotor) {
-		cpt.push({ kind: 'sensorimotor', code: SENSORIMOTOR.code, description: SENSORIMOTOR.label, modifiers: [], pointers: visitPointers, units: 1 });
+		cpt.push({ kind: 'sensorimotor', code: SENSORIMOTOR.code, description: t(SENSORIMOTOR_LABEL_KEY), modifiers: [], pointers: visitPointers, units: 1 });
 	}
 
-	for (const t of state.tests) {
-		if (!CPT_RE.test(t.cpt)) {
-			checks.push({ level: 'error', message: `Test "${t.label}" has an invalid CPT code (${t.cpt}).` });
+	for (const test of state.tests) {
+		if (!CPT_RE.test(test.cpt)) {
+			checks.push({ level: 'error', message: t('codes.checkTestBadCpt', { label: test.label, cpt: test.cpt }) });
 			continue;
 		}
-		const mod = t.modifier.trim().toUpperCase();
-		if (mod && !MODIFIER_RE.test(mod)) checks.push({ level: 'error', message: `Test ${t.cpt}: modifier "${t.modifier}" must be two letters or digits.` });
-		if (t.justifiers.length > MAX_POINTERS) checks.push({ level: 'error', message: `Test ${t.cpt}: at most ${MAX_POINTERS} justifiers.` });
-		const pointers = sortLetters(t.justifiers.flatMap((id) => pointersFor.get(id) ?? []));
-		if (!pointers.length) checks.push({ level: 'warning', message: `Test ${t.cpt} (${t.label}) has no diagnosis pointer: pick a justifier.` });
-		cpt.push({ kind: 'test', code: t.cpt, description: t.label, modifiers: mod ? [mod] : [], pointers, units: 1 });
+		const mod = test.modifier.trim().toUpperCase();
+		if (mod && !MODIFIER_RE.test(mod)) checks.push({ level: 'error', message: t('codes.checkTestBadModifier', { cpt: test.cpt, modifier: test.modifier }) });
+		if (test.justifiers.length > MAX_POINTERS) checks.push({ level: 'error', message: t('codes.checkTestTooManyJustifiers', { cpt: test.cpt, max: MAX_POINTERS }) });
+		const pointers = sortLetters(test.justifiers.flatMap((id) => pointersFor.get(id) ?? []));
+		if (!pointers.length) checks.push({ level: 'warning', message: t('codes.checkTestNoPointer', { cpt: test.cpt, label: test.label }) });
+		cpt.push({ kind: 'test', code: test.cpt, description: test.label, modifiers: mod ? [mod] : [], pointers, units: 1 });
 	}
 
 	for (const line of cpt) {
 		if (line.pointers.length > MAX_POINTERS) {
-			checks.push({
-				level: 'error',
-				message: `${line.code} points to ${line.pointers.length} diagnoses (${line.pointers.join('')}); a line holds ${MAX_POINTERS}. ${line.kind === 'test' ? 'Turn off a justifier.' : 'Turn off some visit justifiers.'}`
-			});
+			const params = { code: line.code, n: line.pointers.length, letters: line.pointers.join(''), max: MAX_POINTERS };
+			checks.push({ level: 'error', message: t(line.kind === 'test' ? 'codes.checkTooManyPointersTest' : 'codes.checkTooManyPointersVisit', params) });
 		}
 	}
-	if (visitDef && !visitPointers.length && dx.length) checks.push({ level: 'warning', message: 'The visit code has no diagnosis pointer: switch on a visit justifier.' });
+	if (visitDef && !visitPointers.length && dx.length) checks.push({ level: 'warning', message: t('codes.checkVisitNoPointer') });
 
 	// Suggestions only (B10 FIX): never applied for the provider.
 	if (state.tests.length && !state.modifiers.includes('25')) {
-		checks.push({
-			level: 'suggestion',
-			message: 'Tests are billed with the visit. If the visit was significant and separately identifiable from them, consider modifier 25.'
-		});
+		checks.push({ level: 'suggestion', message: t('codes.checkConsider25') });
 	}
-	const testOnly = state.tests.flatMap((t) => t.justifiers).filter((id) => !state.justifiersOff.includes(id));
+	const testOnly = state.tests.flatMap((x) => x.justifiers).filter((id) => !state.justifiersOff.includes(id));
 	if (testOnly.length && state.tests.length) {
 		const titles = [...new Set(testOnly)].map((id) => items.find((i) => i.id === id)?.title).filter(Boolean);
-		if (titles.length) checks.push({ level: 'suggestion', message: `Also a visit justifier: ${titles.join('; ')}. Keep it on the visit only if the visit addressed it beyond the test.` });
+		if (titles.length) checks.push({ level: 'suggestion', message: t('codes.checkAlsoVisitJustifier', { titles: titles.join('; ') }) });
 	}
 
 	return { dx, cpt, checks, ok: !checks.some((c) => c.level === 'error') };

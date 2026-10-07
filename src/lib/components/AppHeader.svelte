@@ -1,23 +1,25 @@
 <script lang="ts">
 	// Slim top bar for the non-exam pages: home, Patients, Visits, Settings by role, who is signed in, Sign out.
 	import { page } from '$app/state';
+	import { useI18n } from '#lib/i18n/context.ts';
 
 	let { user }: { user: { id: number; displayName: string; role: 'admin' | 'provider' | 'tech' } } = $props();
 
-	const ROLE_LABEL = { admin: 'Admin', provider: 'Provider', tech: 'Technician' } as const;
+	const { t } = useI18n();
+	const roleLabel = (r: typeof user.role) => (r === 'admin' ? t('common.roleAdmin') : r === 'provider' ? t('common.roleProvider') : t('common.roleTech'));
 	const path = $derived(page.url.pathname);
 	const current = (href: string) =>
 		href === '/' ? path === '/' || (path.startsWith('/patients') && !path.includes('/encounters/')) : path === href || path.startsWith(`${href}/`);
 	const links = $derived([
-		{ href: '/', label: 'Patients' },
-		{ href: '/encounters', label: 'Visits' },
-		user.role === 'admin' ? { href: '/settings', label: 'Settings' } : { href: '/settings/me', label: 'My settings' }
+		{ href: '/', label: t('shell.navPatients') },
+		{ href: '/encounters', label: t('shell.navVisits') },
+		user.role === 'admin' ? { href: '/settings', label: t('shell.navSettings') } : { href: '/settings/me', label: t('shell.mySettings') }
 	]);
 </script>
 
 <header class="bar">
-	<a class="brand" href="/">OpenVision</a>
-	<nav aria-label="Main">
+	<a class="brand" href="/">{t('common.appName')}</a>
+	<nav aria-label={t('shell.mainNav')}>
 		<ul>
 			{#each links as l (l.href)}
 				<li><a href={l.href} aria-current={current(l.href) ? 'page' : undefined}>{l.label}</a></li>
@@ -25,12 +27,12 @@
 		</ul>
 	</nav>
 	<div class="who">
-		<a class="me" href="/settings/me" title="My settings">
+		<a class="me" href="/settings/me" title={t('shell.mySettings')}>
 			<span class="name">{user.displayName}</span>
-			<span class="role">{ROLE_LABEL[user.role]}</span>
+			<span class="role">{roleLabel(user.role)}</span>
 		</a>
 		<form method="POST" action="/logout">
-			<button type="submit">Sign out</button>
+			<button type="submit">{t('shell.signOut')}</button>
 		</form>
 	</div>
 </header>

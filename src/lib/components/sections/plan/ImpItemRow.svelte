@@ -5,6 +5,8 @@
 	import CodeFinder from '#lib/components/CodeFinder.svelte';
 	import { CODE_SETS, splitCodeText, type CodeSetId, type DxCode } from '#lib/codesets/index.ts';
 	import type { ImpItem } from '#lib/plan/types.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 	let {
 		item,
@@ -36,6 +38,8 @@
 		onkeep: () => void;
 		ondraghandle: (e: DragEvent) => void;
 	} = $props();
+	const { t } = useI18n();
+	const n = $derived(index + 1);
 
 	const prefix = $derived(`imp-${item.id}`);
 	const codes = $derived(item.codes ? item.codes.split(/,\s*/) : []);
@@ -60,7 +64,7 @@
 		oncodes(codes.filter((c) => c !== code).join(', '));
 		tick().then(() => codeButton?.focus());
 	}
-	const KIND_LABEL = { free: 'Typed', finding: 'From exam findings', issue: 'From past history' } as const;
+	const KIND_LABEL: Record<ImpItem['kind'], MessageKey> = { free: 'plan.kindFree', finding: 'plan.kindFinding', issue: 'plan.kindIssueRename' };
 </script>
 
 <div class="item" class:has-error={!!error}>
@@ -70,13 +74,13 @@
 			class="handle"
 			draggable="true"
 			ondragstart={ondraghandle}
-			aria-label="Drag to reorder item {index + 1}. Use the Move buttons with a keyboard."
+			aria-label={t('plan.itemDrag', { n })}
 			tabindex="-1"
 		>
 			<span aria-hidden="true">⋮⋮</span>
 		</button>
 		<span class="num" aria-hidden="true">{index + 1}.</span>
-		<label class="visually-hidden" for="{prefix}-title">Item {index + 1} title</label>
+		<label class="visually-hidden" for="{prefix}-title">{t('plan.itemTitleLabel', { n })}</label>
 		<input
 			id="{prefix}-title"
 			class="title"
@@ -86,46 +90,46 @@
 			oninput={(e) => onedit('title', e.currentTarget.value)}
 		/>
 		<div class="moves">
-			<button type="button" class="icon" onclick={() => onmove(-1)} disabled={index === 0} aria-label="Move item {index + 1} up">↑</button>
-			<button type="button" class="icon" onclick={() => onmove(1)} disabled={index === count - 1} aria-label="Move item {index + 1} down">↓</button>
-			<button type="button" class="icon danger" onclick={ondelete} aria-label="Delete item {index + 1}, {item.title}">✕</button>
+			<button type="button" class="icon" onclick={() => onmove(-1)} disabled={index === 0} aria-label={t('plan.itemMoveUp', { n })}>↑</button>
+			<button type="button" class="icon" onclick={() => onmove(1)} disabled={index === count - 1} aria-label={t('plan.itemMoveDown', { n })}>↓</button>
+			<button type="button" class="icon danger" onclick={ondelete} aria-label={t('plan.itemDelete', { n, title: item.title })}>✕</button>
 		</div>
 	</div>
 
-	<div class="codes" role="group" aria-label="Codes for item {index + 1}">
+	<div class="codes" role="group" aria-label={t('plan.itemCodes', { n })}>
 		{#each codes as c (c)}
 			<span class="chip">
 				<span class="mono">{c}</span>
 				{#if descriptions.get(c)}<span class="cdesc">{descriptions.get(c)}</span>{/if}
-				<button type="button" class="chip-x" onclick={() => removeCode(c)} aria-label="Remove code {c}">✕</button>
+				<button type="button" class="chip-x" onclick={() => removeCode(c)} aria-label={t('plan.itemRemoveCode', { code: c })}>✕</button>
 			</span>
 		{/each}
 		{#if finding}
-			<div class="finder"><CodeFinder id="{prefix}-finder" label="Find a diagnosis code for item {index + 1}" onpick={pick} oncancel={closeFinder} /></div>
+			<div class="finder"><CodeFinder id="{prefix}-finder" label={t('plan.itemFindCode', { n })} onpick={pick} oncancel={closeFinder} /></div>
 		{:else}
 			<button type="button" class="add-code" bind:this={codeButton} onclick={() => (finding = true)}>
-				{codes.length ? '+ Add code' : 'Code'}<span class="visually-hidden"> for item {index + 1}</span>
+				{codes.length ? t('plan.itemAddCode') : t('plan.itemCode')}<span class="visually-hidden">{' '}{t('plan.itemForItem', { n })}</span>
 			</button>
 		{/if}
 	</div>
 
-	<label class="visually-hidden" for="{prefix}-plan">Item {index + 1} plan</label>
+	<label class="visually-hidden" for="{prefix}-plan">{t('plan.itemPlanLabel', { n })}</label>
 	<textarea
 		id="{prefix}-plan"
 		rows="2"
 		value={item.plan}
 		maxlength="4000"
-		placeholder="Plan"
+		placeholder={t('plan.itemPlanPlaceholder')}
 		oninput={(e) => onedit('plan', e.currentTarget.value)}
 	></textarea>
 
 	<p class="meta">
-		{#if otherSet}Coded with {CODE_SETS[item.codeSystem].short}. {/if}{KIND_LABEL[item.kind]}{#if item.kind === 'issue'}: renaming here changes this visit only; the past-history entry keeps its name.{/if}
+		{#if otherSet}{t('plan.codedWith', { set: CODE_SETS[item.codeSystem].short })}{' '}{/if}{t(KIND_LABEL[item.kind])}
 	</p>
 	{#if error}
 		<p class="error" role="alert">
 			{error}
-			{#if duplicate}<button type="button" onclick={onkeep}>Keep both</button>{/if}
+			{#if duplicate}<button type="button" onclick={onkeep}>{t('plan.keepBoth')}</button>{/if}
 		</p>
 	{/if}
 </div>

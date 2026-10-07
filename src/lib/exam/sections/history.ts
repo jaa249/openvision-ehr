@@ -8,6 +8,7 @@
 import type { FieldDef } from '../catalog.ts';
 import type { ReportSection } from '../report.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
 
 // ---------- field layout (shared with HpiPanel) ----------
 
@@ -25,6 +26,18 @@ export const HPI_ELEMENTS = [
 	{ key: 'QUALITY', label: 'Quality', prompt: 'How it feels: sharp, dull, blurry, gritty...' },
 	{ key: 'DURATION', label: 'Duration', prompt: 'How long it has gone on, or each episode lasts' }
 ] as const;
+
+/** Screen labels and prompts of HPI_ELEMENTS (D48). The English above stays for the report and the field labels. */
+export const HPI_ELEMENT_KEYS: Record<(typeof HPI_ELEMENTS)[number]['key'], { label: MessageKey; prompt: MessageKey }> = {
+	TIMING: { label: 'sections.hpiElTiming', prompt: 'sections.hpiElTimingPrompt' },
+	CONTEXT: { label: 'sections.hpiElContext', prompt: 'sections.hpiElContextPrompt' },
+	SEVERITY: { label: 'sections.hpiElSeverity', prompt: 'sections.hpiElSeverityPrompt' },
+	MODIFY: { label: 'sections.hpiElModify', prompt: 'sections.hpiElModifyPrompt' },
+	ASSOCIATED: { label: 'sections.hpiElAssociated', prompt: 'sections.hpiElAssociatedPrompt' },
+	LOCATION: { label: 'sections.hpiElLocation', prompt: 'sections.hpiElLocationPrompt' },
+	QUALITY: { label: 'sections.hpiElQuality', prompt: 'sections.hpiElQualityPrompt' },
+	DURATION: { label: 'sections.hpiElDuration', prompt: 'sections.hpiElDurationPrompt' }
+};
 
 /** Field ids for one complaint tab (eye_mag column names). */
 export function complaintIds(n: Complaint) {
@@ -53,6 +66,21 @@ export const ROS_SYSTEMS = [
 	{ id: 'ROSIMMUNO', label: 'Immunologic', short: 'IMMUNO' },
 	{ id: 'ROSENDOCRINE', label: 'Endocrine', short: 'ENDO' }
 ] as const;
+/** Screen labels of ROS_SYSTEMS (D48); `short` codes are not translated. */
+export const ROS_SYSTEM_LABEL_KEY: Record<(typeof ROS_SYSTEMS)[number]['id'], MessageKey> = {
+	ROSGENERAL: 'sections.rosGeneral',
+	ROSHEENT: 'sections.rosHeent',
+	ROSCV: 'sections.rosCardiovascular',
+	ROSPULM: 'sections.rosPulmonary',
+	ROSGI: 'sections.rosGastrointestinal',
+	ROSGU: 'sections.rosGenitourinary',
+	ROSDERM: 'sections.rosDermatology',
+	ROSNEURO: 'sections.rosNeurological',
+	ROSPSYCH: 'sections.rosPsychiatric',
+	ROSMUSCULO: 'sections.rosMusculoskeletal',
+	ROSIMMUNO: 'sections.rosImmunologic',
+	ROSENDOCRINE: 'sections.rosEndocrine'
+};
 export const ROS_IDS: string[] = ROS_SYSTEMS.map((s) => s.id);
 export const ROS_COMMENTS = 'ROSCOMMENTS';
 /** The text a system's "Negative" toggle writes. */

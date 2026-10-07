@@ -1,67 +1,69 @@
 <script lang="ts">
+	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	const { t } = useI18n();
 	const pageHref = (n: number) => {
 		const p = new URLSearchParams(Object.entries(data.raw).filter(([, v]) => v));
 		p.set('page', String(n));
 		return `?${p}`;
 	};
-	const when = (iso: string) => iso.replace('T', ' ').slice(0, 19) + ' UTC';
+	const when = (iso: string) => t('settings.auditUtc', { time: iso.replace('T', ' ').slice(0, 19) });
 </script>
 
-<svelte:head><title>Audit log · Settings · OpenVision</title></svelte:head>
+<svelte:head><title>{t('settings.auditTitle')}</title></svelte:head>
 
-<h2>Audit log</h2>
-<p class="lead">Sign-ins, account and settings changes, chart and exam views, signing and lock events. Read-only: entries can never be edited or deleted.</p>
+<h2>{t('settings.auditHeading')}</h2>
+<p class="lead">{t('settings.auditLead')}</p>
 
-<form method="GET" class="ov-form filters" role="search" aria-label="Filter the audit log">
+<form method="GET" class="ov-form filters" role="search" aria-label={t('settings.auditFilterLabel')}>
 	<div class="card">
 		<div class="grid">
 			<div class="field">
-				<label for="f-user">User</label>
+				<label for="f-user">{t('settings.auditUser')}</label>
 				<select id="f-user" name="user">
-					<option value="">Anyone</option>
+					<option value="">{t('settings.auditAnyone')}</option>
 					{#each data.users as u (u.id)}<option value={u.id} selected={data.raw.user === String(u.id)}>{u.label}</option>{/each}
 				</select>
 			</div>
 			<div class="field">
-				<label for="f-patient">Patient (MRN or id)</label>
+				<label for="f-patient">{t('settings.auditPatientFilter')}</label>
 				<input id="f-patient" name="patient" value={data.raw.patient} autocomplete="off" aria-invalid={data.errors.patient ? 'true' : undefined} aria-describedby={data.errors.patient ? 'f-patient-err' : undefined} />
 				{#if data.errors.patient}<p class="err" id="f-patient-err">{data.errors.patient}</p>{/if}
 			</div>
 			<div class="field">
-				<label for="f-action">Action</label>
+				<label for="f-action">{t('settings.auditAction')}</label>
 				<select id="f-action" name="action">
-					<option value="">Any</option>
+					<option value="">{t('settings.auditAny')}</option>
 					{#each data.actions as a (a)}<option value={a} selected={data.raw.action === a}>{a}</option>{/each}
 				</select>
 			</div>
 			<div class="field">
-				<label for="f-from">From (UTC date)</label>
+				<label for="f-from">{t('settings.auditFrom')}</label>
 				<input id="f-from" name="from" type="date" value={data.raw.from} aria-invalid={data.errors.from ? 'true' : undefined} aria-describedby={data.errors.from ? 'f-from-err' : undefined} />
 				{#if data.errors.from}<p class="err" id="f-from-err">{data.errors.from}</p>{/if}
 			</div>
 			<div class="field">
-				<label for="f-to">To (UTC date)</label>
+				<label for="f-to">{t('settings.auditTo')}</label>
 				<input id="f-to" name="to" type="date" value={data.raw.to} aria-invalid={data.errors.to ? 'true' : undefined} aria-describedby={data.errors.to ? 'f-to-err' : undefined} />
 				{#if data.errors.to}<p class="err" id="f-to-err">{data.errors.to}</p>{/if}
 			</div>
 		</div>
 		<div class="actions">
-			<button type="submit" class="primary">Filter</button>
-			<a class="btn" href="/settings/audit">Clear filters</a>
+			<button type="submit" class="primary">{t('settings.auditFilter')}</button>
+			<a class="btn" href="/settings/audit">{t('settings.auditClearFilters')}</a>
 		</div>
 	</div>
 </form>
 
-<p class="count" role="status">{data.total} {data.total === 1 ? 'entry' : 'entries'}{data.pages > 1 ? ` · page ${data.page} of ${data.pages}` : ''}</p>
+<p class="count" role="status">{data.pages > 1 ? t('settings.auditCountPaged', { count: data.total, page: data.page, pages: data.pages }) : t('settings.auditCount', { count: data.total })}</p>
 
 {#if data.rows.length}
-	<div class="scroll" role="region" aria-label="Audit entries">
+	<div class="scroll" role="region" aria-label={t('settings.auditEntries')}>
 		<table>
 			<thead>
-				<tr><th scope="col">When</th><th scope="col">User</th><th scope="col">Action</th><th scope="col">Patient</th><th scope="col">Visit</th><th scope="col">Detail</th></tr>
+				<tr><th scope="col">{t('settings.auditWhen')}</th><th scope="col">{t('settings.auditUser')}</th><th scope="col">{t('settings.auditAction')}</th><th scope="col">{t('settings.auditPatient')}</th><th scope="col">{t('settings.auditVisit')}</th><th scope="col">{t('settings.auditDetail')}</th></tr>
 			</thead>
 			<tbody>
 				{#each data.rows as r (r.id)}
@@ -78,13 +80,13 @@
 		</table>
 	</div>
 {:else}
-	<p class="empty">No entries match these filters.</p>
+	<p class="empty">{t('settings.auditEmpty')}</p>
 {/if}
 
 {#if data.pages > 1}
-	<nav class="pager" aria-label="Pages">
-		{#if data.page > 1}<a href={pageHref(data.page - 1)} rel="prev">← Newer</a>{/if}
-		{#if data.page < data.pages}<a href={pageHref(data.page + 1)} rel="next">Older →</a>{/if}
+	<nav class="pager" aria-label={t('settings.auditPages')}>
+		{#if data.page > 1}<a href={pageHref(data.page - 1)} rel="prev">{t('settings.auditNewer')}</a>{/if}
+		{#if data.page < data.pages}<a href={pageHref(data.page + 1)} rel="next">{t('settings.auditOlder')}</a>{/if}
 	</nav>
 {/if}
 

@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { loadPrefs } from '#lib/prefs/client.ts';
-	import { FIELDS, SECTIONS, SECTION_DEF, fieldId, type SectionId } from '#lib/exam/catalog.ts';
+	import { FIELDS, SECTIONS, SECTION_DEF, fieldId, sectionLabel, type SectionId } from '#lib/exam/catalog.ts';
 	import { applyPick, type QuickPick } from '#lib/exam/quickpicks.ts';
 	import type { PriorVisit } from '#lib/exam/types.ts';
 	import { applyOps, parseShorthand, type Findings, type Op } from '#lib/shorthand/parse.ts';
 	import { bump, publishAllergyStatus } from '#lib/history/bus.svelte.ts';
 	import { ISSUE_TYPE_DEF } from '#lib/history/lists.ts';
 	import type { AllergyStatus, IssueType, ShorthandIssueResult } from '#lib/history/types.ts';
-	import { Saver, SIGNED_OUT_MESSAGE } from '#lib/exam/saver.svelte.ts';
+	import { Saver } from '#lib/exam/saver.svelte.ts';
 	import { ExamLock, flushAll, lockHeaders } from '#lib/exam/lock.svelte.ts';
 	import PatientBanner from '#lib/components/PatientBanner.svelte';
 	import SectionRail from '#lib/components/SectionRail.svelte';
@@ -18,9 +18,16 @@
 	import ShorthandBar from '#lib/components/ShorthandBar.svelte';
 	import CustomSection from '#lib/components/sections/CustomSection.svelte';
 	import DrawingPanel from '#lib/components/DrawingPanel.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import type { MessageKey } from '#lib/i18n/catalog.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	const i18n = useI18n();
+	const { t } = i18n;
+	/** A write came back 401 (same English as the saver's SIGNED_OUT_MESSAGE). */
+	const signedOutMessage = () => t('exam.signedOut');
 
 	// The exam is edited locally and saved in the background; the server copy only seeds it.
 	// svelte-ignore state_referenced_locally
@@ -76,8 +83,8 @@
 				lock.lost(body);
 				throw new Error(body.message);
 			}
-			if (res.status === 401) throw new Error(SIGNED_OUT_MESSAGE);
-			if (!res.ok) throw new Error(await errorText(res, `Not changed (error ${res.status}).`));
+			if (res.status === 401) throw new Error(signedOutMessage());
+			if (!res.ok) throw new Error(await errorText(res, t('exam.staffNotChanged', { status: res.status })));
 			encounter = (await res.json()).encounter;
 			staffDialog?.close();
 		} catch (e) {
@@ -115,15 +122,14 @@
 		const mode = lock.mode;
 		untrack(() => {
 			if (mode === 'readonly' || mode === 'signed') {
-				saver.stop({ message: lock.message ?? 'This exam is read-only.', reason: mode === 'signed' ? 'signed' : 'locked' });
+				saver.stop({ message: lock.message ?? t('exam.examReadOnly'), reason: mode === 'signed' ? 'signed' : 'locked' });
 			} else if (mode === 'editing' && saver.locked) saver.resume();
 		});
 	});
 
 	async function takeOver() {
-		const who = lock.holder ? lock.holder.holderName : 'the other page';
 		const ok = window.confirm(
-			`Take over editing from ${who}?\n\nTheir page becomes read-only, and anything they have not saved yet will not be saved. The takeover is recorded.`
+			lock.holder ? t('exam.takeOverConfirm', { name: lock.holder.holderName }) : t('exam.takeOverConfirmOtherPage')
 		);
 		if (ok) await lock.takeOver();
 	}
@@ -141,7 +147,7 @@
 		await flushAll();
 		signing = false;
 		if (!saved) {
-			notice = 'Not signed: recent changes are not saved yet. Check the connection and try again.';
+			notice = t('exam.noticeNotSigned');
 			setTimeout(() => (notice = null), 8000);
 			return;
 		}
@@ -152,7 +158,7 @@
 		signing = true;
 		signError = null;
 		try {
-			if (!(await saver.settle())) throw new Error('Recent changes are not saved yet. Check the connection and try again.');
+			if (!(await saver.settle())) throw new Error(t('exam.signUnsaved'));
 			await flushAll();
 			const res = await fetch(`${examApi}/sign`, { method: 'POST', headers: lockHeaders() });
 			if (res.status === 423) {
@@ -160,8 +166,8 @@
 				lock.lost(body);
 				throw new Error(body.message);
 			}
-			if (res.status === 401) throw new Error(SIGNED_OUT_MESSAGE);
-			if (!res.ok) throw new Error(await errorText(res, `Not signed (error ${res.status}).`));
+			if (res.status === 401) throw new Error(signedOutMessage());
+			if (!res.ok) throw new Error(await errorText(res, t('exam.signError', { status: res.status })));
 			const { signature } = await res.json();
 			lock.markSigned(signature);
 			signDialog?.close();
@@ -185,8 +191,8 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ text: addendum })
 			});
-			if (res.status === 401) throw new Error(SIGNED_OUT_MESSAGE);
-			if (!res.ok) throw new Error(await errorText(res, `Not added (error ${res.status}).`));
+			if (res.status === 401) throw new Error(signedOutMessage());
+			if (!res.ok) throw new Error(await errorText(res, t('exam.addendumError', { status: res.status })));
 			lock.markSigned((await res.json()).signature);
 			addendum = '';
 		} catch (e) {
@@ -204,8 +210,7 @@
 			return text || fallback;
 		}
 	}
-	const when = (iso: string) =>
-		new Date(iso).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+	const when = (iso: string) => i18n.dateTime(iso);
 
 	/** Sections offered: Codes (key 0) only with US code suggestions on (D45). */
 	const sections = $derived(data.usBilling ? SECTIONS : SECTIONS.filter((s) => s.id !== 'CODING'));
@@ -217,11 +222,11 @@
 	/** Zones with a drawing canvas (spec §5.1). */
 	const DRAW_ZONES: SectionId[] = ['HPI', 'EXT', 'ANTSEG', 'RETINA', 'NEURO', 'IMPPLAN'];
 	const ALL_MODES = [
-		{ id: 'text', label: 'Type', key: 't' },
-		{ id: 'qp', label: 'Quick picks', key: 'b' },
-		{ id: 'priors', label: 'Prior visits', key: 'p' },
-		{ id: 'draw', label: 'Draw', key: 'd' }
-	] as const;
+		{ id: 'text', label: 'exam.modeType', key: 't' },
+		{ id: 'qp', label: 'exam.modeQuickPicks', key: 'b' },
+		{ id: 'priors', label: 'exam.modePriors', key: 'p' },
+		{ id: 'draw', label: 'exam.modeDraw', key: 'd' }
+	] as const satisfies readonly { id: string; label: MessageKey; key: string }[];
 	const MODES = $derived(
 		ALL_MODES.filter(
 			(m) =>
@@ -242,7 +247,7 @@
 		const tab = window.open('about:blank', '_blank'); // opened now, while the click still counts
 		if (!(await saver.settle())) {
 			tab?.close();
-			notice = `Not ${pdf ? 'downloaded' : 'printed'}: recent changes are not saved yet. Check the connection and try again.`;
+			notice = pdf ? t('exam.noticeNotDownloaded') : t('exam.noticeNotPrinted');
 			setTimeout(() => (notice = null), 8000);
 			return;
 		}
@@ -254,7 +259,7 @@
 	/** Download as FHIR R4 for another EHR (D47): saved first, then the logged export of this one visit. */
 	async function downloadFhir() {
 		if (!(await saver.settle())) {
-			notice = 'Not downloaded: recent changes are not saved yet. Check the connection and try again.';
+			notice = t('exam.noticeNotDownloaded');
 			setTimeout(() => (notice = null), 8000);
 			return;
 		}
@@ -271,7 +276,7 @@
 		const tab = window.open('about:blank', '_blank');
 		if (!(await saver.settle())) {
 			tab?.close();
-			notice = 'Rx not opened: recent changes are not saved yet. Check the connection and try again.';
+			notice = t('exam.noticeRxNotOpened');
 			setTimeout(() => (notice = null), 8000);
 			return;
 		}
@@ -292,7 +297,7 @@
 		if (changed.length === 0) return;
 		if (lock.readonly) {
 			// Read-only pages never change the exam (copy forward from the priors panel lands here).
-			notice = lock.mode === 'signed' ? 'This exam is signed. Add an addendum instead.' : 'Read-only: someone else is editing this exam.';
+			notice = lock.mode === 'signed' ? t('exam.noticeSigned') : t('exam.noticeReadOnly');
 			setTimeout(() => (notice = null), 6000);
 			return;
 		}
@@ -331,7 +336,7 @@
 		const ids = new Set(sec.rows.flatMap((r) => (side === 'OU' ? [r.od, r.os] : [fieldId(side, r)])));
 		const subset = Object.fromEntries(Object.entries(data.defaults).filter(([id]) => ids.has(id)));
 		const { findings: next, changed } = applyOps(findings, [{ kind: 'defaults', sections: [sec.id], source: '' }], subset);
-		commit(next, changed, side === 'OU' ? 'Normal OU' : `Normal ${side}`);
+		commit(next, changed, side === 'OU' ? t('exam.normalOu') : t('exam.undoNormalSide', { eye: side }));
 	}
 
 	function copy(from: 'OD' | 'OS') {
@@ -347,7 +352,7 @@
 			next[dst] = { ...src };
 			changed.push(dst);
 		}
-		commit(next, changed, `Copied ${from} → ${to}`);
+		commit(next, changed, t('exam.undoCopiedSide', { from, to }));
 	}
 
 	function clearSide(side: 'OD' | 'OS') {
@@ -358,13 +363,14 @@
 			next[f.id] = { value: '', isDefault: false };
 			changed.push(f.id);
 		}
-		commit(next, changed, `Cleared ${side}`);
+		commit(next, changed, t('exam.undoClearedSide', { eye: side }));
 	}
 
 	// ---------- quick picks ----------
 	function pick(p: QuickPick, eye: 'OD' | 'OS' | 'OU', modifier: string | null) {
 		const { findings: next, changed } = applyPick(findings, p, eye, modifier);
-		const what = p.text ? (modifier ? `${modifier} ${p.label}` : p.label) : 'Cleared';
+		// The pick's own words are record text (D48); only "Cleared" is the screen's.
+		const what = p.text ? (modifier ? `${modifier} ${p.label}` : p.label) : t('exam.undoCleared');
 		commit(next, changed, `${what} · ${eye}`);
 	}
 
@@ -381,8 +387,13 @@
 			next[f.id] = { value: src, isDefault: false };
 			changed.push(f.id);
 		}
-		const where = sections === 'all' ? 'whole exam' : current.label;
-		commit(next, changed, `Copied ${where} from ${prior.date}`);
+		commit(
+			next,
+			changed,
+			sections === 'all'
+				? t('exam.undoCopiedAll', { date: prior.date })
+				: t('exam.undoCopiedSection', { section: sectionLabel(current.id, t), date: prior.date })
+		);
 		copied = new Set([...copied, ...changed]);
 	}
 
@@ -421,7 +432,9 @@
 		}
 		if (added.size) {
 			bump();
-			historyNote = [...added].map(([type, titles]) => `Added to ${ISSUE_TYPE_DEF.get(type)?.short ?? type}: ${titles.join(', ')}`).join(' · ');
+			historyNote = [...added]
+				.map(([type, titles]) => t('exam.historyAdded', { list: ISSUE_TYPE_DEF.get(type)?.short ?? type, items: titles.join(', ') }))
+				.join(' · ');
 			clearTimeout(historyNoteTimer);
 			historyNoteTimer = setTimeout(() => (historyNote = null), 6000);
 		}
@@ -435,7 +448,7 @@
 		if (lock.readonly) return;
 		const issueOps = parsed.ops.filter((op): op is Extract<Op, { kind: 'issue' }> => op.kind === 'issue');
 		const examOps = parsed.ops.filter((op) => op.kind !== 'issue');
-		if (examOps.length) runOps(examOps, 'Shorthand');
+		if (examOps.length) runOps(examOps, t('exam.undoShorthand'));
 		// Unrecognized entries stay in the box so nothing typed is lost (spec §2.5 FIX).
 		shorthand = parsed.errors.map((e) => e.entry).join('; ');
 		if (!issueOps.length) return;
@@ -443,7 +456,7 @@
 		if (failed.length) {
 			// History entries that did not save go back into the box, ahead of anything typed since.
 			shorthand = [...failed, shorthand].filter(Boolean).join('; ');
-			notice = signedOut ? SIGNED_OUT_MESSAGE : 'Not added to the patient history. Check the connection and press Enter to try again.';
+			notice = signedOut ? signedOutMessage() : t('exam.noticeHistoryNotAdded');
 			setTimeout(() => (notice = null), 8000);
 		}
 	}
@@ -522,10 +535,10 @@
 </script>
 
 <svelte:window {onkeydown} />
-<svelte:head><title>{data.patient.name} · Exam · OpenVision</title></svelte:head>
+<svelte:head><title>{t('exam.pageTitle', { name: data.patient.name })}</title></svelte:head>
 
-<a class="skip" href="#exam">Skip to exam</a>
-<p class="print-hint">To print this exam, use the Print button at the top of the exam (or Ctrl+P), which prints the formatted report.</p>
+<a class="skip" href="#exam">{t('exam.skipToExam')}</a>
+<p class="print-hint">{t('exam.printHint')}</p>
 <div class="frame">
 	<div class="top">
 		<PatientBanner
@@ -544,20 +557,20 @@
 			onstaff={lock.mode === 'editing' ? openStaff : undefined}
 		/>
 		{#if saver.signedOut || signedOut}
-			<div class="lockbar warn" role="alert">{SIGNED_OUT_MESSAGE}</div>
+			<div class="lockbar warn" role="alert">{signedOutMessage()}</div>
 		{:else if lock.mode === 'readonly' && (lock.message || saver.lostFields.length)}
 			<div class="lockbar warn" role="alert">
-				{lock.message ?? 'This page is read-only.'}
+				{lock.message ?? t('exam.pageReadOnly')}
 				{#if saver.lostFields.length}
-					{saver.lostFields.length === 1 ? '1 change' : `${saver.lostFields.length} changes`} made here could not be saved.
+					{t('exam.lostChanges', { count: saver.lostFields.length })}
 				{/if}
 			</div>
 		{:else if lock.mode === 'signed' && lock.signature}
 			<details class="lockbar signed" open={lock.signature.addenda.length > 0 || undefined}>
 				<summary>
-					Signed by {lock.signature.signedBy} on {when(lock.signature.signedAt)}. The exam is final; corrections go in an addendum.
-					{#if data.user.role !== 'admin'}<span class="link">Add addendum</span>{/if}
-					{#if lock.signature.addenda.length}<span class="count">{lock.signature.addenda.length} addend{lock.signature.addenda.length === 1 ? 'um' : 'a'}</span>{/if}
+					{t('exam.signedSummary', { name: lock.signature.signedBy, date: when(lock.signature.signedAt) })}
+					{#if data.user.role !== 'admin'}<span class="link">{t('exam.addAddendum')}</span>{/if}
+					{#if lock.signature.addenda.length}<span class="count">{t('exam.addendaCount', { count: lock.signature.addenda.length })}</span>{/if}
 				</summary>
 				{#if lock.signature.addenda.length}
 					<ol class="addenda">
@@ -574,9 +587,9 @@
 							addAddendum();
 						}}
 					>
-						<label for="addendum">Addendum</label>
-						<textarea id="addendum" rows="2" maxlength="4000" bind:value={addendum} placeholder="Added after signing, saved with your name and the time"></textarea>
-						<button type="submit" disabled={addingAddendum || !addendum.trim()}>{addingAddendum ? 'Adding…' : 'Add addendum'}</button>
+						<label for="addendum">{t('exam.addendum')}</label>
+						<textarea id="addendum" rows="2" maxlength="4000" bind:value={addendum} placeholder={t('exam.addendumPlaceholder')}></textarea>
+						<button type="submit" disabled={addingAddendum || !addendum.trim()}>{addingAddendum ? t('exam.addendumAdding') : t('exam.addAddendum')}</button>
 						{#if addendumError}<span class="err" role="alert">{addendumError}</span>{/if}
 					</form>
 				{/if}
@@ -587,7 +600,7 @@
 		<SectionRail {sections} current={section} {findings} onselect={(id) => (section = id)} />
 		<main id="exam" tabindex="-1">
 			{#if sec || custom}
-				<div class="modes" role="group" aria-label="Helper panel">
+				<div class="modes" role="group" aria-label={t('exam.helperPanel')}>
 					{#each MODES as m (m.id)}
 						<button
 							type="button"
@@ -596,7 +609,7 @@
 							title="Alt+{m.key.toUpperCase()}"
 							onclick={() => (mode = m.id)}
 						>
-							{m.label}{#if m.id === 'priors' && data.priors.length}<span class="count">{data.priors.length}</span>{/if}
+							{t(m.label)}{#if m.id === 'priors' && data.priors.length}<span class="count">{data.priors.length}</span>{/if}
 						</button>
 					{/each}
 				</div>
@@ -630,15 +643,15 @@
 					{/if}
 					</div>
 					{#if activeMode === 'qp' && sec}
-						<aside class="aside" aria-label="Quick picks" inert={readonly}>
+						<aside class="aside" aria-label={t('exam.modeQuickPicks')} inert={readonly}>
 							<QuickPickPanel {sec} {picks} onpick={pick} />
 						</aside>
 					{:else if activeMode === 'draw'}
-						<aside class="aside" aria-label="Drawing" inert={readonly}>
+						<aside class="aside" aria-label={t('exam.asideDrawing')} inert={readonly}>
 							<DrawingPanel patientId={data.patient.id} encounterId={data.encounter.id} zone={section} />
 						</aside>
 					{:else if activeMode === 'priors' && sec}
-						<aside class="aside" aria-label="Prior visits">
+						<aside class="aside" aria-label={t('exam.modePriors')}>
 							<PriorsPanel
 								{sec}
 								priors={data.priors}
@@ -651,8 +664,8 @@
 				</div>
 			{:else}
 				<div class="empty">
-					<h2>{current.label}</h2>
-					<p>This section isn't built yet. Keys <kbd>1</kbd>–<kbd>8</kbd> are ready to try.</p>
+					<h2>{sectionLabel(current.id, t)}</h2>
+					<p><Msg key="exam.notBuilt">{#snippet first()}<kbd>1</kbd>{/snippet}{#snippet last()}<kbd>8</kbd>{/snippet}</Msg></p>
 				</div>
 			{/if}
 		</main>
@@ -663,44 +676,44 @@
 </div>
 
 <dialog class="confirm" bind:this={staffDialog} aria-labelledby="staff-title">
-	<h2 id="staff-title">Visit staff</h2>
-	<p class="hint">The provider authorizes the visit and is the one who signs it. The technician is who worked it up.</p>
+	<h2 id="staff-title">{t('exam.staffTitle')}</h2>
+	<p class="hint">{t('exam.staffHint')}</p>
 	<div class="staff-field">
-		<label for="staff-provider">Provider</label>
+		<label for="staff-provider">{t('exam.staffProvider')}</label>
 		<select id="staff-provider" bind:value={staffProvider}>
 			{#each data.staffOptions.providers as pr (pr.id)}<option value={String(pr.id)}>{pr.displayName}</option>{/each}
 		</select>
 	</div>
 	<div class="staff-field">
-		<label for="staff-tech">Technician</label>
+		<label for="staff-tech">{t('exam.staffTechnician')}</label>
 		<select id="staff-tech" bind:value={staffTech}>
-			<option value="">None</option>
-			{#each data.staffOptions.technicians as t (t.id)}<option value={String(t.id)}>{t.displayName}</option>{/each}
+			<option value="">{t('exam.staffNone')}</option>
+			{#each data.staffOptions.technicians as tech (tech.id)}<option value={String(tech.id)}>{tech.displayName}</option>{/each}
 		</select>
 	</div>
 	{#if staffError}<p class="err" role="alert">{staffError}</p>{/if}
 	<div class="actions">
-		<button type="button" onclick={() => staffDialog?.close()} disabled={staffSaving}>Cancel</button>
-		<button type="button" class="primary" onclick={saveStaff} disabled={staffSaving}>{staffSaving ? 'Saving…' : 'Save'}</button>
+		<button type="button" onclick={() => staffDialog?.close()} disabled={staffSaving}>{t('exam.cancel')}</button>
+		<button type="button" class="primary" onclick={saveStaff} disabled={staffSaving}>{staffSaving ? t('common.saving') : t('common.save')}</button>
 	</div>
 </dialog>
 
 <dialog class="confirm" bind:this={signDialog} aria-labelledby="sign-title">
-	<h2 id="sign-title">Sign this exam?</h2>
+	<h2 id="sign-title">{t('exam.signTitle')}</h2>
 	<p>
 		{data.patient.name} · {encounter.visitType} · <span class="num">{encounter.date}</span>
 	</p>
-	<p>Signing locks, for everyone:</p>
+	<p>{t('exam.signLocks')}</p>
 	<ul>
-		<li>the exam findings ({recorded} recorded)</li>
-		<li>the drawings</li>
-		<li>the Impression/Plan and orders</li>
+		<li>{t('exam.signLocksFindings', { recorded })}</li>
+		<li>{t('exam.signLocksDrawings')}</li>
+		<li>{t('exam.signLocksPlan')}</li>
 	</ul>
-	<p class="hint">Later corrections are added as addenda with your name and the time. A signed exam cannot be unsigned.</p>
+	<p class="hint">{t('exam.signHint')}</p>
 	{#if signError}<p class="err" role="alert">{signError}</p>{/if}
 	<div class="actions">
-		<button type="button" onclick={() => signDialog?.close()} disabled={signing}>Cancel</button>
-		<button type="button" class="primary" onclick={confirmSign} disabled={signing}>{signing ? 'Signing…' : `Sign as ${data.user.displayName}`}</button>
+		<button type="button" onclick={() => signDialog?.close()} disabled={signing}>{t('exam.cancel')}</button>
+		<button type="button" class="primary" onclick={confirmSign} disabled={signing}>{signing ? t('exam.signing') : t('exam.signAs', { name: data.user.displayName })}</button>
 	</div>
 </dialog>
 
@@ -709,7 +722,7 @@
 {:else if undoEntry}
 	<div class="toast" role="status">
 		<span>{undoEntry.label}{historyNote ? ` · ${historyNote}` : ''}</span>
-		<button type="button" onclick={undo}>Undo <kbd>Ctrl Z</kbd></button>
+		<button type="button" onclick={undo}><Msg key="exam.undoButton">{#snippet keys()}<kbd>Ctrl Z</kbd>{/snippet}</Msg></button>
 	</div>
 {:else if historyNote}
 	<div class="toast" role="status">{historyNote}</div>

@@ -1,71 +1,78 @@
 <script lang="ts">
 	// Dispensed (printed) glasses and contact lens Rx for this patient, newest first (spec §12.6).
+	// Labels are in the reader's language (D48); the dispensed values stay as recorded.
 	import { enhance } from '$app/forms';
-	import { METHOD_LABEL, RX_TYPES, rxTable } from '#lib/exam/sections/refraction.ts';
+	import { rxTable } from '#lib/exam/sections/refraction.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
+	import { METHOD_KEY, RX_TABLE_HEAD_KEY, rxTypeKey } from '../labels.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
+	const { t, dateTime } = useI18n();
 
 	let confirming = $state<number | null>(null);
 	const p = $derived(data.patient);
-	const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+	const when = (iso: string) => dateTime(iso);
+	const head = (h: string) => (RX_TABLE_HEAD_KEY[h] ? t(RX_TABLE_HEAD_KEY[h]) : h);
 	const today = new Date().toISOString().slice(0, 10);
 </script>
 
-<svelte:head><title>Dispensed Rx · {p.legalName} · OpenVision</title></svelte:head>
+<svelte:head><title>{t('rx.historyPageTitle', { name: p.legalName })}</title></svelte:head>
 
 <div class="page">
 	<nav class="crumbs">
-		<a href="/patients/{p.id}/encounters/{data.encounter.id}">← Exam</a>
+		<a href="/patients/{p.id}/encounters/{data.encounter.id}">{t('rx.backToExam')}</a>
 	</nav>
-	<h1>Dispensed Rx <span class="who">{p.legalName} · DOB {p.dob} · MRN {p.mrn}</span></h1>
+	<h1>{t('rx.historyHeading')} <span class="who">{t('report.patientLine', { name: p.legalName, dob: p.dob, mrn: p.mrn })}</span></h1>
 
 	<p class="status" role="status" aria-live="polite">
-		{#if form?.message}<span class="error">{form.message}</span>{:else if form?.deleted}Record deleted.{/if}
+		{#if form?.message}<span class="error">{form.message}</span>{:else if form?.deleted}{t('rx.historyDeleted')}{/if}
 	</p>
 
 	{#if data.records.length === 0}
 		<div class="empty">
-			<p>No glasses or contact lens prescriptions have been printed for this patient yet.</p>
-			<p>Use <strong>Print Rx</strong> on a refraction in the exam; each printed Rx is listed here.</p>
+			<p>{t('rx.historyEmpty')}</p>
+			<p><Msg key="rx.historyEmptyHow">{#snippet printRx()}<strong>{t('rx.historyPrintRx')}</strong>{/snippet}</Msg></p>
 		</div>
 	{:else}
 		<ol class="list">
 			{#each data.records as r (r.id)}
-				{@const t = rxTable(r.kind, r.values)}
+				{@const table = rxTable(r.kind, r.values)}
 				{@const expired = r.expiresOn < today}
+				{@const typeKey = rxTypeKey(r.rxType)}
 				<li class="card">
 					<div class="top">
 						<div>
 							<h2>
-								{METHOD_LABEL[r.kind]}{r.kind === 'W' ? ` #${r.source.slice(1)}` : ''}
-								{#if r.rxType !== '' && r.kind !== 'CTL'}<span class="type">{RX_TYPES[Number(r.rxType)]}</span>{/if}
+								{r.kind === 'W' ? t('rx.historyGlassesNumber', { method: t(METHOD_KEY.W), number: r.source.slice(1) }) : t(METHOD_KEY[r.kind])}
+								{#if r.rxType !== '' && r.kind !== 'CTL'}<span class="type">{typeKey ? t(typeKey) : ''}</span>{/if}
 							</h2>
 							<dl class="meta">
-								<div><dt>Printed</dt><dd>{when(r.printedAt)}</dd></div>
-								<div><dt>Visit</dt><dd><a href="/patients/{p.id}/encounters/{r.encounterId}">{r.visitDate}</a></dd></div>
-								<div><dt>Expires</dt><dd class:expired>{r.expiresOn}{expired ? ' (expired)' : ''}</dd></div>
-								<div><dt>Provider</dt><dd>{r.provider}</dd></div>
+								<div><dt>{t('rx.historyPrinted')}</dt><dd>{when(r.printedAt)}</dd></div>
+								<div><dt>{t('report.visit')}</dt><dd><a href="/patients/{p.id}/encounters/{r.encounterId}">{r.visitDate}</a></dd></div>
+								<div><dt>{t('rx.historyExpires')}</dt><dd class:expired>{expired ? t('rx.historyExpired', { date: r.expiresOn }) : r.expiresOn}</dd></div>
+								<div><dt>{t('report.provider')}</dt><dd>{r.provider}</dd></div>
 							</dl>
 						</div>
 						<div class="actions">
 							{#if confirming === r.id}
 								<form method="POST" action="?/delete" use:enhance={() => async ({ update }) => { confirming = null; await update(); }}>
 									<input type="hidden" name="id" value={r.id} />
-									<span class="ask">Delete this record?</span>
-									<button type="submit" class="danger">Delete</button>
-									<button type="button" onclick={() => (confirming = null)}>Cancel</button>
+									<span class="ask">{t('rx.historyConfirmDelete')}</span>
+									<button type="submit" class="danger">{t('rx.historyDelete')}</button>
+									<button type="button" onclick={() => (confirming = null)}>{t('rx.historyCancel')}</button>
 								</form>
 							{:else}
-								<button type="button" onclick={() => (confirming = r.id)} aria-label="Delete record printed {when(r.printedAt)}">Delete</button>
+								<button type="button" onclick={() => (confirming = r.id)} aria-label={t('rx.historyDeleteAria', { when: when(r.printedAt) })}>{t('rx.historyDelete')}</button>
 							{/if}
 						</div>
 					</div>
 					<div class="scroll">
 						<table>
-							<thead><tr>{#each t.head as h, i (i)}<th scope="col">{h}</th>{/each}</tr></thead>
+							<thead><tr>{#each table.head as h, i (i)}<th scope="col">{head(h)}</th>{/each}</tr></thead>
 							<tbody>
-								{#each t.body as row, ri (ri)}
+								{#each table.body as row, ri (ri)}
 									<tr>{#each row as c, i (i)}{#if i === 0}<th scope="row">{c}</th>{:else}<td>{c || '–'}</td>{/if}{/each}</tr>
 								{/each}
 							</tbody>
@@ -73,9 +80,9 @@
 					</div>
 					{#if r.values.BPDD || r.values.BPDN || r.values.LENS_MATERIAL || r.values.LENS_TREATMENTS}
 						<p class="extra">
-							{#if r.values.BPDD}PD {r.values.BPDD}{r.values.BPDN ? ` / ${r.values.BPDN}` : ''}.{/if}
-							{#if r.values.LENS_MATERIAL}Material: {r.values.LENS_MATERIAL}.{/if}
-							{#if r.values.LENS_TREATMENTS}Treatments: {r.values.LENS_TREATMENTS.split('|').join(', ')}.{/if}
+							{#if r.values.BPDD}{r.values.BPDN ? t('rx.historyPdNear', { dist: r.values.BPDD, near: r.values.BPDN }) : t('rx.historyPd', { dist: r.values.BPDD })}{/if}
+							{#if r.values.LENS_MATERIAL}{t('rx.historyMaterial', { material: r.values.LENS_MATERIAL })}{/if}
+							{#if r.values.LENS_TREATMENTS}{t('rx.historyTreatments', { treatments: r.values.LENS_TREATMENTS.split('|').join(', ') })}{/if}
 						</p>
 					{/if}
 					{#if r.values.COMMENTS}<p class="extra">{r.values.COMMENTS}</p>{/if}

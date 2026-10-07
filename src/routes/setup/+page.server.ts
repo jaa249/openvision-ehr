@@ -5,9 +5,10 @@ import { setupFirstAdmin, UserError } from '#lib/server/users.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 // First run only: while nobody can sign in, this page creates the first admin. Afterwards it is closed.
-export const load: PageServerLoad = () => {
+// The page shows in the browser's language when we have it (D48); that is also the preselected default.
+export const load: PageServerLoad = ({ locals }) => {
 	if (!needsSetup(getDb())) redirect(303, '/login');
-	return {};
+	return { locale: locals.locale };
 };
 
 const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : '');
@@ -19,7 +20,8 @@ export const actions: Actions = {
 		const values = {
 			username: str(f.get('username')).slice(0, 64),
 			displayName: str(f.get('displayName')).slice(0, 200),
-			codeSet: str(f.get('codeSet')).slice(0, 10)
+			codeSet: str(f.get('codeSet')).slice(0, 10),
+			locale: str(f.get('locale')).slice(0, 10)
 		};
 		let id: number;
 		try {

@@ -5,14 +5,22 @@
 	import {
 		FH_NEGATIVE,
 		FH_ROWS,
+		FH_ROW_LABEL_KEY,
 		ISSUE_TYPE_DEF,
 		ISSUE_TYPE_DEFS,
+		ISSUE_TYPE_KEYS,
 		OCCURRENCES,
+		OCCURRENCE_LABEL_KEY,
 		OUTCOMES,
+		OUTCOME_LABEL_KEY,
 		SOCIAL_HABITS,
+		SOCIAL_LABEL_KEY,
 		SOCIAL_STATUSES,
+		SOCIAL_STATUS_LABEL_KEY,
 		SOCIAL_TEXT
 	} from '#lib/history/lists.ts';
+	import Msg from '#lib/i18n/Msg.svelte';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import { chronicTexts, issueLine, summarizeFamily, summarizeSocial, visibleIssues } from '#lib/history/summary.ts';
 	import { historyBus, publishAllergyStatus } from '#lib/history/bus.svelte.ts';
 	import type { Issue, IssueType, PmsfhResponse } from '#lib/history/types.ts';
@@ -27,6 +35,9 @@
 		/** Chronic issue texts ("title codes\ncomments"), sent whenever the issue list loads or changes (§7.4). */
 		onchronic?: (texts: string[]) => void;
 	} = $props();
+	const { t } = useI18n();
+	/** Long type name in lower case, for "Add to {label}" / "Edit {label}". */
+	const typeLower = (type: IssueType) => t(ISSUE_TYPE_KEYS[type].label).toLowerCase();
 
 	const url = $derived(`/api/patients/${patientId}/encounters/${encounterId}/history`);
 
@@ -53,7 +64,7 @@
 			received(next);
 			loadError = '';
 		} catch {
-			if (id === requestId) loadError = 'Past history could not be loaded. Check the connection.';
+			if (id === requestId) loadError = t('sections.pmLoadError');
 		}
 	}
 	$effect(() => {
@@ -68,15 +79,15 @@
 			const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 			if (res.status === 400) {
 				const j = await res.json().catch(() => ({}));
-				return j.errors ?? { form: j.message ?? 'Not saved: check the entries.' };
+				return j.errors ?? { form: j.message ?? t('sections.pmNotSavedEntries') };
 			}
-			if (!res.ok) return { form: res.status === 404 ? 'This visit or entry no longer exists.' : 'Not saved: server error. Try again.' };
+			if (!res.ok) return { form: res.status === 404 ? t('sections.pmGone') : t('sections.pmNotSavedServer') };
 			++requestId; // a slower GET in flight must not overwrite this fresher answer
 			received((await res.json()) as PmsfhResponse);
 			status = done;
 			return null;
 		} catch {
-			return { form: 'Not saved: check the connection and try again.' };
+			return { form: t('sections.pmNotSavedConnection') };
 		} finally {
 			busy = false;
 		}
@@ -113,6 +124,7 @@
 	let editorEl = $state<HTMLElement | null>(null);
 
 	const def = $derived(ISSUE_TYPE_DEF.get(draft.type)!);
+	const keys = $derived(ISSUE_TYPE_KEYS[draft.type]);
 	/** Editing a saved issue keeps its type (only the Eye medication box moves a med between lists). */
 	const editing = $derived(draft.id !== null && mode !== null && mode !== 'FH' && mode !== 'SOCIAL');
 	const picks = $derived(data && mode && mode !== 'FH' && mode !== 'SOCIAL' ? (data.quickPicks[mode] ?? []) : []);
@@ -179,8 +191,9 @@
 	/** Client-side checks mirror the server's (§7.2): title required, end not before begin. */
 	function check(): Record<string, string> {
 		const e: Record<string, string> = {};
-		if (!draft.title.trim()) e.title = `${def.titleLabel} is required.`;
-		if (def.end && draft.begin && draft.end && draft.end < draft.begin) e.end = `${def.end} cannot be before ${def.begin?.toLowerCase()}.`;
+		if (!draft.title.trim()) e.title = t('sections.pmRequired', { label: t(keys.titleLabel) });
+		if (keys.end && keys.begin && draft.begin && draft.end && draft.end < draft.begin)
+			e.end = t('sections.pmEndBeforeBegin', { end: t(keys.end), begin: t(keys.begin).toLowerCase() });
 		return e;
 	}
 
@@ -191,20 +204,20 @@
 			errors = e;
 			return;
 		}
-		const res = await post({ action: 'saveIssue', issue: { ...draft } }, `Saved ${draft.title.trim()}.`);
+		const res = await post({ action: 'saveIssue', issue: { ...draft } }, t('sections.pmSavedTitle', { title: draft.title.trim() }));
 		if (res) errors = res;
 		else close();
 	}
 	async function removeIssue() {
 		if (draft.id === null) return;
-		const res = await post({ action: 'deleteIssue', id: draft.id }, `Deleted ${draft.title}.`);
+		const res = await post({ action: 'deleteIssue', id: draft.id }, t('sections.pmDeletedTitle', { title: draft.title }));
 		if (res) errors = res;
 		else close();
 	}
 	async function saveFamily(ev: SubmitEvent) {
 		ev.preventDefault();
 		const sent = Object.fromEntries(FH_ROWS.filter((r) => r.group !== 'summary').map((r) => [r.key, fhDraft[r.key] ?? '']));
-		const res = await post({ action: 'family', data: sent }, 'Family history saved.');
+		const res = await post({ action: 'family', data: sent }, t('sections.pmFamilySaved'));
 		if (res) errors = res;
 		else close();
 	}
@@ -212,13 +225,13 @@
 		ev.preventDefault();
 		const keys = [...SOCIAL_TEXT.map((f) => f.key), ...SOCIAL_HABITS.flatMap((h) => [h.key, `${h.key}_status`, `${h.key}_date`])];
 		const sent = Object.fromEntries(keys.map((k) => [k, shDraft[k] ?? '']));
-		const res = await post({ action: 'social', data: sent }, 'Social history saved.');
+		const res = await post({ action: 'social', data: sent }, t('sections.pmSocialSaved'));
 		if (res) errors = res;
 		else close();
 	}
 	let nkdaError = $state('');
 	async function setNkda(on: boolean) {
-		const res = await post({ action: 'nkda', on }, on ? 'Marked no known allergies.' : 'No known allergies unmarked.');
+		const res = await post({ action: 'nkda', on }, on ? t('sections.pmNkdaMarked') : t('sections.pmNkdaUnmarked'));
 		nkdaError = res ? (res.nkda ?? res.form ?? Object.values(res)[0]) : '';
 	}
 
@@ -238,50 +251,51 @@
 
 <section class="pmsfh" aria-labelledby="pmsfh-h-{encounterId}">
 	<div class="head">
-		<h3 id="pmsfh-h-{encounterId}">Past history</h3>
-		{#if busy}<span class="busy">Saving…</span>{/if}
+		<h3 id="pmsfh-h-{encounterId}">{t('sections.pmTitle')}</h3>
+		{#if busy}<span class="busy">{t('sections.saving')}</span>{/if}
 	</div>
 	<p class="visually-hidden" role="status" aria-live="polite">{status}</p>
 	{#if loadError}
-		<p class="err" role="alert">{loadError} <button type="button" onclick={() => load(url)}>Retry</button></p>
+		<p class="err" role="alert">{loadError} <button type="button" onclick={() => load(url)}>{t('sections.retry')}</button></p>
 	{/if}
 
 	{#if mode}
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<div class="editor" bind:this={editorEl} role="group" aria-label="Edit past history" onkeydown={onEditorKey}>
-			<div class="types" role="radiogroup" aria-label="History type">
+		<div class="editor" bind:this={editorEl} role="group" aria-label={t('sections.pmEditLabel')} onkeydown={onEditorKey}>
+			<div class="types" role="radiogroup" aria-label={t('sections.pmHistoryType')}>
 				{#each ISSUE_TYPE_DEFS as d (d.type)}
 					<button
 						type="button"
 						role="radio"
 						aria-checked={mode === d.type}
-						title={d.label}
+						title={t(ISSUE_TYPE_KEYS[d.type].label)}
 						onclick={() => switchType(d.type)}
 						disabled={editing && d.type !== draft.type}
-					>{d.short}</button>
+					>{t(ISSUE_TYPE_KEYS[d.type].short)}</button>
 				{/each}
-				<button type="button" role="radio" aria-checked={mode === 'FH'} title="Family history" onclick={() => switchType('FH')} disabled={editing}>FH</button>
-				<button type="button" role="radio" aria-checked={mode === 'SOCIAL'} title="Social history" onclick={() => switchType('SOCIAL')} disabled={editing}>Social</button>
+				<button type="button" role="radio" aria-checked={mode === 'FH'} title={t('sections.pmFamilyHistory')} onclick={() => switchType('FH')} disabled={editing}>{t('sections.pmFhShort')}</button>
+				<button type="button" role="radio" aria-checked={mode === 'SOCIAL'} title={t('sections.pmSocialHistory')} onclick={() => switchType('SOCIAL')} disabled={editing}>{t('sections.pmSocialShort')}</button>
 			</div>
 
 			{#if mode === 'FH'}
 				<form onsubmit={saveFamily} novalidate>
-					<h4>Family history</h4>
+					<h4>{t('sections.pmFamilyHistory')}</h4>
 					<div class="fh">
 						{#each FH_ROWS.filter((r) => r.group !== 'summary') as r, i (r.key)}
 							{@const neg = (fhDraft[r.key] ?? '').toLowerCase() === FH_NEGATIVE}
-							<label class="fh-label" for={id(`fh-${r.key}`)}>{r.label}</label>
+							{@const label = t(FH_ROW_LABEL_KEY[r.key])}
+							<label class="fh-label" for={id(`fh-${r.key}`)}>{label}</label>
 							<button
 								type="button"
 								class="neg"
 								aria-pressed={neg}
-								aria-label="{r.label}: negative"
+								aria-label={t('sections.pmFhNegativeLabel', { label })}
 								onclick={() => (fhDraft[r.key] = neg ? '' : FH_NEGATIVE)}
-							>Neg</button>
+							>{t('sections.pmNeg')}</button>
 							<input
 								id={id(`fh-${r.key}`)}
 								value={neg ? '' : (fhDraft[r.key] ?? '')}
-								placeholder={neg ? 'Negative' : 'Who, e.g. mother'}
+								placeholder={neg ? t('sections.negative') : t('sections.pmFhWho')}
 								maxlength="200"
 								autocomplete="off"
 								data-autofocus={i === 0 ? '' : undefined}
@@ -292,17 +306,17 @@
 					</div>
 					{#each Object.entries(errors) as [k, m] (k)}{#if m}<p class="err">{m}</p>{/if}{/each}
 					<div class="actions">
-						<button type="submit" class="primary" disabled={busy}>Save</button>
-						<button type="button" onclick={close}>Cancel</button>
+						<button type="submit" class="primary" disabled={busy}>{t('sections.save')}</button>
+						<button type="button" onclick={close}>{t('sections.cancel')}</button>
 					</div>
 				</form>
 			{:else if mode === 'SOCIAL'}
 				<form onsubmit={saveSocial} novalidate>
-					<h4>Social history</h4>
+					<h4>{t('sections.pmSocialHistory')}</h4>
 					<div class="grid2">
 						{#each SOCIAL_TEXT as f, i (f.key)}
 							<div class="field">
-								<label for={id(`sh-${f.key}`)}>{f.label}</label>
+								<label for={id(`sh-${f.key}`)}>{t(SOCIAL_LABEL_KEY[f.key])}</label>
 								<input
 									id={id(`sh-${f.key}`)}
 									bind:value={shDraft[f.key]}
@@ -317,17 +331,18 @@
 						{/each}
 					</div>
 					{#each SOCIAL_HABITS as h (h.key)}
+						{@const label = t(SOCIAL_LABEL_KEY[h.key])}
 						<fieldset class="habit">
-							<legend>{h.label}</legend>
-							<select bind:value={shDraft[`${h.key}_status`]} aria-label="{h.label} status" aria-invalid={errors[`${h.key}_status`] ? 'true' : undefined}>
-								<option value="">Status</option>
-								{#each SOCIAL_STATUSES as s (s.value)}<option value={s.value}>{s.label}</option>{/each}
+							<legend>{label}</legend>
+							<select bind:value={shDraft[`${h.key}_status`]} aria-label={t('sections.shStatusLabel', { label })} aria-invalid={errors[`${h.key}_status`] ? 'true' : undefined}>
+								<option value="">{t('sections.shStatus')}</option>
+								{#each SOCIAL_STATUSES as s (s.value)}<option value={s.value}>{t(SOCIAL_STATUS_LABEL_KEY[s.value])}</option>{/each}
 							</select>
-							<input bind:value={shDraft[h.key]} aria-label="{h.label} note" placeholder="Note" maxlength="200" autocomplete="off" />
+							<input bind:value={shDraft[h.key]} aria-label={t('sections.shNoteLabel', { label })} placeholder={t('sections.shNote')} maxlength="200" autocomplete="off" />
 							<input
 								type="date"
 								bind:value={shDraft[`${h.key}_date`]}
-								aria-label="{h.label} date"
+								aria-label={t('sections.shDateLabel', { label })}
 								aria-invalid={errors[`${h.key}_date`] ? 'true' : undefined}
 								aria-describedby={err(`${h.key}_date`)}
 							/>
@@ -337,15 +352,15 @@
 					{/each}
 					{@render fieldError('form')}
 					<div class="actions">
-						<button type="submit" class="primary" disabled={busy}>Save</button>
-						<button type="button" onclick={close}>Cancel</button>
+						<button type="submit" class="primary" disabled={busy}>{t('sections.save')}</button>
+						<button type="button" onclick={close}>{t('sections.cancel')}</button>
 					</div>
 				</form>
 			{:else}
 				<form onsubmit={saveIssue} novalidate>
-					<h4>{draft.id === null ? 'Add to' : 'Edit'} {def.label.toLowerCase()}</h4>
+					<h4>{draft.id === null ? t('sections.pmAddTo', { label: typeLower(draft.type) }) : t('sections.pmEditType', { label: typeLower(draft.type) })}</h4>
 					{#if picks.length}
-						<div class="picks" role="group" aria-label="Common {def.label.toLowerCase()}">
+						<div class="picks" role="group" aria-label={t('sections.pmCommon', { label: typeLower(draft.type) })}>
 							{#each picks as p (p.title)}
 								<button type="button" class="chip" aria-pressed={draft.title.toLowerCase() === p.title.toLowerCase()} onclick={() => pickTitle(p.title, p.codes)}>{p.title}</button>
 							{/each}
@@ -353,7 +368,7 @@
 					{/if}
 					<div class="grid2">
 						<div class="field wide">
-							<label for={id('title')}>{def.titleLabel}</label>
+							<label for={id('title')}>{t(keys.titleLabel)}</label>
 							<input
 								id={id('title')}
 								bind:value={draft.title}
@@ -368,59 +383,59 @@
 						</div>
 						{#if def.codes}
 							<div class="field">
-								<label for={id('codes')}>Diagnosis code <span class="opt">(; between codes)</span></label>
+								<label for={id('codes')}>{t('sections.pmDiagnosisCode')} <span class="opt">{t('sections.pmCodesHint')}</span></label>
 								<input id={id('codes')} bind:value={draft.codes} maxlength="200" autocomplete="off" aria-invalid={errors.codes ? 'true' : undefined} aria-describedby={err('codes')} />
 								{@render fieldError('codes')}
 							</div>
 						{/if}
 						{#if def.reaction}
 							<div class="field">
-								<label for={id('reaction')}>Reaction</label>
+								<label for={id('reaction')}>{t('sections.pmReaction')}</label>
 								<input id={id('reaction')} bind:value={draft.reaction} maxlength="120" autocomplete="off" aria-invalid={errors.reaction ? 'true' : undefined} aria-describedby={err('reaction')} />
 								{@render fieldError('reaction')}
 							</div>
 						{/if}
-						{#if def.begin}
+						{#if keys.begin}
 							<div class="field">
-								<label for={id('begin')}>{def.begin}</label>
+								<label for={id('begin')}>{t(keys.begin)}</label>
 								<input id={id('begin')} type="date" bind:value={draft.begin} aria-invalid={errors.begin ? 'true' : undefined} aria-describedby={err('begin')} />
 								{@render fieldError('begin')}
 							</div>
 						{/if}
-						{#if def.end}
+						{#if keys.end}
 							<div class="field">
-								<label for={id('end')}>{def.end}</label>
+								<label for={id('end')}>{t(keys.end)}</label>
 								<input id={id('end')} type="date" bind:value={draft.end} min={draft.begin || undefined} aria-invalid={errors.end ? 'true' : undefined} aria-describedby={err('end')} />
 								{@render fieldError('end')}
 							</div>
 						{/if}
 						{#if def.occurrence}
 							<div class="field">
-								<label for={id('occ')}>Course</label>
+								<label for={id('occ')}>{t('sections.pmCourse')}</label>
 								<select id={id('occ')} bind:value={draft.occurrence} aria-invalid={errors.occurrence ? 'true' : undefined} aria-describedby={err('occurrence')}>
-									{#each OCCURRENCES as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+									{#each OCCURRENCES as o (o.value)}<option value={o.value}>{t(OCCURRENCE_LABEL_KEY[o.value])}</option>{/each}
 								</select>
 								{@render fieldError('occurrence')}
 							</div>
 						{/if}
 						{#if def.outcome}
 							<div class="field">
-								<label for={id('outcome')}>Outcome</label>
+								<label for={id('outcome')}>{t('sections.pmOutcome')}</label>
 								<select id={id('outcome')} value={draft.outcome} onchange={(e) => setOutcome(e.currentTarget.value)} aria-invalid={errors.outcome ? 'true' : undefined} aria-describedby={err('outcome')}>
-									{#each OUTCOMES as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+									{#each OUTCOMES as o (o.value)}<option value={o.value}>{t(OUTCOME_LABEL_KEY[o.value])}</option>{/each}
 								</select>
 								{@render fieldError('outcome')}
 							</div>
 						{/if}
-						{#if def.provider}
+						{#if keys.provider}
 							<div class="field">
-								<label for={id('provider')}>{def.provider}</label>
+								<label for={id('provider')}>{t(keys.provider)}</label>
 								<input
 									id={id('provider')}
 									bind:value={draft.provider}
 									maxlength="80"
 									autocomplete="off"
-									title={draft.type === 'POH' ? 'Co-managing or referring provider' : undefined}
+									title={draft.type === 'POH' ? t('sections.pmCollaboratorTitle') : undefined}
 									aria-invalid={errors.provider ? 'true' : undefined}
 									aria-describedby={err('provider')}
 								/>
@@ -431,34 +446,34 @@
 					{#if def.activeBox || def.eyeMedBox}
 						<div class="checks">
 							{#if def.activeBox}
-								<label class="check"><input type="checkbox" checked={!draft.end || draft.end > today()} onchange={(e) => setActive(e.currentTarget.checked)} /> Active</label>
+								<label class="check"><input type="checkbox" checked={!draft.end || draft.end > today()} onchange={(e) => setActive(e.currentTarget.checked)} /> {t('sections.pmActive')}</label>
 							{/if}
 							{#if def.eyeMedBox}
-								<label class="check"><input type="checkbox" checked={draft.type === 'EYEMED'} onchange={(e) => switchType(e.currentTarget.checked ? 'EYEMED' : 'MED')} /> Eye medication</label>
+								<label class="check"><input type="checkbox" checked={draft.type === 'EYEMED'} onchange={(e) => switchType(e.currentTarget.checked ? 'EYEMED' : 'MED')} /> {t('sections.pmEyeMedication')}</label>
 							{/if}
 						</div>
 					{/if}
 					<div class="field">
-						<label for={id('comments')}>Comments</label>
+						<label for={id('comments')}>{t('sections.comments')}</label>
 						<textarea id={id('comments')} bind:value={draft.comments} rows="2" maxlength="2000" aria-invalid={errors.comments ? 'true' : undefined} aria-describedby={err('comments')}></textarea>
 						{@render fieldError('comments')}
 					</div>
 					{@render fieldError('form')}
 					{@render fieldError('type')}
 					<div class="actions">
-						<button type="submit" class="primary" disabled={busy}>Save</button>
+						<button type="submit" class="primary" disabled={busy}>{t('sections.save')}</button>
 						{#if draft.id !== null}
 							{#if confirmDelete}
-								<span class="confirm" role="group" aria-label="Confirm delete">
-									Delete {draft.title}?
-									<button type="button" class="danger" onclick={removeIssue} disabled={busy}>Yes, delete</button>
-									<button type="button" onclick={() => (confirmDelete = false)}>Keep</button>
+								<span class="confirm" role="group" aria-label={t('sections.pmConfirmDelete')}>
+									{t('sections.pmDeleteQuestion', { title: draft.title })}
+									<button type="button" class="danger" onclick={removeIssue} disabled={busy}>{t('sections.pmYesDelete')}</button>
+									<button type="button" onclick={() => (confirmDelete = false)}>{t('sections.pmKeep')}</button>
 								</span>
 							{:else}
-								<button type="button" class="danger-outline" onclick={() => (confirmDelete = true)}>Delete</button>
+								<button type="button" class="danger-outline" onclick={() => (confirmDelete = true)}>{t('sections.delete')}</button>
 							{/if}
 						{/if}
-						<button type="button" onclick={close}>Cancel</button>
+						<button type="button" onclick={close}>{t('sections.cancel')}</button>
 					</div>
 				</form>
 			{/if}
@@ -468,12 +483,13 @@
 	{#if data}
 		<div class="summary">
 			{#each SUMMARY_ORDER as type (type)}
-				{@const d = ISSUE_TYPE_DEF.get(type)!}
 				{@const items = visibleIssues(data.issues, type)}
 				<div class="block" class:allergy={type === 'ALLERGY'}>
 					<div class="bhead">
-						<h4 title={d.label}>{d.short}</h4>
-						<button type="button" class="add" aria-label="Add to {d.label.toLowerCase()}" onclick={(e) => open(type, undefined, e.currentTarget)}>Add</button>
+						<h4 title={t(ISSUE_TYPE_KEYS[type].label)}>{t(ISSUE_TYPE_KEYS[type].short)}</h4>
+						<button type="button" class="add" aria-label={t('sections.pmAddTo', { label: typeLower(type) })} onclick={(e) => open(type, undefined, e.currentTarget)}
+							>{t('sections.add')}</button
+						>
 					</div>
 					{#if items.length}
 						<ul>
@@ -484,23 +500,31 @@
 										class="item"
 										class:inactive={!i.active}
 										onclick={(e) => open(type, i, e.currentTarget)}
-										aria-label="Edit {i.title}{i.active ? '' : ' (inactive)'}"
-									>{issueLine(i)}{#if !i.active}<span class="tag"> inactive</span>{/if}</button>
+										aria-label={i.active ? t('sections.pmEditIssue', { title: i.title }) : t('sections.pmEditIssueInactive', { title: i.title })}
+									>{issueLine(i)}{#if !i.active}<span class="tag"> {t('sections.pmInactive')}</span>{/if}</button>
 								</li>
 							{/each}
 						</ul>
 					{:else if type === 'ALLERGY'}
 						{#if data.allergyStatus.kind === 'none'}
-							<p class="nkda">NKDA <span class="by">confirmed by {data.allergyStatus.confirmedBy}, <span class="num nowrap">{fmtDate(data.allergyStatus.confirmedAt)}</span></span></p>
+							{@const st = data.allergyStatus}
+							<p class="nkda">
+								{t('sections.pmNkda')}
+								<span class="by"
+									><Msg key="sections.pmConfirmedBy" params={{ name: st.confirmedBy }}
+										>{#snippet date()}<span class="num nowrap">{fmtDate(st.confirmedAt)}</span>{/snippet}</Msg
+									></span
+								>
+							</p>
 						{:else}
-							<p class="unknown">Not recorded</p>
+							<p class="unknown">{t('sections.pmNotRecorded')}</p>
 						{/if}
 						<label class="check">
 							<input type="checkbox" checked={data.allergyStatus.kind === 'none'} disabled={busy} onchange={(e) => setNkda(e.currentTarget.checked)} />
-							No known allergies
+							{t('sections.pmNoKnownAllergies')}
 						</label>
 					{:else}
-						<p class="none">None</p>
+						<p class="none">{t('sections.pmNone')}</p>
 					{/if}
 					{#if type === 'ALLERGY' && nkdaError}<p class="err" role="alert">{nkdaError}</p>{/if}
 				</div>
@@ -508,32 +532,32 @@
 
 			<div class="block">
 				<div class="bhead">
-					<h4 title="Family history">FH</h4>
-					<button type="button" class="add" aria-label="Edit family history" onclick={(e) => open('FH', undefined, e.currentTarget)}>Edit</button>
+					<h4 title={t('sections.pmFamilyHistory')}>{t('sections.pmFhShort')}</h4>
+					<button type="button" class="add" aria-label={t('sections.pmEditFamily')} onclick={(e) => open('FH', undefined, e.currentTarget)}>{t('sections.edit')}</button>
 				</div>
 				{#if family.state === 'positive'}
 					<ul>{#each family.lines as l (l)}<li class="text">{l}</li>{/each}</ul>
 				{:else if family.state === 'negative'}
-					<p class="none">Negative</p>
+					<p class="none">{t('sections.negative')}</p>
 				{:else}
-					<p class="none">Not recorded</p>
+					<p class="none">{t('sections.pmNotRecorded')}</p>
 				{/if}
 			</div>
 
 			<div class="block">
 				<div class="bhead">
-					<h4>Social</h4>
-					<button type="button" class="add" aria-label="Edit social history" onclick={(e) => open('SOCIAL', undefined, e.currentTarget)}>Edit</button>
+					<h4>{t('sections.pmSocialShort')}</h4>
+					<button type="button" class="add" aria-label={t('sections.pmEditSocial')} onclick={(e) => open('SOCIAL', undefined, e.currentTarget)}>{t('sections.edit')}</button>
 				</div>
 				{#if social.length}
 					<ul>{#each social as l (l)}<li class="text">{l}</li>{/each}</ul>
 				{:else}
-					<p class="none">Not documented</p>
+					<p class="none">{t('sections.pmNotDocumented')}</p>
 				{/if}
 			</div>
 		</div>
 	{:else if !loadError}
-		<p class="none">Loading past history…</p>
+		<p class="none">{t('sections.pmLoading')}</p>
 	{/if}
 </section>
 

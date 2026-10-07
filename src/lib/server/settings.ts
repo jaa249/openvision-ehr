@@ -4,6 +4,7 @@ import type { DB } from './db.ts';
 import { securityAudit } from './security_audit.ts';
 import { EXAM_SECTIONS, FIELDS, FIELD_BY_ID, SECTIONS, SECTION_DEF, SEED_DEFAULTS, type SectionId } from '#lib/exam/catalog.ts';
 import { isCodeSetId, type CodeSetId } from '#lib/codesets/index.ts';
+import { DEFAULT_LOCALE, isLocale, type LocaleCode } from '#lib/i18n/locales.ts';
 
 export type FieldErrors = Record<string, string>;
 
@@ -98,6 +99,24 @@ export function updateCodeSettings(db: DB, input: { codeSet?: unknown; usBilling
 	if (actorId !== null) securityAudit(db, { action: 'settings.coding', userId: actorId, detail: { before, after } });
 	db.prepare('UPDATE practice SET diagnosis_code_set = ?, us_billing = ? WHERE id = 1').run(after.codeSet, after.usBilling ? 1 : 0);
 	return after;
+}
+
+// ---------------------------------------------------------------- default language (D48)
+
+/** The practice's language for users who keep "Practice default", and for the sign-in page. Unknown stored values read as English. */
+export function getDefaultLocale(db: DB): LocaleCode {
+	const r = db.prepare('SELECT default_locale FROM practice WHERE id = 1').get() as { default_locale: string } | undefined;
+	return isLocale(r?.default_locale) ? r.default_locale : DEFAULT_LOCALE;
+}
+
+/** Saves the default language; audited with the old and new values. `actorId` null = first-run setup (audited as the setup). */
+export function setDefaultLocale(db: DB, code: unknown, actorId: number | null): LocaleCode {
+	if (!isLocale(code)) throw new SettingsError({ locale: 'Choose a language.' });
+	const before = getDefaultLocale(db);
+	if (code === before) return code;
+	if (actorId !== null) securityAudit(db, { action: 'settings.practice', userId: actorId, detail: { before: { defaultLocale: before }, after: { defaultLocale: code } } });
+	db.prepare('UPDATE practice SET default_locale = ? WHERE id = 1').run(code);
+	return code;
 }
 
 // ---------------------------------------------------------------- normal values (user_defaults)

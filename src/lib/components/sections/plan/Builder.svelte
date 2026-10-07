@@ -3,6 +3,7 @@
 	// Rows start selected; "Add selected" adds every selected row from the included sources; a row's
 	// Add button or a double-click adds only that row (FIX); rows can be dragged onto the list or the New Dx box.
 	import type { Candidate, CandidateSet } from '#lib/plan/types.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 
 	let {
 		set,
@@ -22,15 +23,16 @@
 		onaddmany: (cs: Candidate[]) => void;
 		onrefresh: () => void;
 	} = $props();
+	const { t } = useI18n();
 
 	let include = $state({ finding: true, poh: true, pmh: false });
 	/** Unticked rows (everything else starts selected). */
 	let unticked = $state<Record<string, boolean>>({});
 
 	const SOURCES = [
-		{ id: 'finding', label: 'Exam findings', empty: 'No coded findings yet. Findings such as "2+ NS" or "dermatochalasis" appear here as you type them.' },
-		{ id: 'poh', label: 'POH / POS', empty: 'No eye problems or eye surgeries in the past history.' },
-		{ id: 'pmh', label: 'PMH', empty: 'No active general problems in the past history.' }
+		{ id: 'finding', label: 'plan.srcFindings', empty: 'plan.srcFindingsEmpty' },
+		{ id: 'poh', label: 'plan.srcPoh', empty: 'plan.srcPohEmpty' },
+		{ id: 'pmh', label: 'plan.srcPmh', empty: 'plan.srcPmhEmpty' }
 	] as const;
 
 	const rowsOf = (id: 'finding' | 'poh' | 'pmh') => (set ? (id === 'finding' ? set.findings : set[id]) : []);
@@ -47,11 +49,11 @@
 
 <div class="builder">
 	<fieldset class="sources">
-		<legend>Include</legend>
+		<legend>{t('plan.include')}</legend>
 		{#each SOURCES as s (s.id)}
 			<label class="check">
 				<input type="checkbox" bind:checked={include[s.id]} />
-				{s.label}
+				{t(s.label)}
 				<span class="count">({rowsOf(s.id).length})</span>
 			</label>
 		{/each}
@@ -59,20 +61,17 @@
 
 	<div class="actions">
 		<button type="button" class="primary" onclick={() => onaddmany(toAdd)} disabled={!toAdd.length}>
-			<span aria-hidden="true">↩</span> Add selected ({toAdd.length})
+			<span aria-hidden="true">↩</span> {t('plan.addSelected', { n: toAdd.length })}
 		</button>
-		<button type="button" onclick={onrefresh} disabled={loading}>{loading ? 'Updating…' : 'Refresh'}</button>
+		<button type="button" onclick={onrefresh} disabled={loading}>{loading ? t('plan.updating') : t('plan.refresh')}</button>
 	</div>
-	<p class="help">
-		Ticked rows are added by "Add selected". A row's Add button (or a double-click) adds just that row. Drag a row onto
-		the list to place it, or onto the New Dx box to edit it first.
-	</p>
+	<p class="help">{t('plan.builderHelp')}</p>
 	{#if error}<p class="error" role="alert">{error}</p>{/if}
 
 	{#each SOURCES as s (s.id)}
 		{#if include[s.id]}
 			<section class="group" aria-labelledby="bld-{s.id}">
-				<h4 id="bld-{s.id}">{s.label}</h4>
+				<h4 id="bld-{s.id}">{t(s.label)}</h4>
 				{#if rowsOf(s.id).length}
 					<ul>
 						{#each rowsOf(s.id) as c (c.key)}
@@ -87,17 +86,17 @@
 									/>
 									<span class="title">{c.title}</span>
 								</label>
-								<span class="code">{c.codes || 'no code'}</span>
+								<span class="code">{c.codes || t('plan.noCode')}</span>
 								{#if added}
-									<span class="badge">In list</span>
+									<span class="badge">{t('plan.inList')}</span>
 								{:else}
-									<button type="button" class="add" onclick={() => onadd(c)} aria-label="Add {c.title} to the impression list">Add</button>
+									<button type="button" class="add" onclick={() => onadd(c)} aria-label={t('plan.addRowAria', { title: c.title })}>{t('plan.add')}</button>
 								{/if}
 							</li>
 						{/each}
 					</ul>
 				{:else}
-					<p class="empty">{loading && !set ? 'Loading…' : s.empty}</p>
+					<p class="empty">{loading && !set ? t('plan.loading') : t(s.empty)}</p>
 				{/if}
 			</section>
 		{/if}

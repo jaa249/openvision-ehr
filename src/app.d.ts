@@ -15,6 +15,8 @@ declare global {
 			sessionToken?: string;
 			/** True while the user still has a temporary password; pages redirect to /settings/me until changed. */
 			mustChangePassword?: boolean;
+			/** The language this request is shown in (D48), set by hooks.server.ts on every request. */
+			locale: import('#lib/i18n/locales.ts').LocaleCode;
 		}
 		// interface PageData {}
 		// interface PageState {}

@@ -4,11 +4,13 @@
 	// and "latest", which opens the newest by date taken (FIX: not by upload order).
 	// Files uploaded here belong to this visit, so they follow the exam lock (lockHeaders()).
 	import { lockHeaders } from '#lib/exam/lock.svelte.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 	import { uploadDocumentFile } from './client.ts';
 	import DocViewer from './DocViewer.svelte';
-	import { DOC_ACCEPT, DOC_ZONE_LABEL, type DocMeta, type DocZone, type ZoneCategorySummary } from './types.ts';
+	import { DOC_ACCEPT, DOC_ZONE_LABEL_KEY, type DocMeta, type DocZone, type ZoneCategorySummary } from './types.ts';
 
 	let { patientId, encounterId, zone }: { patientId: number; encounterId: number; zone: DocZone } = $props();
+	const { t } = useI18n();
 
 	const uid = $props.id();
 	let cats = $state<ZoneCategorySummary[] | null>(null);
@@ -22,7 +24,7 @@
 	async function load() {
 		try {
 			const r = await fetch(`/api/patients/${patientId}/documents?zone=${zone}&summary=1`);
-			if (!r.ok) throw new Error(`The server answered ${r.status}`);
+			if (!r.ok) throw new Error(t('documents.serverAnswered', { status: r.status }));
 			cats = ((await r.json()) as { categories: ZoneCategorySummary[] }).categories;
 			loadError = null;
 		} catch (e) {
@@ -42,16 +44,20 @@
 		busy = cat.category;
 		const done: string[] = [];
 		for (const file of files) {
-			status = `Uploading ${file.name}…`;
+			status = t('documents.uploadingFile', { name: file.name });
 			try {
 				await uploadDocumentFile(patientId, file, { category: cat.category, encounterId, headers: lockHeaders() });
 				done.push(file.name);
 			} catch (e) {
-				problem = `${file.name}: ${(e as Error).message}`;
+				problem = t('documents.fileProblem', { name: file.name, error: (e as Error).message });
 			}
 		}
 		busy = null;
-		status = done.length ? `Saved ${done.length === 1 ? done[0] : `${done.length} files`} to ${cat.name}.` : '';
+		status = done.length
+			? done.length === 1
+				? t('documents.savedOneTo', { name: done[0], category: cat.name })
+				: t('documents.savedManyTo', { count: done.length, category: cat.name })
+			: '';
 		for (const el of Object.values(inputs)) if (el) el.value = '';
 		await load();
 	}
@@ -59,21 +65,21 @@
 
 <section class="docs" aria-labelledby="{uid}-h">
 	<div class="bar">
-		<h3 id="{uid}-h">Documents and images · {DOC_ZONE_LABEL[zone]}</h3>
-		<a href="/patients/{patientId}/documents?zone={zone}">All documents</a>
+		<h3 id="{uid}-h">{t('documents.zoneHeading', { zone: t(DOC_ZONE_LABEL_KEY[zone]) })}</h3>
+		<a href="/patients/{patientId}/documents?zone={zone}">{t('documents.allDocuments')}</a>
 	</div>
 	<p class="visually-hidden" role="status" aria-live="polite">{status}</p>
 	{#if problem}<p class="err" role="alert">{problem}</p>{/if}
 	{#if loadError}
-		<p class="err">Could not load documents: {loadError}. <button type="button" onclick={load}>Try again</button></p>
+		<p class="err">{t('documents.couldNotLoad', { error: loadError })} <button type="button" onclick={load}>{t('documents.tryAgain')}</button></p>
 	{:else if !cats}
-		<p class="muted">Loading documents…</p>
+		<p class="muted">{t('documents.loading')}</p>
 	{:else}
 		<ul>
 			{#each cats as c (c.category)}
 				<li>
 					<span class="name">{c.name}</span>
-					<span class="count num" aria-label="{c.count} {c.count === 1 ? 'file' : 'files'}">{c.count}</span>
+					<span class="count num" aria-label={t('documents.fileCount', { count: c.count })}>{c.count}</span>
 					<span class="actions">
 						<input
 							bind:this={inputs[c.category]}
@@ -97,23 +103,23 @@
 							onchange={(e) => upload(c, e.currentTarget.files)}
 						/>
 						<button type="button" disabled={busy !== null} onclick={() => inputs[c.category]?.click()}>
-							{busy === c.category ? 'Uploading…' : 'Upload'}<span class="visually-hidden"> to {c.name}</span>
+							{busy === c.category ? t('documents.uploading') : t('documents.upload')}<span class="visually-hidden"> {t('documents.uploadToHidden', { category: c.name })}</span>
 						</button>
 						<button type="button" class="camera" disabled={busy !== null} onclick={() => inputs[`${c.category}-cam`]?.click()}>
-							Camera<span class="visually-hidden"> photo for {c.name}</span>
+							{t('documents.camera')}<span class="visually-hidden"> {t('documents.cameraForHidden', { category: c.name })}</span>
 						</button>
 						{#if c.latest}
 							<button type="button" class="latest" onclick={() => (viewing = c.latest)} title={c.latest.notes || c.latest.filename}>
-								Latest <span class="num date">{c.latest.takenOn}</span><span class="visually-hidden"> {c.name}</span>
+								{t('documents.latest')} <span class="num date">{c.latest.takenOn}</span><span class="visually-hidden"> {c.name}</span>
 							</button>
 						{:else}
-							<span class="none">None yet</span>
+							<span class="none">{t('documents.noneYet')}</span>
 						{/if}
 					</span>
 				</li>
 			{/each}
 		</ul>
-		<p class="help">Upload PNG, JPEG or PDF up to 15 MB. Files added here are dated with this visit; change the date or notes on the documents page.</p>
+		<p class="help">{t('documents.zoneHelp')}</p>
 	{/if}
 </section>
 

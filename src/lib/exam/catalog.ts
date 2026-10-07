@@ -7,6 +7,8 @@ import { HISTORY_DEFAULTS, HISTORY_FIELDS } from './sections/history.ts';
 import { NEURO_DEFAULTS, NEURO_FIELDS } from './sections/neuro.ts';
 import { DILATION_DEFAULTS, DILATION_FIELDS } from './sections/dilation.ts';
 import { GLAUCOMA_DEFAULTS, GLAUCOMA_FIELDS } from './sections/glaucoma.ts';
+import type { MessageKey } from '#lib/i18n/catalog.ts';
+import type { Params } from '#lib/i18n/translate.ts';
 
 export type Eye = 'OD' | 'OS' | 'OU';
 export type SectionId =
@@ -147,6 +149,100 @@ export const EXAM_SECTIONS: SectionDef[] = [
 		])
 	}
 ];
+
+// ---------- screen labels (D48) ----------
+// The English labels above stay: the server, exports and stored text use them. The screen shows
+// these messages instead (catalog namespace). catalog.test.ts checks every id has one.
+
+/** Section rail labels (SECTIONS[].label). */
+export const SECTION_LABEL_KEY: Record<SectionId, MessageKey> = {
+	HPI: 'catalog.sectionHpi',
+	ACUITY: 'catalog.sectionVision',
+	REFRACTION: 'catalog.sectionRefraction',
+	IOP: 'catalog.sectionIop',
+	EXT: 'catalog.sectionExternal',
+	ANTSEG: 'catalog.sectionSlitLamp',
+	RETINA: 'catalog.sectionFundus',
+	NEURO: 'catalog.sectionNeuro',
+	IMPPLAN: 'catalog.sectionImpPlan',
+	CODING: 'catalog.sectionCodes'
+};
+
+/** Row-section ids (EXAM_SECTIONS). */
+export type RowSectionId = 'EXT' | 'ANTSEG' | 'RETINA';
+
+/** Row-section headings (SectionDef.title), their short form ("Copy … forward") and the comments field label. */
+export const SECTION_TITLE_KEY: Record<RowSectionId, { title: MessageKey; short: MessageKey; comments: MessageKey }> = {
+	EXT: { title: 'catalog.titleExternal', short: 'catalog.titleExternalShort', comments: 'catalog.commentsExternal' },
+	ANTSEG: { title: 'catalog.titleAntSeg', short: 'catalog.titleAntSegShort', comments: 'catalog.commentsAntSeg' },
+	RETINA: { title: 'catalog.titleRetina', short: 'catalog.titleRetinaShort', comments: 'catalog.commentsRetina' }
+};
+
+/** Row labels (Row.label) by row id; HERTEL is External's Hertel row. */
+export const ROW_LABEL_KEY: Record<string, MessageKey> = {
+	BROW: 'catalog.rowBrow',
+	UL: 'catalog.rowUpperLid',
+	LL: 'catalog.rowLowerLid',
+	MCT: 'catalog.rowMedialCanthus',
+	ADNEXA: 'catalog.rowAdnexa',
+	MRD: 'catalog.rowMrd',
+	LF: 'catalog.rowLevatorFunction',
+	VFISSURE: 'catalog.rowVerticalFissure',
+	CAROTID: 'catalog.rowCarotid',
+	TEMPART: 'catalog.rowTemporalArtery',
+	CNV: 'catalog.rowCn5',
+	CNVII: 'catalog.rowCn7',
+	CONJ: 'catalog.rowConjunctiva',
+	CORNEA: 'catalog.rowCornea',
+	AC: 'catalog.rowAnteriorChamber',
+	IRIS: 'catalog.rowIris',
+	LENS: 'catalog.rowLens',
+	GONIO: 'catalog.rowGonioscopy',
+	KTHICKNESS: 'catalog.rowPachymetry',
+	SCHIRMER1: 'catalog.rowSchirmer1',
+	SCHIRMER2: 'catalog.rowSchirmer2',
+	TBUT: 'catalog.rowTbut',
+	DISC: 'catalog.rowDisc',
+	MACULA: 'catalog.rowMacula',
+	VESSELS: 'catalog.rowVessels',
+	VITREOUS: 'catalog.rowVitreous',
+	PERIPH: 'catalog.rowPeriphery',
+	CUP: 'catalog.rowCupDisc',
+	CMT: 'catalog.rowCmt',
+	HERTEL: 'catalog.rowHertel'
+};
+
+type T = (key: MessageKey, params?: Params) => string;
+
+/** A section's rail label in the page language. */
+export const sectionLabel = (id: SectionId, t: T): string => t(SECTION_LABEL_KEY[id]);
+
+/** A row-section's heading (short: without the parenthesis), in the page language. */
+export function sectionTitle(sec: SectionDef, t: T, short = false): string {
+	const k = SECTION_TITLE_KEY[sec.id as RowSectionId];
+	return k ? t(short ? k.short : k.title) : short ? sec.title.split(' (')[0] : sec.title;
+}
+
+/** A row's label in the page language. */
+export function rowLabel(row: Pick<Row, 'id' | 'label'>, t: T): string {
+	const k = ROW_LABEL_KEY[row.id];
+	return k ? t(k) : row.label;
+}
+
+/**
+ * A field's label for the screen ("Conjunctiva OD"). Fields of this file's row sections are
+ * translated here; fields of the section modules (sections/*.ts) keep their own label for now.
+ */
+export function fieldLabel(id: string, t: T): string {
+	const f = FIELD_BY_ID.get(id);
+	if (!f) return id;
+	const k = SECTION_TITLE_KEY[f.section as RowSectionId];
+	if (!k) return f.label;
+	if (f.row === 'COMMENTS') return t(k.comments);
+	if (f.id === 'HERTELBASE') return t('catalog.hertelBase');
+	const row = ROW_LABEL_KEY[f.row];
+	return row ? t('catalog.fieldEye', { field: t(row), eye: f.eye }) : f.label;
+}
 
 export const SECTION_DEF = new Map(EXAM_SECTIONS.map((s) => [s.id, s]));
 

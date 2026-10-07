@@ -2,16 +2,19 @@
 	// Impression/Plan on the printed report (spec §13.2 item 12 with FIXes): numbered items with a bold
 	// title, the code text (or the code when there is no code text), the plan with its line breaks;
 	// "Orders/Next visit:" only when there are orders. Paper colours, like the rest of ExamReport.
+	// Headings translate (D48); titles, plans and orders print as recorded.
 	import type { PlanReport } from '#lib/plan/types.ts';
 	import { stripCodeTags } from '#lib/codesets/index.ts';
+	import { useI18n } from '#lib/i18n/context.ts';
 	let { plan }: { plan: PlanReport | null | undefined } = $props();
+	const { t } = useI18n();
 	/** The stored code text keeps its "ICD10:" / "ICD11:" tags; paper shows just "H40.1131 (description)". */
 	const paperCodes = stripCodeTags;
 </script>
 
 {#if plan && (plan.items.length || plan.orders.length || plan.orderPlan)}
 	<section class="rplan">
-		<h2>Impression/Plan</h2>
+		<h2>{t('report.impressionPlan')}</h2>
 		{#if plan.items.length}
 			<ol>
 				{#each plan.items as it, i (i)}
@@ -24,13 +27,13 @@
 			</ol>
 		{/if}
 		{#if plan.orders.length}
-			<h3>Orders/Next visit:</h3>
+			<h3>{t('report.ordersNextVisit')}</h3>
 			<ul>
 				{#each plan.orders as o, i (i)}<li>{o}</li>{/each}
 			</ul>
 		{/if}
 		{#if plan.orderPlan}
-			{#if !plan.orders.length}<h3>Next visit:</h3>{/if}
+			{#if !plan.orders.length}<h3>{t('report.nextVisit')}</h3>{/if}
 			<p class="text">{plan.orderPlan}</p>
 		{/if}
 	</section>

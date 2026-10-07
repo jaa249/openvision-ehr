@@ -6,7 +6,8 @@
 import type { DB } from './db.ts';
 import { SEED_DEFAULTS } from '#lib/exam/catalog.ts';
 import { securityAudit } from './security_audit.ts';
-import { defaultUsBilling, updateCodeSettings } from './settings.ts';
+import { defaultUsBilling, setDefaultLocale, updateCodeSettings } from './settings.ts';
+import { DEFAULT_LOCALE, isLocale } from '#lib/i18n/locales.ts';
 import { isCodeSetId } from '#lib/codesets/index.ts';
 import { deleteUserSessions, hashPassword, needsSetup, passwordProblem, ROLES, verifyPassword, type Role } from './auth.ts';
 
@@ -146,7 +147,7 @@ export async function createUser(
 /** First run only (no one can sign in yet): creates the first admin. Throws UserError when setup is already done. */
 export async function setupFirstAdmin(
 	db: DB,
-	input: { username: string; displayName: string; password: string; confirm: string; codeSet?: unknown },
+	input: { username: string; displayName: string; password: string; confirm: string; codeSet?: unknown; locale?: unknown },
 	now = new Date()
 ): Promise<number> {
 	if (!needsSetup(db)) throw new UserError({ form: 'Setup is already complete. Sign in instead.' });
@@ -155,6 +156,9 @@ export async function setupFirstAdmin(
 	// The diagnosis code set (D44); US code suggestions start on for ICD-10-CM, off for ICD-11 (D45).
 	const codeSet = input.codeSet === undefined || input.codeSet === '' ? 'icd10cm' : input.codeSet;
 	if (!isCodeSetId(codeSet)) errors.codeSet = 'Choose ICD-10-CM or ICD-11.';
+	// The practice's default language (D48); absent = English.
+	const locale = input.locale === undefined || input.locale === '' ? DEFAULT_LOCALE : input.locale;
+	if (!isLocale(locale)) errors.locale = 'Choose a language.';
 	checkPre(db, input, errors);
 	if (Object.keys(errors).length) throw new UserError(errors);
 	const hash = await hashPassword(input.password);
@@ -169,7 +173,8 @@ export async function setupFirstAdmin(
 		const id = Number(lastInsertRowid);
 		seedDefaults(db, id);
 		if (isCodeSetId(codeSet)) updateCodeSettings(db, { codeSet, usBilling: defaultUsBilling(codeSet) }, null);
-		securityAudit(db, { action: 'auth.setup_admin', userId: id, detail: { username: input.username.trim(), codeSet } }, now);
+		setDefaultLocale(db, locale, null);
+		securityAudit(db, { action: 'auth.setup_admin', userId: id, detail: { username: input.username.trim(), codeSet, locale } }, now);
 		db.exec('COMMIT');
 		return id;
 	} catch (e) {

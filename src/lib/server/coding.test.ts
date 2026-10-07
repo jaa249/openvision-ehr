@@ -156,7 +156,7 @@ describe('migration (D46)', () => {
 		expect(tables(probe)).not.toContain('coding_lines');
 		expect(tables(probe)).toContain('coding_state');
 		const raw = new DatabaseSync(':memory:');
-		migrate(raw, latest - 1);
+		migrate(raw, latest - 2); // everything before billing-aid (the translations migration, D48, follows it)
 		expect(tables(raw)).toEqual(expect.arrayContaining(['visit_status', 'coding_lines']));
 		raw.exec("INSERT INTO users (id, display_name) VALUES (1, 'Dr. One')");
 		raw.exec("INSERT INTO patients (id, mrn, legal_first, legal_last, dob) VALUES (1, '1', 'Pat', 'Test', '1950-01-01')");
