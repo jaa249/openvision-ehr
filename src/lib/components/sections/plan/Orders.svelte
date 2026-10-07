@@ -3,6 +3,7 @@
 	// saved per exam. The pencil opens a small editor for the provider's own list (names, CPT, order).
 	import { onDestroy } from 'svelte';
 	import { registerFlush } from '#lib/exam/lock.svelte.ts';
+	import { SerialSave } from '#lib/exam/serial.ts';
 	import { postJson } from './api.ts';
 	import type { OrderOption, VisitOrder } from '#lib/plan/types.ts';
 	import { useI18n } from '#lib/i18n/context.ts';
@@ -43,26 +44,31 @@
 	/** Orders saved on this visit whose list item was removed since: still shown so they can be unticked. */
 	const orphans = $derived(details.filter((d) => d.optionId !== null && !options.some((o) => o.id === d.optionId)));
 
+	// One save in flight at a time: checks and text changed meanwhile are sent when it returns, so an
+	// older answer can never replace the newer choice on the server (the server replaces the whole set).
+	const saver = new SerialSave(async () => {
+		error = await onsave([...checked], planText);
+		return !error;
+	});
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	function schedule(delay: number) {
+		saver.changed();
 		clearTimeout(timer);
-		timer = setTimeout(async () => {
+		timer = setTimeout(() => {
 			timer = undefined;
-			error = await onsave([...checked], planText);
+			void saver.save();
 		}, delay);
 	}
-	async function flushNow() {
-		if (timer === undefined) return;
+	/** Saves now (after any save in flight); true when this visit's orders and plan are saved. */
+	function flushNow(): Promise<boolean> {
 		clearTimeout(timer);
 		timer = undefined;
-		error = await onsave([...checked], planText);
+		return saver.save();
 	}
 	// Signing saves first; leaving the pane (or the section) with a save waiting sends it now.
 	const unregister = registerFlush(flushNow);
-	onDestroy(() => {
-		unregister();
-		flushNow();
-	});
+	// A save still on its way when the pane closes keeps counting for signing until it settles.
+	onDestroy(() => void flushNow().finally(unregister));
 	function toggle(id: number, on: boolean) {
 		checked = on ? [...checked, id] : checked.filter((x) => x !== id);
 		schedule(250);

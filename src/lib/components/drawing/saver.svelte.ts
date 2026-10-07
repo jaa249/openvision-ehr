@@ -24,7 +24,10 @@ export class DrawingSaver {
 	#version = 0;
 	#savedVersion = 0;
 	#timer: ReturnType<typeof setTimeout> | undefined;
-	#inFlight = false;
+	/** The save on its way, if any (one at a time). */
+	#current: Promise<void> | null = null;
+	/** The last save went through (false after a failure or a refusal, until a save succeeds). */
+	#lastOk = true;
 	#failures = 0;
 	#stopped = false;
 	#disabled = false;
@@ -53,10 +56,20 @@ export class DrawingSaver {
 		this.#schedule(delay);
 	}
 
-	/** Saves now if anything is unsaved (page hide, panel closing). */
-	flush(keepalive = false): Promise<void> {
+	/**
+	 * Saves now if anything is unsaved (page hide, panel closing, before signing): waits for a save
+	 * already on its way, then sends the newest image. Resolves true only when the latest drawing is
+	 * saved; false when a save failed or was refused (the status says why).
+	 */
+	async flush(keepalive = false): Promise<boolean> {
 		clearTimeout(this.#timer);
-		return this.#save(keepalive);
+		if (this.#current) await this.#current;
+		while (this.dirty && !this.#disabled) {
+			clearTimeout(this.#timer);
+			await this.#start(keepalive);
+			if (!this.#lastOk) break;
+		}
+		return !this.dirty && this.#lastOk;
 	}
 
 	/** Stops timers (component destroyed); call flush first. */
@@ -75,12 +88,22 @@ export class DrawingSaver {
 	#schedule(delay: number): void {
 		clearTimeout(this.#timer);
 		if (this.#stopped) return;
-		this.#timer = setTimeout(() => void this.#save(false), delay);
+		this.#timer = setTimeout(() => void this.#start(false), delay);
+	}
+
+	/** Starts a save unless one is already on its way (then that one is returned). */
+	#start(keepalive: boolean): Promise<void> {
+		if (this.#current) return this.#current;
+		if (this.#disabled || !this.dirty) return Promise.resolve();
+		const run = this.#save(keepalive).finally(() => {
+			if (this.#current === run) this.#current = null;
+		});
+		this.#current = run;
+		return run;
 	}
 
 	async #save(keepalive: boolean): Promise<void> {
-		if (this.#inFlight || this.#disabled || !this.dirty) return;
-		this.#inFlight = true;
+		this.#lastOk = false;
 		const version = this.#version;
 		if (this.status !== 'retrying') this.status = 'saving';
 		let retry = false;
@@ -124,6 +147,7 @@ export class DrawingSaver {
 			}
 			const saved = (await res.json()) as { savedAt: string };
 			this.#savedVersion = version;
+			this.#lastOk = true;
 			this.#failures = 0;
 			this.message = null;
 			this.savedAt = new Date(saved.savedAt);
@@ -133,8 +157,6 @@ export class DrawingSaver {
 			this.status = 'retrying';
 			this.message = this.#t('drawing.notSavedRetrying');
 			retry = true;
-		} finally {
-			this.#inFlight = false;
 		}
 		if (retry) this.#schedule(backoff(this.#failures));
 		// Changed while the request was in flight: save the newer image too.

@@ -110,9 +110,9 @@ describe('saveIssue', () => {
 describe('deleteIssue', () => {
 	it('is scoped to the patient', () => {
 		const id = getPmsfh(db, 1, TODAY).issues[0].id;
-		expect(deleteIssue(db, 2, id)).toBe(false);
-		expect(deleteIssue(db, 1, id)).toBe(true);
-		expect(deleteIssue(db, 1, id)).toBe(false);
+		expect(deleteIssue(db, 2, id, 1)).toBe(false);
+		expect(deleteIssue(db, 1, id, 1)).toBe(true);
+		expect(deleteIssue(db, 1, id, 1)).toBe(false);
 	});
 });
 
@@ -133,7 +133,7 @@ describe('allergy status (unknown / none / listed)', () => {
 		setNoKnownAllergies(db, 2, 1, true, NOW);
 		const id = addAllergy(db, 2, { title: 'Latex' }, 1)!;
 		expect(getPmsfh(db, 2, TODAY).allergyStatus.kind).toBe('listed');
-		removeAllergy(db, 2, id);
+		removeAllergy(db, 2, id, 1);
 		expect(getPmsfh(db, 2, TODAY).allergyStatus).toEqual({ kind: 'unknown' });
 
 		setNoKnownAllergies(db, 2, 1, true, NOW);
@@ -141,7 +141,7 @@ describe('allergy status (unknown / none / listed)', () => {
 		expect(getPmsfh(db, 2, TODAY).allergyStatus).toEqual({ kind: 'listed', allergies: [{ title: 'Codeine', reaction: 'nausea' }] });
 
 		const cid = getPmsfh(db, 2, TODAY).issues[0].id;
-		deleteIssue(db, 2, cid);
+		deleteIssue(db, 2, cid, 1);
 		setNoKnownAllergies(db, 2, 1, true, NOW);
 		addIssuesFromShorthand(db, 2, 2, 1, 'ALLERGY', 'iodine', NOW);
 		expect(getPmsfh(db, 2, TODAY).allergyStatus.kind).toBe('listed');

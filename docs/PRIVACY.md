@@ -19,6 +19,8 @@ and publish OpenVision. "You" means the practice or person using it.
   your data.
 - You are the controller (or covered entity) for that data and decide how it is used, shared, kept and deleted, under
   the laws that apply to you. See the [Terms of Use](TERMS.md).
+- Deleting a past-history item (for example an old medication) hides it but does not erase it: it stays in the
+  database with its earlier versions, so the record shows what was known and when.
 
 ## 2. No telemetry
 
@@ -40,7 +42,9 @@ Admins can avoid code-set downloads entirely by importing the official files fro
 ## 4. Exports you make
 
 When you print, save a PDF, export CSV or FHIR files, or send a record to someone else, that copy leaves OpenVision's
-protection. Handling those copies is your responsibility. Every print and export is recorded in the audit log.
+protection. Handling those copies is your responsibility. Every print and export is recorded in the audit log,
+including printed prescriptions and patient documents opened or downloaded (an opened document is recorded at most
+once per user and file every 5 minutes). The separate print log cannot be edited or deleted either.
 
 ## 5. Support requests
 

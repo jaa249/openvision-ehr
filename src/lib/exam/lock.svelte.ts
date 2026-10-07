@@ -18,19 +18,25 @@ export function lockHeaders(): Record<string, string> {
 }
 
 // ---------- pending-save registry ----------
-// Savers that live inside panels (drawings) register a flush so the page can save everything
-// before signing.
-const flushers = new Set<() => Promise<void>>();
+// Savers that live inside panels (drawings, plan items, orders) register a flush so the page can
+// save everything before signing. A flush waits for any request in flight, sends whatever is still
+// unsaved and resolves true only when everything is saved.
+const flushers = new Set<() => Promise<boolean>>();
 
 /** Registers a flush to run before signing; returns the unregister function. */
-export function registerFlush(fn: () => Promise<void>): () => void {
+export function registerFlush(fn: () => Promise<boolean>): () => void {
 	flushers.add(fn);
 	return () => flushers.delete(fn);
 }
 
-/** Runs every registered flush (errors are ignored: the saver itself reports them). */
-export async function flushAll(): Promise<void> {
-	await Promise.allSettled([...flushers].map((f) => f()));
+/**
+ * Runs every registered flush. True only when every one saved everything; false when any failed or
+ * threw (the saver itself shows why). Signing refuses to go ahead on false, so nothing unsaved is
+ * left out of the signed record.
+ */
+export async function flushAll(): Promise<boolean> {
+	const results = await Promise.allSettled([...flushers].map((f) => f()));
+	return results.every((r) => r.status === 'fulfilled' && r.value === true);
 }
 
 // ---------- lock state ----------

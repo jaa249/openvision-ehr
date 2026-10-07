@@ -35,7 +35,8 @@
 
 	// ---------- IOP ----------
 	// Targets (§8.3 FIX): this visit's value, else the latest prior visit's, else the provider's default, else 21.
-	// The prior-visit step needs the server; until it answers, the provider default / 21 applies.
+	// The prior-visit and provider steps need the server (the VISIT's provider's defaults, not the
+	// viewer's `defaults`); until it answers, only this visit's own value / 21 applies.
 	let priorFallback = $state<Fallback | null>(null);
 	$effect(() => {
 		const ctrl = new AbortController();
@@ -50,12 +51,12 @@
 	const target = $derived(
 		priorFallback
 			? { OD: effectiveTarget('OD', findings, priorFallback), OS: effectiveTarget('OS', findings, priorFallback) }
-			: { OD: iopTarget('OD', findings, defaults), OS: iopTarget('OS', findings, defaults) }
+			: { OD: iopTarget('OD', findings), OS: iopTarget('OS', findings) }
 	);
 	/** Placeholder for an empty target box: what applies when nothing is typed. */
 	const fallbackTarget = $derived({
-		OD: priorFallback?.OD.value ?? iopTarget('OD', {}, defaults),
-		OS: priorFallback?.OS.value ?? iopTarget('OS', {}, defaults)
+		OD: priorFallback?.OD.value ?? iopTarget('OD', {}),
+		OS: priorFallback?.OS.value ?? iopTarget('OS', {})
 	});
 	const IOP_IDS: string[] = IOP_METHODS.flatMap((m) => [m.od, m.os]);
 

@@ -6,7 +6,8 @@
 // on 127.0.0.1, random port (server.cjs) → the database is opened (migrations) → window.
 // Every request from the app's windows carries the per-launch shell token, so other programs on the
 // computer cannot use the port. Exit: windows close → server stops (≤ 3 s for open requests) →
-// pre-update backup if an update is waiting → database checkpointed and closed → quit.
+// pre-update backup if an update is waiting → database checkpointed and closed → quit. A window kept
+// open with "Wait" (changes still saving) calls the whole exit off (lib/shutdown.cjs).
 const { app, BrowserWindow, Menu, dialog, ipcMain, session, shell, screen } = require('electron');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -19,6 +20,7 @@ const { pdfPageSize, pdfFileName, validIds } = require('./lib/pdf.cjs');
 const { takePreUpdateBackup } = require('./lib/backups.cjs');
 const windowState = require('./lib/windowstate.cjs');
 const { createUpdates } = require('./lib/updates.cjs');
+const { KEPT_OPEN, closeAll, shutdownDecision } = require('./lib/shutdown.cjs');
 const { checkDiskEncryption } = require('./lib/bitlocker.cjs');
 const { start } = require('./server.cjs');
 
@@ -131,6 +133,7 @@ function guard(wc) {
 			noLink: true
 		});
 		if (choice === 1) e.preventDefault(); // preventDefault here means: ignore beforeunload and close
+		else win?.emit(KEPT_OPEN); // "Wait": a quit or "Restart now" in progress is called off (closeAll)
 	});
 	wc.on('context-menu', (_e, params) => {
 		const items = [];
@@ -465,9 +468,11 @@ async function boot() {
 		app.exit(1);
 		return;
 	}
-	clearTmp(layout);
 	log = createLogger(layout.logFile, { echo: !PACKAGED });
 	log.info(`OpenVision ${VERSION} starting (Electron ${process.versions.electron}, ${PACKAGED ? 'installed' : 'development'})`);
+	// Only leftovers older than a day: data\tmp is shared with other Windows users' running copies.
+	const cleared = clearTmp(layout).length;
+	if (cleared) log.info(`deleted ${cleared} old file${cleared === 1 ? '' : 's'} from data\\tmp`);
 	// The server's own warnings and errors go to the log too (they never contain request bodies).
 	console.error = (...a) => log.error(...a);
 	console.warn = (...a) => log.warn(...a);
@@ -476,6 +481,7 @@ async function boot() {
 	const token = makeToken();
 	Object.assign(process.env, {
 		OPENVISION_DB: layout.db,
+		OPENVISION_BACKUP_DIR: layout.backups, // pre-migration backups go next to the pre-update ones (db.ts)
 		OPENVISION_DEMO: '0', // first run goes to /setup
 		BODY_SIZE_LIMIT: '20M',
 		NODE_ENV: 'production',
@@ -556,45 +562,36 @@ async function forgetSignIn() {
 	}
 }
 
-/** Closes every window (pages release exam locks on the way out), waiting at most `ms`. */
-function closeWindows(ms = 3000) {
-	const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed());
-	if (!wins.length) return Promise.resolve();
-	return new Promise((resolve) => {
-		let left = wins.length;
-		const timer = setTimeout(resolve, ms);
-		for (const w of wins) {
-			w.once('closed', () => {
-				if (--left === 0) {
-					clearTimeout(timer);
-					resolve();
-				}
-			});
-			w.close();
-		}
-	});
-}
-
-/** Stops everything in order. Resolves false only when a needed pre-update backup failed. */
+/**
+ * Stops everything in order. Resolves { cancelled, backedUp }: cancelled when a window was kept open
+ * with "Wait" (then nothing else is touched: server, database and sign-in stay, and a waiting update
+ * installs on the next normal close); backedUp is false only when a needed pre-update backup failed.
+ */
 function shutdown() {
 	if (shutdownPromise) return shutdownPromise;
 	shutdownPromise = (async () => {
 		log?.info('shutting down');
-		await closeWindows();
+		// Pages release exam locks on the way out; at most 3 s unless a page asks to wait.
+		const closed = await closeAll(BrowserWindow.getAllWindows(), 3000);
+		if (shutdownDecision(closed) === 'cancel') {
+			log?.info('shutdown called off: a window still has changes being saved');
+			shutdownPromise = null; // the next close starts over
+			return { cancelled: true, backedUp: false };
+		}
 		await forgetSignIn();
 		try {
 			await srv?.close(3000);
 		} catch (e) {
 			log?.error('stopping the server failed:', e);
 		}
-		const ok = updates ? updates.backupBeforeInstall() : true;
+		const backedUp = updates ? updates.backupBeforeInstall() : true;
 		try {
 			dbHook()?.close();
 			log?.info('database closed');
 		} catch (e) {
 			log?.error('closing the database failed:', e);
 		}
-		return ok;
+		return { cancelled: false, backedUp };
 	})();
 	return shutdownPromise;
 }
@@ -614,10 +611,13 @@ if (!app.requestSingleInstanceLock()) {
 	app.on('before-quit', (e) => {
 		if (shutdownDone) return;
 		e.preventDefault();
-		void shutdown().finally(() => {
-			shutdownDone = true;
-			app.quit();
-		});
+		void shutdown()
+			.then((r) => r.cancelled !== true, () => true)
+			.then((go) => {
+				if (!go) return; // "Wait": the app keeps running
+				shutdownDone = true;
+				app.quit();
+			});
 	});
 	app.on('window-all-closed', () => app.quit());
 	app.on('web-contents-created', (_e, wc) => {

@@ -2,6 +2,7 @@
 // Every read and write is scoped by patient id (and encounter id where there is one), like exam.ts.
 import type { DB } from './db.ts';
 import { getEncounter } from './exam.ts';
+import { audit } from './audit.ts';
 import {
 	DISPENSE_KEYS,
 	formatAxis,
@@ -145,6 +146,8 @@ export function createDispense(
 			.run(patientId, encounterId, enc.providerId, userId, at, enc.date, rxExpiry(enc.date, input.source), kind, slot, input.rxType, json);
 		id = Number(res.lastInsertRowid);
 		db.prepare("INSERT INTO print_log (user_id, encounter_id, printed_at, kind) VALUES (?, ?, ?, 'print')").run(userId, encounterId, at);
+		// Shown in the Settings audit view; the record id only, no prescription values.
+		audit(db, { userId, action: 'rx.print', patientId, encounterId, detail: { rx: id, type: kind } }, now);
 		db.exec('COMMIT');
 	} catch (e) {
 		db.exec('ROLLBACK');

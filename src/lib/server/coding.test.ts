@@ -153,13 +153,12 @@ describe('migration (D46)', () => {
 	it('drops the visit status and billing-lines tables; the chosen codes (coding_state) stay', () => {
 		const probe = new DatabaseSync(':memory:');
 		migrate(probe);
-		const latest = (probe.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number }).v;
 		const tables = (d: DatabaseSync) => (d.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map((r) => r.name);
 		expect(tables(probe)).not.toContain('visit_status');
 		expect(tables(probe)).not.toContain('coding_lines');
 		expect(tables(probe)).toContain('coding_state');
 		const raw = new DatabaseSync(':memory:');
-		migrate(raw, latest - 3); // everything before billing-aid (the translations, D48, and ICD-11 titles, D50, migrations follow it)
+		migrate(raw, 14); // everything before billing-aid (the translations, D48, and ICD-11 titles, D50, migrations follow it)
 		expect(tables(raw)).toEqual(expect.arrayContaining(['visit_status', 'coding_lines']));
 		raw.exec("INSERT INTO users (id, display_name) VALUES (1, 'Dr. One')");
 		raw.exec("INSERT INTO patients (id, mrn, legal_first, legal_last, dob) VALUES (1, '1', 'Pat', 'Test', '1950-01-01')");

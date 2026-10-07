@@ -19,7 +19,7 @@
 	"lockedOther": "Las metas son de solo lectura en este momento.",
 	"sourceExam": "fijada en esta consulta",
 	"sourcePrior": "de la última consulta que fijó una",
-	"sourceProvider": "su valor predeterminado",
+	"sourceProvider": "el valor predeterminado del profesional",
 	"sourceDefault": "estándar 21",
 	"noVisits": "Aún no hay consultas.",
 	"currentMeds": "Medicamentos oculares actuales",
@@ -70,5 +70,6 @@
 	"datePoint": "{date}: PIO {eye} {value} mmHg por {method}, meta {target}",
 	"datePointHigh": "{date}: PIO {eye} {value} mmHg por {method}, meta {target}, sobre la meta",
 	"markerPerformed": "{kind} realizado el {date}",
-	"markerPerformedOpen": "{kind} realizado el {date}. Presione para abrir."
+	"markerPerformedOpen": "{kind} realizado el {date}. Presione para abrir.",
+	"sourceProviderNamed": "valor predeterminado de {name}"
 }

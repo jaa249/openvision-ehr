@@ -146,7 +146,7 @@
 	"vahThisVisit": "यह विज़िट",
 	"tgtSourceExam": "यह विज़िट",
 	"tgtSourcePrior": "पिछली विज़िट",
-	"tgtSourceProvider": "आपका डिफ़ॉल्ट",
+	"tgtSourceProvider": "प्रोवाइडर का डिफ़ॉल्ट",
 	"tgtSourceDefault": "मानक",
 	"tgtSetHere": "इस विज़िट में तय",
 	"tgtUntilSet": "तय होने तक {value} इस्तेमाल हो रहा है",
@@ -154,10 +154,10 @@
 	"tgtUsingSource": "{value} इस्तेमाल हो रहा है ({source})",
 	"tgtTitle": "टारगेट IOP",
 	"tgtEyeLabel": "टारगेट IOP {eye}",
-	"tgtHelp": "टारगेट से ऊपर की रीडिंग चिह्नित होती हैं। खाली बॉक्स में पिछली विज़िट का टारगेट, फिर आपका डिफ़ॉल्ट, फिर 21 लिया जाता है। शॉर्टहैंड {codes}।",
+	"tgtHelp": "टारगेट से ऊपर की रीडिंग चिह्नित होती हैं। खाली बॉक्स में पिछली विज़िट का टारगेट, फिर इस विज़िट के प्रोवाइडर का डिफ़ॉल्ट, फिर 21 लिया जाता है। शॉर्टहैंड {codes}।",
 	"tgtSourceLabelExam": "इस विज़िट में तय",
 	"tgtSourceLabelPrior": "पिछली विज़िट से जिसमें तय किया गया",
-	"tgtSourceLabelProvider": "आपका डिफ़ॉल्ट",
+	"tgtSourceLabelProvider": "प्रोवाइडर का डिफ़ॉल्ट",
 	"tgtSourceLabelDefault": "मानक 21",
 	"rxGlassesN": "चश्मा #{n}",
 	"rxColSphere": "स्फ़ीयर",
@@ -581,5 +581,8 @@
 	"fieldDilationDrop": "डाइलेशन ड्रॉप: {name} {strengths}",
 	"fieldDilationOther": "डाइलेशन: अन्य ड्रॉप्स",
 	"fieldDilationTime": "डाइलेशन का समय",
-	"fieldDilationRisks": "डाइलेशन के जोखिमों पर चर्चा हुई"
+	"fieldDilationRisks": "डाइलेशन के जोखिमों पर चर्चा हुई",
+	"tgtSourceProviderNamed": "{name} का डिफ़ॉल्ट",
+	"rxTransposeNeedSph": "{source} {eye}: ट्रांसपोज़ करने से पहले स्फीयर (या PLANO) दर्ज करें।",
+	"rxTransposeNeedAxis": "{source} {eye}: ट्रांसपोज़ करने से पहले एक्सिस दर्ज करें।"
 }

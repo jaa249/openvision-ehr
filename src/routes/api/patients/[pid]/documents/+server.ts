@@ -6,7 +6,7 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '#lib/server/db.ts';
 import { isDocZone, listCategories, listDocuments, MAX_DOCUMENT_BYTES, uploadDocument, zoneSummary } from '#lib/server/documents.ts';
-import { BODY_LIMIT_MESSAGE, editGuard, rethrow, routeId } from './_shared.ts';
+import { BODY_LIMIT_MESSAGE, editGuard, editWrite, rethrow, routeId } from './_shared.ts';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = ({ params, url }) => {
@@ -38,6 +38,7 @@ export const POST: RequestHandler = async ({ params, url, request, locals }) => 
 	const enc = q.get('encounter');
 	const encounterId = enc ? routeId(enc) : null;
 	const db = getDb();
+	// Early check, so a refused page does not upload up to 15 MB for nothing; checked again before the write.
 	const locked = editGuard(db, pid, encounterId, locals.userId, request);
 	if (locked) return locked;
 	const declared = Number(request.headers.get('content-length') ?? 0);
@@ -51,21 +52,24 @@ export const POST: RequestHandler = async ({ params, url, request, locals }) => 
 		throw e;
 	}
 	try {
-		const doc = uploadDocument(
-			db,
-			pid,
-			{
-				category: q.get('category') ?? '',
-				filename: q.get('filename'),
-				encounterId,
-				takenOn: q.get('takenOn'),
-				notes: q.get('notes'),
-				bytes
-			},
-			locals.userId
-		);
-		if (!doc) error(404, 'Not found');
-		return json(doc, { status: 201 });
+		// Checked again once the file has arrived: the visit may have been signed meanwhile.
+		return editWrite(db, pid, encounterId, locals.userId, request, () => {
+			const doc = uploadDocument(
+				db,
+				pid,
+				{
+					category: q.get('category') ?? '',
+					filename: q.get('filename'),
+					encounterId,
+					takenOn: q.get('takenOn'),
+					notes: q.get('notes'),
+					bytes
+				},
+				locals.userId
+			);
+			if (!doc) error(404, 'Not found');
+			return json(doc, { status: 201 });
+		});
 	} catch (e) {
 		rethrow(e);
 	}

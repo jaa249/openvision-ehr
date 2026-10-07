@@ -13,7 +13,11 @@ import { CODESETS_SQL } from './migrations/codesets.ts';
 import { BILLING_AID_SQL } from './migrations/billing_aid.ts';
 import { I18N_SQL } from './migrations/i18n.ts';
 import { ICD11_TITLES_SQL } from './migrations/icd11_titles.ts';
+import { HISTORY_INTEGRITY_SQL } from './migrations/history_integrity.ts';
+import { SIGNED_FINAL_SQL } from './migrations/signed_final.ts';
+import { PRINT_LOG_APPEND_ONLY_SQL } from './migrations/print_log_append_only.ts';
 import { DEMO_USERS, demoPasswordHash } from './auth.ts';
+import { backupBeforeMigrate } from './premigrate.ts';
 
 /** Earlier visits for the demo patient, so prior-visit review has something to show. */
 const DEMO_PRIORS: { id: number; date: string; type: string; findings: Record<string, string> }[] = [
@@ -243,7 +247,10 @@ const MIGRATIONS: string[] = [
 	CODESETS_SQL,
 	BILLING_AID_SQL,
 	I18N_SQL,
-	ICD11_TITLES_SQL
+	ICD11_TITLES_SQL,
+	HISTORY_INTEGRITY_SQL,
+	SIGNED_FINAL_SQL,
+	PRINT_LOG_APPEND_ONLY_SQL
 ];
 
 /** Brings the schema up to `target` (default: latest). Tests pass a lower target to check data migrations. */
@@ -261,6 +268,39 @@ export function migrate(db: DB, target = MIGRATIONS.length): void {
 			db.exec('ROLLBACK');
 			throw e;
 		}
+	}
+}
+
+let savepoints = 0;
+
+/**
+ * Runs `fn` in a transaction: committed when it returns, rolled back when it throws. Inside a
+ * transaction that is already open it uses a savepoint instead, so a write that has its own
+ * transaction can run inside a larger one (signing.ts editTransaction). `immediate` takes the write
+ * lock at the start (BEGIN IMMEDIATE), so a check made inside cannot go stale before the write.
+ */
+export function transaction<T>(db: DB, fn: () => T, immediate = false): T {
+	if (db.isTransaction) {
+		const name = `sp${++savepoints}`;
+		db.exec(`SAVEPOINT ${name}`);
+		try {
+			const result = fn();
+			db.exec(`RELEASE ${name}`);
+			return result;
+		} catch (e) {
+			db.exec(`ROLLBACK TO ${name}`);
+			db.exec(`RELEASE ${name}`);
+			throw e;
+		}
+	}
+	db.exec(immediate ? 'BEGIN IMMEDIATE' : 'BEGIN');
+	try {
+		const result = fn();
+		db.exec('COMMIT');
+		return result;
+	} catch (e) {
+		if (db.isTransaction) db.exec('ROLLBACK');
+		throw e;
 	}
 }
 
@@ -320,12 +360,24 @@ export function seedDemo(db: DB, today = new Date().toISOString().slice(0, 10)):
 	db.exec('COMMIT');
 }
 
-export function openDatabase(path: string): DB {
-	if (path !== ':memory:') mkdirSync(dirname(resolve(path)), { recursive: true });
+/**
+ * Opens (or creates) the database and brings its schema up to date. An existing file with an older
+ * schema is first copied to a pre-migration backup (premigrate.ts); if that copy fails, nothing is
+ * migrated and this throws. `backupDir` overrides where that copy goes (tests).
+ */
+export function openDatabase(path: string, { backupDir }: { backupDir?: string } = {}): DB {
+	const onDisk = path !== ':memory:' && path !== '';
+	if (onDisk) mkdirSync(dirname(resolve(path)), { recursive: true });
 	const db = new DatabaseSync(path);
-	if (path !== ':memory:') db.exec('PRAGMA journal_mode = WAL');
-	db.exec('PRAGMA busy_timeout = 5000');
-	migrate(db);
+	try {
+		if (onDisk) db.exec('PRAGMA journal_mode = WAL');
+		db.exec('PRAGMA busy_timeout = 5000');
+		if (onDisk) backupBeforeMigrate(db, path, MIGRATIONS.length, backupDir ? { dir: backupDir } : {});
+		migrate(db);
+	} catch (e) {
+		db.close();
+		throw e;
+	}
 	return db;
 }
 

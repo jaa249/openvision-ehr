@@ -150,7 +150,7 @@
 	"vahThisVisit": "هذه الزيارة",
 	"tgtSourceExam": "هذه الزيارة",
 	"tgtSourcePrior": "الزيارة السابقة",
-	"tgtSourceProvider": "قيمتك الافتراضية",
+	"tgtSourceProvider": "القيمة الافتراضية للطبيب",
 	"tgtSourceDefault": "القياسي",
 	"tgtSetHere": "حُدد في هذه الزيارة",
 	"tgtUntilSet": "تُستخدم {value} حتى التحديد",
@@ -158,10 +158,10 @@
 	"tgtUsingSource": "تُستخدم {value} ({source})",
 	"tgtTitle": "الضغط المستهدف",
 	"tgtEyeLabel": "الضغط المستهدف {eye}",
-	"tgtHelp": "تُميَّز القراءات الأعلى من الهدف. تستخدم الخانات الفارغة هدف الزيارة السابقة، ثم قيمتك الافتراضية، ثم 21. الاختصار {codes}.",
+	"tgtHelp": "تُميَّز القراءات الأعلى من الهدف. تستخدم الخانات الفارغة هدف الزيارة السابقة، ثم القيمة الافتراضية لطبيب هذه الزيارة، ثم 21. الاختصار {codes}.",
 	"tgtSourceLabelExam": "حُدد في هذه الزيارة",
 	"tgtSourceLabelPrior": "من آخر زيارة حُدد فيها",
-	"tgtSourceLabelProvider": "قيمتك الافتراضية",
+	"tgtSourceLabelProvider": "القيمة الافتراضية للطبيب",
 	"tgtSourceLabelDefault": "القيمة القياسية 21",
 	"rxGlassesN": "النظارة رقم {n}",
 	"rxColSphere": "الكروي",
@@ -585,5 +585,8 @@
 	"fieldDilationDrop": "قطرة التوسيع: {name} {strengths}",
 	"fieldDilationOther": "التوسيع: قطرات أخرى",
 	"fieldDilationTime": "وقت التوسيع",
-	"fieldDilationRisks": "نوقشت مخاطر التوسيع"
+	"fieldDilationRisks": "نوقشت مخاطر التوسيع",
+	"tgtSourceProviderNamed": "القيمة الافتراضية لـ {name}",
+	"rxTransposeNeedSph": "{source} {eye}: أدخل الكرة (أو PLANO) قبل التحويل.",
+	"rxTransposeNeedAxis": "{source} {eye}: أدخل المحور قبل التحويل."
 }

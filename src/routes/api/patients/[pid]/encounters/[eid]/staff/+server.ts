@@ -5,7 +5,7 @@ import { audit } from '#lib/server/audit.ts';
 import { getDb } from '#lib/server/db.ts';
 import { getEncounter } from '#lib/server/exam.ts';
 import { PatientValidationError, setVisitStaff } from '#lib/server/patients.ts';
-import { guardEditable } from '#lib/server/signing.ts';
+import { editableWrite } from '#lib/server/signing.ts';
 import type { RequestHandler } from './$types';
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
@@ -13,10 +13,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const eid = Number(params.eid);
 	if (!Number.isSafeInteger(pid) || !Number.isSafeInteger(eid)) error(404, 'Not found');
 	const db = getDb();
-	const before = getEncounter(db, pid, eid);
-	if (!before) error(404, 'Not found');
-	const locked = guardEditable(db, pid, eid, locals.userId, request);
-	if (locked) return locked;
+	if (!getEncounter(db, pid, eid)) error(404, 'Not found');
 
 	let body: { providerId?: unknown; technicianId?: unknown };
 	try {
@@ -26,21 +23,26 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 	const providerId = Number(body.providerId);
 	const technicianId = body.technicianId == null || body.technicianId === '' ? null : Number(body.technicianId);
-	try {
-		setVisitStaff(db, pid, eid, { providerId, technicianId });
-	} catch (e) {
-		if (e instanceof PatientValidationError) error(400, e.message);
-		throw e;
-	}
-	const after = getEncounter(db, pid, eid)!;
-	if (after.providerId !== before.providerId || after.technicianId !== before.technicianId) {
-		audit(db, {
-			userId: locals.userId,
-			action: 'exam.staff',
-			patientId: pid,
-			encounterId: eid,
-			detail: { provider: [before.providerId, after.providerId], technician: [before.technicianId, after.technicianId] }
-		});
-	}
-	return json({ encounter: after });
+	// The lock and signature are checked once the body is here, inside the same transaction as the
+	// change and its audit row (423 when signed or locked).
+	return editableWrite(db, pid, eid, locals.userId, request, () => {
+		const was = getEncounter(db, pid, eid)!; // as it is now, not before the body arrived
+		try {
+			setVisitStaff(db, pid, eid, { providerId, technicianId });
+		} catch (e) {
+			if (e instanceof PatientValidationError) error(400, e.message);
+			throw e;
+		}
+		const after = getEncounter(db, pid, eid)!;
+		if (after.providerId !== was.providerId || after.technicianId !== was.technicianId) {
+			audit(db, {
+				userId: locals.userId,
+				action: 'exam.staff',
+				patientId: pid,
+				encounterId: eid,
+				detail: { provider: [was.providerId, after.providerId], technician: [was.technicianId, after.technicianId] }
+			});
+		}
+		return json({ encounter: after });
+	});
 };

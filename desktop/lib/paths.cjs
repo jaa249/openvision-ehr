@@ -4,7 +4,8 @@
 //   C:\ProgramData\OpenVision\            created by the installer, ACL: SYSTEM + Administrators full,
 //     data\openvision.sqlite               "OpenVision Users" modify, nobody else
 //     data\codes\                          diagnosis code files (D49: <database folder>\codes)
-//     data\tmp\                            downloads in progress (inside the protected folder, never %TEMP%)
+//     data\tmp\                            downloads in progress (inside the protected folder, never %TEMP%);
+//                                          leftovers older than 24 h are deleted at start
 //     logs\openvision.log
 //     backups\                             pre-update copies of the database
 //
@@ -56,13 +57,33 @@ function prepareDataDir(layout, { mustExist = false } = {}) {
 	}
 }
 
-/** Deletes leftovers in data\tmp (a download interrupted by a crash may hold patient data). */
-function clearTmp(layout) {
+const TMP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Deletes leftovers in data\tmp (a download interrupted by a crash may hold patient data). data\tmp is
+ * shared by every Windows user's copy of the app (fast user switching), so only entries untouched for
+ * `maxAgeMs` (24 h) go: another user's download in progress, or waiting in their Save dialog, stays.
+ * One locked or vanished file never stops the rest. Returns the names deleted.
+ */
+function clearTmp(layout, { now = Date.now(), maxAgeMs = TMP_MAX_AGE_MS } = {}) {
+	let names;
 	try {
-		for (const name of fs.readdirSync(layout.tmp)) fs.rmSync(path.join(layout.tmp, name), { force: true, recursive: true });
+		names = fs.readdirSync(layout.tmp);
 	} catch {
-		// nothing to clear
+		return []; // nothing to clear
 	}
+	const removed = [];
+	for (const name of names) {
+		const file = path.join(layout.tmp, name);
+		try {
+			if (now - fs.statSync(file).mtimeMs < maxAgeMs) continue;
+			fs.rmSync(file, { force: true, recursive: true });
+			removed.push(name);
+		} catch {
+			// in use by another user's app, or already gone: tried again at the next start
+		}
+	}
+	return removed;
 }
 
-module.exports = { resolveDataDir, dataLayout, prepareDataDir, clearTmp };
+module.exports = { resolveDataDir, dataLayout, prepareDataDir, clearTmp, TMP_MAX_AGE_MS };

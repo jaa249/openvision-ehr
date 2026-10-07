@@ -146,7 +146,7 @@
 	"vahThisVisit": "this visit",
 	"tgtSourceExam": "this visit",
 	"tgtSourcePrior": "last visit",
-	"tgtSourceProvider": "your default",
+	"tgtSourceProvider": "provider's default",
 	"tgtSourceDefault": "standard",
 	"tgtSetHere": "Set at this visit",
 	"tgtUntilSet": "Using {value} until set",
@@ -154,10 +154,10 @@
 	"tgtUsingSource": "Using {value} ({source})",
 	"tgtTitle": "Target IOP",
 	"tgtEyeLabel": "Target IOP {eye}",
-	"tgtHelp": "Readings above the target are flagged. Empty boxes use the last visit's target, then your default, then 21. Shorthand {codes}.",
+	"tgtHelp": "Readings above the target are flagged. Empty boxes use the last visit's target, then the default of this visit's provider, then 21. Shorthand {codes}.",
 	"tgtSourceLabelExam": "set at this visit",
 	"tgtSourceLabelPrior": "from the last visit that set one",
-	"tgtSourceLabelProvider": "your default",
+	"tgtSourceLabelProvider": "the provider's default",
 	"tgtSourceLabelDefault": "standard 21",
 	"rxGlassesN": "Glasses #{n}",
 	"rxColSphere": "sphere",
@@ -581,5 +581,8 @@
 	"fieldDilationDrop": "Dilation drop: {name} {strengths}",
 	"fieldDilationOther": "Dilation: other drops",
 	"fieldDilationTime": "Dilation time",
-	"fieldDilationRisks": "Dilation risks discussed"
+	"fieldDilationRisks": "Dilation risks discussed",
+	"tgtSourceProviderNamed": "{name}'s default",
+	"rxTransposeNeedSph": "{source} {eye}: enter the sphere (or PLANO) before transposing.",
+	"rxTransposeNeedAxis": "{source} {eye}: enter the axis before transposing."
 }

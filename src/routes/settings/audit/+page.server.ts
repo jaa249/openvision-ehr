@@ -2,7 +2,7 @@ import { getDb } from '#lib/server/db.ts';
 import { requireRole } from '#lib/server/auth.ts';
 import { isRealDate } from '#lib/server/patients.ts';
 import { listUsers } from '#lib/server/users.ts';
-import { AUDIT_PAGE_SIZE, auditActions, searchAudit, type AuditFilter } from '#lib/server/security_audit.ts';
+import { AUDIT_PAGE_SIZE, auditActions, OUTPUT_GROUP, searchAudit, type AuditFilter } from '#lib/server/security_audit.ts';
 import type { PageServerLoad } from './$types';
 
 // Admin only, read-only: there is no edit or delete anywhere (the table refuses both, see migrations/auth.ts).
@@ -27,7 +27,7 @@ export const load: PageServerLoad = ({ locals, url }) => {
 		else errors.patient = 'No patient with that MRN or id.';
 	}
 	const actions = auditActions(db);
-	if (raw.action && actions.includes(raw.action)) filter.action = raw.action;
+	if (raw.action && (actions.includes(raw.action) || raw.action === OUTPUT_GROUP)) filter.action = raw.action;
 	for (const k of ['from', 'to'] as const) {
 		if (!raw[k]) continue;
 		if (isRealDate(raw[k])) filter[k] = raw[k];

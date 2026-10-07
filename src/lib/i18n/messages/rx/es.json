@@ -109,5 +109,7 @@
 	"historyMaterial": "Material: {material}.",
 	"historyTreatments": "Tratamientos: {treatments}.",
 	"byManufacturer": "de {name}",
-	"viaSupplier": "vía {name}"
+	"viaSupplier": "vía {name}",
+	"transposeNeedSph": "{eye}: introduzca la esfera (o PLANO) antes de transponer.",
+	"transposeNeedAxis": "{eye}: introduzca el eje antes de transponer."
 }

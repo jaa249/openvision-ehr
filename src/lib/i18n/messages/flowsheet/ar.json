@@ -19,7 +19,7 @@
 	"lockedOther": "الأهداف للقراءة فقط حاليًا.",
 	"sourceExam": "حُدد في هذه الزيارة",
 	"sourcePrior": "من آخر زيارة حُدد فيها",
-	"sourceProvider": "قيمتك الافتراضية",
+	"sourceProvider": "القيمة الافتراضية للطبيب",
 	"sourceDefault": "القيمة القياسية 21",
 	"noVisits": "لا توجد زيارات بعد.",
 	"currentMeds": "أدوية العين الحالية",
@@ -70,5 +70,6 @@
 	"datePoint": "{date}: ضغط العين {eye} {value} mmHg بطريقة {method}، الهدف {target}",
 	"datePointHigh": "{date}: ضغط العين {eye} {value} mmHg بطريقة {method}، الهدف {target}، أعلى من الهدف",
 	"markerPerformed": "{kind} أُجري في {date}",
-	"markerPerformedOpen": "{kind} أُجري في {date}. اضغط للفتح."
+	"markerPerformedOpen": "{kind} أُجري في {date}. اضغط للفتح.",
+	"sourceProviderNamed": "القيمة الافتراضية لـ {name}"
 }

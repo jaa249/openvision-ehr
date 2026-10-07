@@ -109,5 +109,7 @@
 	"historyMaterial": "मटीरियल: {material}।",
 	"historyTreatments": "ट्रीटमेंट: {treatments}।",
 	"byManufacturer": "{name} द्वारा निर्मित",
-	"viaSupplier": "{name} के ज़रिए"
+	"viaSupplier": "{name} के ज़रिए",
+	"transposeNeedSph": "{eye}: ट्रांसपोज़ करने से पहले स्फीयर (या PLANO) दर्ज करें।",
+	"transposeNeedAxis": "{eye}: ट्रांसपोज़ करने से पहले एक्सिस दर्ज करें।"
 }

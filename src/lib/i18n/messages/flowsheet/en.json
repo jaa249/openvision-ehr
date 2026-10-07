@@ -19,7 +19,7 @@
 	"lockedOther": "Targets are read-only right now.",
 	"sourceExam": "set at this visit",
 	"sourcePrior": "from the last visit that set one",
-	"sourceProvider": "your default",
+	"sourceProvider": "the provider's default",
 	"sourceDefault": "standard 21",
 	"noVisits": "No visits yet.",
 	"currentMeds": "Current eye medicines",
@@ -70,5 +70,6 @@
 	"datePoint": "{date}: IOP {eye} {value} mmHg by {method}, target {target}",
 	"datePointHigh": "{date}: IOP {eye} {value} mmHg by {method}, target {target}, above target",
 	"markerPerformed": "{kind} performed {date}",
-	"markerPerformedOpen": "{kind} performed {date}. Press to open."
+	"markerPerformedOpen": "{kind} performed {date}. Press to open.",
+	"sourceProviderNamed": "{name}'s default"
 }

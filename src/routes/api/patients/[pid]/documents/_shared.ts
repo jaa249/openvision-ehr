@@ -3,7 +3,7 @@ import { error } from '@sveltejs/kit';
 import type { DB } from '#lib/server/db.ts';
 import { DocumentError } from '#lib/server/documents.ts';
 import { getEncounter } from '#lib/server/exam.ts';
-import { guardEditable } from '#lib/server/signing.ts';
+import { editableWrite, guardEditable } from '#lib/server/signing.ts';
 
 /** Parses a route id; anything that is not a positive safe integer is a plain 404. */
 export function routeId(raw: string | undefined): number {
@@ -26,6 +26,17 @@ export function editGuard(db: DB, patientId: number, encounterId: number | null,
 	if (encounterId === null) return null;
 	if (!getEncounter(db, patientId, encounterId)) error(404, 'Not found');
 	return guardEditable(db, patientId, encounterId, userId, request);
+}
+
+/**
+ * Runs a document write. A visit's file is written inside the exam's edit transaction: the lock and
+ * signature are checked there, after the request body arrived (423 when signed or locked, D36), so a
+ * body that arrives after signing changes nothing. Patient-level papers are written directly.
+ */
+export function editWrite(db: DB, patientId: number, encounterId: number | null, userId: number, request: Request, write: () => Response): Response {
+	if (encounterId === null) return write();
+	if (!getEncounter(db, patientId, encounterId)) error(404, 'Not found');
+	return editableWrite(db, patientId, encounterId, userId, request, write);
 }
 
 /** Maps a DocumentError to its HTTP status; anything else is rethrown. */

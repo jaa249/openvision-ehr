@@ -87,11 +87,8 @@ describe('folding for matching', () => {
 
 describe('migration', () => {
 	it('adds the titles tables and title_lang (empty for rows saved before)', () => {
-		const probe = new DatabaseSync(':memory:');
-		migrate(probe);
-		const latest = (probe.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number }).v;
 		const raw = new DatabaseSync(':memory:');
-		migrate(raw, latest - 1);
+		migrate(raw, 16);
 		seedDemo(raw, '2026-10-07');
 		const at = '2026-10-07T10:00:00.000Z';
 		raw

@@ -4,12 +4,29 @@ import { getDb } from '#lib/server/db.ts';
 import { SESSION_COOKIE, isBackgroundRequest, needsSetup, resolveSession, routeKind } from '#lib/server/auth.ts';
 import { securityAudit } from '#lib/server/security_audit.ts';
 import { SHELL_HEADER, SHELL_REFUSED, shellTokenOk } from '#lib/server/shell.ts';
-import { LANG_COOKIE, resolveLocale } from '#lib/server/i18n.ts';
+import { LANG_COOKIE, resolveLocale, serverT } from '#lib/server/i18n.ts';
 import { localeDir, localeTag } from '#lib/i18n/locales.ts';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const CHART_PAGE = /^\/patients\/(\d+)$/;
 const EXAM_PAGE = /^\/patients\/(\d+)\/encounters\/(\d+)$/;
+const CHANGE_PASSWORD_PAGE = '/settings/me';
+
+/**
+ * What a user with a temporary password may still do (besides public routes: sign-in, logout, legal,
+ * static files): open the change-password page (GET/HEAD, incl. its data request), post its password
+ * form action (only `?/password`; the page's other action is refused), and the session status that
+ * drives the automatic-logoff warning (no data; without it the warning would never come on that page).
+ */
+function allowedWithTemporaryPassword(method: string, url: URL): boolean {
+	const path = url.pathname;
+	if (path === CHANGE_PASSWORD_PAGE) {
+		if (method === 'GET' || method === 'HEAD') return true;
+		const actions = [...url.searchParams.keys()].filter((k) => k.startsWith('/'));
+		return method === 'POST' && actions.length === 1 && actions[0] === '/password';
+	}
+	return path === '/api/session' && (method === 'GET' || method === 'POST');
+}
 
 /** Chart access audit (164.312(b)): a successful GET of a chart or exam page (full load or client navigation). */
 function auditChartView(db: ReturnType<typeof getDb>, userId: number, path: string): void {
@@ -81,9 +98,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		redirect(303, needsSetup(db) ? '/setup' : `/login?next=${encodeURIComponent(path + event.url.search)}`);
 	}
 
-	// A temporary password (new account or admin reset) must be changed before anything else.
-	if (user?.mustChangePassword && kind === 'page' && event.request.method === 'GET' && path !== '/settings/me') {
-		redirect(303, '/settings/me?required=1');
+	// A temporary password (new account or admin reset) must be changed before anything else: pages
+	// go to the change-password page, every other request (APIs, exports, form posts) is refused.
+	if (user?.mustChangePassword && kind !== 'public' && !allowedWithTemporaryPassword(event.request.method, event.url)) {
+		if (kind === 'page' && (event.request.method === 'GET' || event.request.method === 'HEAD')) redirect(303, `${CHANGE_PASSWORD_PAGE}?required=1`);
+		return secure(json({ error: serverT(locale).t('server.mustChangePassword') }, { status: 403 }), true);
 	}
 
 	const response = await resolve(event, {

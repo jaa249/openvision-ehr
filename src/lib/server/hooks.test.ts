@@ -125,6 +125,56 @@ describe('hooks gate', () => {
 		db.prepare('UPDATE users SET must_change_password = 0 WHERE id = 2').run();
 	});
 
+	it('a temporary password blocks every API, export and form post except changing it (finding #15)', async () => {
+		const db = getDb();
+		db.prepare('UPDATE users SET must_change_password = 1 WHERE id = 3').run(); // an admin: admin APIs too
+		const token = createSession(db, 3);
+		try {
+			// Pages (GET and HEAD) still redirect, a query string included.
+			expect((await run('/patients/1?tab=x', { token })).redirect).toBe('/settings/me?required=1');
+			expect((await run('/settings/users', { token, method: 'HEAD' })).redirect).toBe('/settings/me?required=1');
+			// APIs and exports, read or write, get 403 with a short message; nothing reaches the route.
+			for (const [path, method] of [
+				['/api/prefs', 'GET'],
+				['/api/prefs', 'PUT'],
+				['/api/patients/1/encounters/1/findings', 'GET'],
+				['/api/patients/1/encounters/1/findings', 'POST'],
+				['/api/admin/codesets/icd10cm/download', 'POST'],
+				['/api/print-log', 'POST'],
+				['/export/csv', 'GET'],
+				['/export/fhir/1', 'GET']
+			] as const) {
+				const r = await run(path, { token, method });
+				expect(r.res?.status, `${method} ${path}`).toBe(403);
+				expect(r.locals, `${method} ${path} must not reach the route`).toBeNull();
+				expect(await r.res?.json()).toEqual({ error: 'Change your temporary password first, in My settings.' });
+				expect(r.res?.headers.get('cache-control')).toBe('no-store');
+			}
+			// Form posts to any other page or action are refused too, the page's own profile action included.
+			for (const path of ['/settings/users?/reset', '/settings/practice', '/settings/me?/profile', '/settings/me', '/settings/me?/password&/profile', '/patients/1']) {
+				const r = await run(path, { token, method: 'POST' });
+				expect(r.res?.status, `POST ${path}`).toBe(403);
+				expect(r.redirect).toBeNull();
+			}
+			// Allowed: the change-password page, its password action, the logoff timer, and public routes.
+			expect((await run('/settings/me', { token })).res?.status).toBe(200);
+			expect((await run('/settings/me?required=1', { token })).res?.status).toBe(200);
+			expect((await run('/settings/me?/password', { token, method: 'POST' })).res?.status).toBe(200);
+			expect((await run('/api/session', { token, headers: { 'x-background': '1' } })).res?.status).toBe(200);
+			expect((await run('/api/session', { token, method: 'POST' })).res?.status).toBe(200);
+			for (const p of ['/logout', '/login', '/legal/terms', '/_app/immutable/app.js', '/robots.txt']) expect((await run(p, { token })).res?.status, p).toBe(200);
+			expect((await run('/logout', { token, method: 'POST' })).res?.status).toBe(200);
+			// The session-status API itself refuses other methods.
+			expect((await run('/api/session', { token, method: 'DELETE' })).res?.status).toBe(403);
+			// After the change everything works again.
+			db.prepare('UPDATE users SET must_change_password = 0 WHERE id = 3').run();
+			expect((await run('/api/prefs', { token })).res?.status).toBe(200);
+			expect((await run('/settings/users?/reset', { token, method: 'POST' })).res?.status).toBe(200);
+		} finally {
+			db.prepare('UPDATE users SET must_change_password = 0 WHERE id = 3').run();
+		}
+	});
+
 	it('sets locals.locale and the html lang/dir of the page (D48)', async () => {
 		const db = getDb();
 		const token = createSession(db, 1);

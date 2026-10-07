@@ -143,11 +143,8 @@ describe.skipIf(!HAVE_ICD11_FILE)(needsCodes('history issues', HAVE_ICD11_FILE),
 
 describe('signing hash', () => {
 	it('an exam hashed before the code-set migration hashes the same after it', () => {
-		const probe = new DatabaseSync(':memory:');
-		migrate(probe);
-		const latest = (probe.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number }).v;
 		const raw = new DatabaseSync(':memory:');
-		migrate(raw, latest - 3); // the translations (D48) and ICD-11 titles (D50) migrations follow billing-aid
+		migrate(raw, 14); // the translations (D48) and ICD-11 titles (D50) migrations follow billing-aid
 		seedDemo(raw, TODAY);
 		const at = `${TODAY}T10:00:00.000Z`;
 		raw

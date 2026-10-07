@@ -6,6 +6,7 @@
 	import type { PanelProps } from './types.ts';
 	import type { Candidate, CandidateSet, ImpItem, OrderOption, PlanData, VisitOrder } from '#lib/plan/types.ts';
 	import { registerFlush } from '#lib/exam/lock.svelte.ts';
+	import { SerialSave } from '#lib/exam/serial.ts';
 	import { postJson } from './plan/api.ts';
 	import ImpItemRow from './plan/ImpItemRow.svelte';
 	import Builder from './plan/Builder.svelte';
@@ -78,29 +79,45 @@
 	function merge(server: ImpItem[]): ImpItem[] {
 		return server.map((s) => {
 			const local = items.find((i) => i.id === s.id);
-			return local && timers.has(s.id) ? { ...s, title: local.title, plan: local.plan } : s;
+			return local && (timers.has(s.id) || savers.get(s.id)?.dirty) ? { ...s, title: local.title, plan: local.plan } : s;
 		});
 	}
 
 	// ---------- item edits (autosave ~600 ms) ----------
+	// One saver per item: at most one update in flight; typing that arrives meanwhile is sent when it
+	// returns, so an older update can never land after a newer one.
+	const savers = new Map<number, SerialSave>();
+	function saverFor(id: number): SerialSave {
+		let s = savers.get(id);
+		if (!s) savers.set(id, (s = new SerialSave(() => sendItem(id))));
+		return s;
+	}
+
 	function edit(id: number, field: 'title' | 'plan', value: string) {
 		const it = items.find((i) => i.id === id);
 		if (!it) return;
 		it[field] = value;
+		saverFor(id).changed();
 		clearTimeout(timers.get(id));
 		timers.set(id, setTimeout(() => flush(id), 600));
 		dirtyCount = timers.size;
 	}
 
-	async function flush(id: number) {
+	/** Saves one item now (after any update in flight). True when its title and plan are saved. */
+	function flush(id: number): Promise<boolean> {
 		clearTimeout(timers.get(id));
 		timers.delete(id);
 		dirtyCount = timers.size;
+		return saverFor(id).save();
+	}
+
+	/** Sends the item's current title and plan; true when the server took them. */
+	async function sendItem(id: number): Promise<boolean> {
 		const it = items.find((i) => i.id === id);
-		if (!it) return;
+		if (!it) return true; // deleted meanwhile: nothing left to save
 		if (!it.title.trim()) {
 			errors[id] = { message: t('plan.titleEmpty'), duplicate: false };
-			return;
+			return false;
 		}
 		const sent = { title: it.title, plan: it.plan };
 		const r = await post<{ item: ImpItem }>({ action: 'update', id, ...sent, allowDuplicate: allowDup.has(id) });
@@ -118,10 +135,12 @@
 		} else {
 			errors[id] = { message: r.message, duplicate: r.status === 409 && r.body.code === 'duplicate' };
 		}
+		return r.ok;
 	}
 
 	async function setCodes(id: number, codes: string) {
-		const r = await post<{ item: ImpItem }>({ action: 'update', id, codes });
+		// Queued behind the item's title/plan update in flight, so their answers cannot cross.
+		const r = await saverFor(id).run(() => post<{ item: ImpItem }>({ action: 'update', id, codes }));
 		const cur = items.find((i) => i.id === id);
 		if (r.ok && cur) {
 			cur.codes = r.data.item.codes;
@@ -138,6 +157,7 @@
 
 	function keepBoth(id: number) {
 		allowDup.add(id);
+		saverFor(id).changed();
 		flush(id);
 	}
 
@@ -146,14 +166,18 @@
 		for (const id of Object.keys(errors).map(Number)) flush(id);
 	}
 
-	// Signing saves everything first: pending item edits are sent when the page asks.
-	const unregister = registerFlush(async () => {
-		await Promise.all([...timers.keys()].map((id) => flush(id)));
-	});
+	// Signing saves everything first: waits for updates in flight and sends pending edits; false
+	// (signing is refused) when any item could not be saved.
+	async function flushItems(): Promise<boolean> {
+		const ids = new Set([...timers.keys(), ...savers.keys()]);
+		const saved = await Promise.all([...ids].map((id) => flush(id)));
+		return saved.every(Boolean);
+	}
+	const unregister = registerFlush(flushItems);
+	// Saves still on their way when the section closes keep counting for signing until they settle.
 	onDestroy(() => {
-		unregister();
 		clearTimeout(noticeTimer);
-		for (const id of [...timers.keys()]) flush(id);
+		void flushItems().finally(unregister);
 	});
 
 	// ---------- add, move, delete ----------
@@ -232,11 +256,16 @@
 		clearTimeout(timers.get(it.id));
 		timers.delete(it.id);
 		dirtyCount = timers.size;
-		const r = await post<{ items: ImpItem[] }>({ action: 'delete', id: it.id });
+		// After any update of this item in flight; its unsent typing goes with the item.
+		const saver = saverFor(it.id);
+		saver.discard();
+		const r = await saver.run(() => post<{ items: ImpItem[] }>({ action: 'delete', id: it.id }));
 		if (!r.ok) {
+			saver.changed(); // still there: its text counts as unsaved again
 			say(r.message, 'warn');
 			return;
 		}
+		savers.delete(it.id);
 		delete errors[it.id];
 		items = merge(r.data.items);
 		say(t('plan.deleted', { title: snapshot.title }), 'info', { label: t('plan.undo'), run: () => restore(snapshot, index) });

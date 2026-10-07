@@ -53,7 +53,7 @@ const doc = (id: number, takenOn: string, category = 'VISUAL_FIELD'): DocMeta =>
 	createdBy: ''
 });
 
-const base = { issues: [], vf: [], oct: [], defaults: {}, today: '2026-10-06' };
+const base = { issues: [], vf: [], oct: [], today: '2026-10-06' };
 
 describe('pickIop', () => {
 	it('applanation, else Tono-Pen; finger tension ignored; method per eye', () => {
@@ -129,10 +129,18 @@ describe('assembleFlowsheet', () => {
 	});
 
 	it('targets carry forward from the last visit that set one; else provider, else 21', () => {
-		const s = assembleFlowsheet({ ...base, visits, currentId: 1, defaults: { OSIOPTARGET: '18' } });
+		const own = visits.map((v) => ({ ...v, providerDefaults: { OSIOPTARGET: '18' }, provider: 'Dr. Example' }));
+		const s = assembleFlowsheet({ ...base, visits: own, currentId: 1 });
 		expect(s.visits.map((v) => v.target.OD)).toEqual([21, 17, 17]);
 		expect(s.visits.map((v) => v.target.OS)).toEqual([18, 18, 18]);
-		expect(s.targets).toEqual({ OD: { value: 17, source: 'prior', from: '2025-09-14' }, OS: { value: 18, source: 'provider' } });
+		expect(s.targets).toEqual({ OD: { value: 17, source: 'prior', from: '2025-09-14' }, OS: { value: 18, source: 'provider', by: 'Dr. Example' } });
+	});
+
+	it("each visit falls back to its own provider's defaults", () => {
+		const mixed = visits.map((v, i) => ({ ...v, providerDefaults: { OSIOPTARGET: i === 0 ? '15' : '19' }, provider: i === 0 ? 'Dr. A' : 'Dr. B' }));
+		const s = assembleFlowsheet({ ...base, visits: mixed, currentId: 1 });
+		expect(s.visits.map((v) => v.target.OS)).toEqual([15, 19, 19]);
+		expect(s.targets!.OS).toEqual({ value: 19, source: 'provider', by: 'Dr. B' });
 	});
 
 	it('hours formatted HH:MM', () => {
@@ -190,24 +198,41 @@ describe('database: iopTargets and buildFlowsheet', () => {
 	});
 
 	it('lookup order: exam, latest prior, provider default, 21', () => {
-		expect(iopTargets(db, 1, 1, 1)).toEqual({ OD: { value: 21, source: 'default' }, OS: { value: 21, source: 'default' } });
+		expect(iopTargets(db, 1, 1)).toEqual({ OD: { value: 21, source: 'default' }, OS: { value: 21, source: 'default' } });
 		db.prepare("INSERT INTO user_defaults (user_id, field, value) VALUES (1, 'ODIOPTARGET', '18')").run();
-		expect(iopTargets(db, 1, 1, 1)!.OD).toEqual({ value: 18, source: 'provider' });
+		expect(iopTargets(db, 1, 1)!.OD).toEqual({ value: 18, source: 'provider', by: 'Dr. Example' });
 		set(db, 1, 3, { ODIOPTARGET: '19' });
 		set(db, 1, 4, { ODIOPTARGET: '16' });
-		expect(iopTargets(db, 1, 1, 1)!.OD).toEqual({ value: 16, source: 'prior', from: '2025-09-14' });
-		expect(iopTargets(db, 1, 4, 1)!.OD).toEqual({ value: 16, source: 'exam' });
-		expect(iopTargets(db, 1, 3, 1)!.OD).toEqual({ value: 19, source: 'exam' });
+		expect(iopTargets(db, 1, 1)!.OD).toEqual({ value: 16, source: 'prior', from: '2025-09-14' });
+		expect(iopTargets(db, 1, 4)!.OD).toEqual({ value: 16, source: 'exam' });
+		expect(iopTargets(db, 1, 3)!.OD).toEqual({ value: 19, source: 'exam' });
 		set(db, 1, 1, { ODIOPTARGET: '14' });
-		expect(iopTargets(db, 1, 1, 1)!.OD).toEqual({ value: 14, source: 'exam' });
+		expect(iopTargets(db, 1, 1)!.OD).toEqual({ value: 14, source: 'exam' });
 		// A later visit never feeds an earlier one.
-		expect(iopTargets(db, 1, 3, 1)!.OS).toEqual({ value: 21, source: 'default' });
+		expect(iopTargets(db, 1, 3)!.OS).toEqual({ value: 21, source: 'default' });
+	});
+
+	it("uses the visit provider's defaults, never the viewer's: provider and technician see the same flags", () => {
+		// Provider (user 1, the visit's provider) 15; the technician (user 2) has a different list entry.
+		db.prepare("INSERT INTO user_defaults (user_id, field, value) VALUES (1, 'ODIOPTARGET', '15'), (2, 'ODIOPTARGET', '25')").run();
+		set(db, 1, 1, { ODIOPAP: '18' });
+		const t = iopTargets(db, 1, 1)!;
+		expect(t.OD).toEqual({ value: 15, source: 'provider', by: 'Dr. Example' });
+		expect(iopTargets(db, 1, 1, false)!.OD).toEqual({ value: 15, source: 'provider', by: 'Dr. Example' });
+		const s = buildFlowsheet(db, 1, 1, '2026-10-06')!;
+		expect(s.visits.at(-1)!.target.OD).toBe(15);
+		// A visit by another provider uses that provider's own list.
+		db.prepare("INSERT INTO users (id, username, display_name, role, active) VALUES (9, 'dr-other', 'Dr. Other', 'provider', 1)").run();
+		db.prepare("INSERT INTO user_defaults (user_id, field, value) VALUES (9, 'ODIOPTARGET', '12')").run();
+		db.prepare('UPDATE encounters SET provider_id = 9 WHERE id = 3').run();
+		const s2 = buildFlowsheet(db, 1, 1, '2026-10-06')!;
+		expect(s2.visits.map((v) => [v.id, v.target.OD])).toEqual([[3, 12], [4, 15], [1, 15]]);
 	});
 
 	it('is scoped to the patient', () => {
-		expect(iopTargets(db, 2, 1, 1)).toBeNull();
-		expect(buildFlowsheet(db, 2, 1, 1)).toBeNull();
-		expect(buildFlowsheet(db, 99, null, 1)).toBeNull();
+		expect(iopTargets(db, 2, 1)).toBeNull();
+		expect(buildFlowsheet(db, 2, 1)).toBeNull();
+		expect(buildFlowsheet(db, 99, null)).toBeNull();
 	});
 
 	it('builds from real rows, with flow-sheet documents only', () => {
@@ -219,7 +244,7 @@ describe('database: iopTargets and buildFlowsheet', () => {
 		uploadDocument(db, 1, { category: 'VISUAL_FIELD', bytes: pdf, takenOn: '2025-09-14' }, 1);
 		uploadDocument(db, 1, { category: 'FUNDUS_PHOTO', bytes: pdf, takenOn: '2025-09-14' }, 1);
 		uploadDocument(db, 2, { category: 'VISUAL_FIELD', bytes: pdf, takenOn: '2025-09-14' }, 1);
-		const s = buildFlowsheet(db, 1, 1, 1, '2026-10-06')!;
+		const s = buildFlowsheet(db, 1, 1, '2026-10-06')!;
 		expect(s.visits.map((v) => v.id)).toEqual([3, 4, 1]);
 		expect(s.visits[2]).toMatchObject({ time: '08:30', iop: { OD: { value: 17, method: 'AP' } } });
 		expect(s.vf).toHaveLength(1);

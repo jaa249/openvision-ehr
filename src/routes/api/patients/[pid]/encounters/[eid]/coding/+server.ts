@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '#lib/server/db.ts';
 import { getEncounter } from '#lib/server/exam.ts';
-import { assertEditable, EncounterLockedError } from '#lib/server/signing.ts';
+import { assertEditable, EncounterLockedError, signedAbort } from '#lib/server/signing.ts';
 import { usBillingOn } from '#lib/server/settings.ts';
 import {
 	canEditCoding,
@@ -71,7 +71,15 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 	editable(pid, eid, locals.userId, request);
 	const db = getDb();
-	const savedAt = saveCodingState(db, pid, eid, locals.userId, state);
+	let savedAt;
+	try {
+		savedAt = saveCodingState(db, pid, eid, locals.userId, state);
+	} catch (e) {
+		// Signed by another process between the check and the write: the trigger refused it (D36).
+		const signed = signedAbort(e);
+		if (signed) error(423, signed.message);
+		throw e;
+	}
 	if (!savedAt) error(404, 'Not found');
 	return json({ savedAt, state: getCodingState(db, pid, eid) });
 };

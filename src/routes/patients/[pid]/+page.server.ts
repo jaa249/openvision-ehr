@@ -84,11 +84,11 @@ export const actions: Actions = {
 		return { section: 'allergy' as const, ok: true };
 	},
 
-	removeAllergy: async ({ request, params }) => {
+	removeAllergy: async ({ request, params, locals }) => {
 		const pid = parsePid(params.pid);
 		const f = await request.formData();
-		// Scoped by patient: an allergy id from another chart removes nothing.
-		removeAllergy(getDb(), pid, Number(str(f.get('allergyId'))));
+		// Scoped by patient: an allergy id from another chart removes nothing. The removal is kept with who and when.
+		removeAllergy(getDb(), pid, Number(str(f.get('allergyId'))), locals.userId);
 		return { section: 'allergy-removed' as const, ok: true };
 	},
 

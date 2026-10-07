@@ -3,7 +3,7 @@
 // audit.ts when a user is known, directly when not (a failed sign-in for an unknown username).
 // Never pass a password, token or hash in `detail`.
 import type { DB } from './db.ts';
-import { audit, type AuditAction } from './audit.ts';
+import { audit, OUTPUT_ACTIONS, type AuditAction } from './audit.ts';
 
 export const SECURITY_ACTIONS = [
 	'auth.login',
@@ -48,9 +48,13 @@ export function securityAudit(
 
 // ---------------------------------------------------------------- admin Audit log page (read-only)
 
+/** Filter value for every print, export and document access at once (OUTPUT_ACTIONS). */
+export const OUTPUT_GROUP = '@output';
+
 export interface AuditFilter {
 	userId?: number;
 	patientId?: number;
+	/** One action, or OUTPUT_GROUP. */
 	action?: string;
 	/** YYYY-MM-DD, inclusive, UTC. */
 	from?: string;
@@ -83,7 +87,10 @@ export function searchAudit(db: DB, filter: AuditFilter, page = 1, pageSize = AU
 		where.push('a.patient_id = ?');
 		args.push(filter.patientId);
 	}
-	if (filter.action) {
+	if (filter.action === OUTPUT_GROUP) {
+		where.push(`a.action IN (${OUTPUT_ACTIONS.map(() => '?').join(', ')})`);
+		args.push(...OUTPUT_ACTIONS);
+	} else if (filter.action) {
 		where.push('a.action = ?');
 		args.push(filter.action);
 	}
@@ -137,8 +144,8 @@ export function searchAudit(db: DB, filter: AuditFilter, page = 1, pageSize = AU
 	};
 }
 
-/** Every action that appears in the log (for the filter list). */
+/** Every action that appears in the log, plus the security and output actions (for the filter list). */
 export function auditActions(db: DB): string[] {
 	const seen = (db.prepare('SELECT DISTINCT action FROM audit_log').all() as { action: string }[]).map((r) => r.action);
-	return [...new Set([...SECURITY_ACTIONS, ...seen])].sort();
+	return [...new Set([...SECURITY_ACTIONS, ...OUTPUT_ACTIONS, ...seen])].sort();
 }

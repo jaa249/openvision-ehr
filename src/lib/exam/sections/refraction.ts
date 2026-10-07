@@ -390,23 +390,38 @@ export interface SphCylAxis {
 	axis: string;
 }
 
+/** A sphere for transposing: PLANO / PL / PLN / 0 = 0, a number = itself; blank or text = null. */
+function sphereValue(v: string): number | null {
+	return /^(pl|pln|plano)$/i.test(v.trim()) ? 0 : powerValue(v);
+}
+
+/**
+ * Why a row cannot be transposed, or null when it can: 'cyl' = no real cylinder (nothing to do),
+ * 'sph' = the sphere is blank or not a number, 'axis' = the axis is blank or not 1-180.
+ * A blank sphere is never read as plano and a blank axis is never kept: either would put values in
+ * the record that nobody measured (the sphere 0, or an axis 90 degrees from the one meant).
+ */
+export function transposeProblem(r: SphCylAxis): 'cyl' | 'sph' | 'axis' | null {
+	if (!isRealCyl(r.cyl)) return 'cyl';
+	if (sphereValue(r.sph) === null) return 'sph';
+	const ax = formatAxis(r.axis);
+	if (!ax.ok || !ax.value) return 'axis';
+	return null;
+}
+
 /**
  * Plus/minus cylinder transposition (spec §8.7): sphere + cylinder, negated cylinder, axis ±90
- * (FIX: add 90 at 90 or less, otherwise subtract, so 90 -> 180). Returns null when there is nothing to transpose.
+ * (FIX: add 90 at 90 or less, otherwise subtract, so 90 -> 180). Returns null when the row cannot be
+ * transposed (transposeProblem says why): no cylinder, or a blank sphere or axis (enter PLANO for a
+ * zero sphere).
  */
 export function transpose(r: SphCylAxis): SphCylAxis | null {
-	if (!isRealCyl(r.cyl)) return null;
-	const s = r.sph.trim() === '' ? 0 : powerValue(r.sph);
-	if (s === null) return null;
-	const sH = Math.round(s * 100);
+	if (transposeProblem(r)) return null;
+	const sH = Math.round(sphereValue(r.sph)! * 100);
 	const cH = Math.round(powerValue(r.cyl)! * 100);
 	const nS = sH + cH;
-	const ax = formatAxis(r.axis);
-	let axis = r.axis;
-	if (ax.ok && ax.value) {
-		const a = Number(ax.value);
-		axis = String(a <= 90 ? a + 90 : a - 90).padStart(3, '0');
-	}
+	const a = Number(formatAxis(r.axis).value);
+	const axis = String(a <= 90 ? a + 90 : a - 90).padStart(3, '0');
 	return { sph: nS === 0 ? 'PLANO' : fmtSigned(nS), cyl: -cH === 0 ? 'SPH' : fmtSigned(-cH), axis };
 }
 

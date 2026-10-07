@@ -19,7 +19,7 @@
 	"lockedOther": "目标眼压目前为只读。",
 	"sourceExam": "本次就诊设定",
 	"sourcePrior": "来自最近一次设定的就诊",
-	"sourceProvider": "您的默认值",
+	"sourceProvider": "医师的默认值",
 	"sourceDefault": "标准值 21",
 	"noVisits": "暂无就诊记录。",
 	"currentMeds": "当前眼部用药",
@@ -70,5 +70,6 @@
 	"datePoint": "{date}：眼压 {eye} {value} mmHg（{method}），目标 {target}",
 	"datePointHigh": "{date}：眼压 {eye} {value} mmHg（{method}），目标 {target}，高于目标",
 	"markerPerformed": "{kind}，检查于 {date}",
-	"markerPerformedOpen": "{kind}，检查于 {date}。点击打开。"
+	"markerPerformedOpen": "{kind}，检查于 {date}。点击打开。",
+	"sourceProviderNamed": "{name} 的默认值"
 }

@@ -145,7 +145,7 @@
 	"vahThisVisit": "本次就诊",
 	"tgtSourceExam": "本次就诊",
 	"tgtSourcePrior": "上次就诊",
-	"tgtSourceProvider": "您的默认值",
+	"tgtSourceProvider": "医师的默认值",
 	"tgtSourceDefault": "标准值",
 	"tgtSetHere": "本次就诊设定",
 	"tgtUntilSet": "设定前使用 {value}",
@@ -153,10 +153,10 @@
 	"tgtUsingSource": "使用 {value}（{source}）",
 	"tgtTitle": "目标眼压",
 	"tgtEyeLabel": "目标眼压 {eye}",
-	"tgtHelp": "高于目标的读数会被标记。空白框依次使用上次就诊的目标、您的默认值，然后是 21。简码 {codes}。",
+	"tgtHelp": "高于目标的读数会被标记。空白框依次使用上次就诊的目标、本次就诊医师的默认值，然后是 21。简码 {codes}。",
 	"tgtSourceLabelExam": "本次就诊设定",
 	"tgtSourceLabelPrior": "来自最近一次设定的就诊",
-	"tgtSourceLabelProvider": "您的默认值",
+	"tgtSourceLabelProvider": "医师的默认值",
 	"tgtSourceLabelDefault": "标准值 21",
 	"rxGlassesN": "眼镜 #{n}",
 	"rxColSphere": "球镜",
@@ -580,5 +580,8 @@
 	"fieldDilationDrop": "散瞳药：{name} {strengths}",
 	"fieldDilationOther": "散瞳：其他滴眼液",
 	"fieldDilationTime": "散瞳时间",
-	"fieldDilationRisks": "已告知散瞳风险"
+	"fieldDilationRisks": "已告知散瞳风险",
+	"tgtSourceProviderNamed": "{name} 的默认值",
+	"rxTransposeNeedSph": "{source} {eye}：请先输入球镜（或 PLANO）再转换。",
+	"rxTransposeNeedAxis": "{source} {eye}：请先输入轴位再转换。"
 }

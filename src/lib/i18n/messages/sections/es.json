@@ -147,7 +147,7 @@
 	"vahThisVisit": "esta visita",
 	"tgtSourceExam": "esta visita",
 	"tgtSourcePrior": "última visita",
-	"tgtSourceProvider": "su valor predeterminado",
+	"tgtSourceProvider": "valor predeterminado del profesional",
 	"tgtSourceDefault": "estándar",
 	"tgtSetHere": "Fijada en esta visita",
 	"tgtUntilSet": "Se usa {value} hasta fijarla",
@@ -155,10 +155,10 @@
 	"tgtUsingSource": "Se usa {value} ({source})",
 	"tgtTitle": "PIO meta",
 	"tgtEyeLabel": "PIO meta {eye}",
-	"tgtHelp": "Las lecturas por encima de la meta se señalan. Las casillas vacías usan la meta de la última visita, luego su valor predeterminado y luego 21. Abreviaturas {codes}.",
+	"tgtHelp": "Las lecturas por encima de la meta se señalan. Las casillas vacías usan la meta de la última visita, luego el valor predeterminado del profesional de esta visita y luego 21. Abreviaturas {codes}.",
 	"tgtSourceLabelExam": "fijada en esta visita",
 	"tgtSourceLabelPrior": "de la última visita que fijó una",
-	"tgtSourceLabelProvider": "su valor predeterminado",
+	"tgtSourceLabelProvider": "el valor predeterminado del profesional",
 	"tgtSourceLabelDefault": "21 estándar",
 	"rxGlassesN": "Lentes n.º {n}",
 	"rxColSphere": "esfera",
@@ -582,5 +582,8 @@
 	"fieldDilationDrop": "Gota de dilatación: {name} {strengths}",
 	"fieldDilationOther": "Dilatación: otras gotas",
 	"fieldDilationTime": "Hora de dilatación",
-	"fieldDilationRisks": "Riesgos de la dilatación explicados"
+	"fieldDilationRisks": "Riesgos de la dilatación explicados",
+	"tgtSourceProviderNamed": "valor predeterminado de {name}",
+	"rxTransposeNeedSph": "{source} {eye}: introduzca la esfera (o PLANO) antes de transponer.",
+	"rxTransposeNeedAxis": "{source} {eye}: introduzca el eje antes de transponer."
 }

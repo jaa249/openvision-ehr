@@ -75,6 +75,50 @@ describe('drawing autosave', () => {
 		expect(s.status).toBe('saved');
 	});
 
+	it('flush before signing: false when the save fails or is refused, true once saved', async () => {
+		let answer: () => Response | Promise<Response> = () => {
+			throw new TypeError('offline');
+		};
+		const f = vi.fn(async () => answer());
+		const s = new DrawingSaver('/x', png, undefined, f as unknown as typeof fetch);
+		expect(await s.flush()).toBe(true); // nothing drawn: nothing to save
+		s.changed(5000);
+		expect(await s.flush()).toBe(false); // network failure: still unsaved
+		expect(s.dirty).toBe(true);
+		answer = () => new Response('Drawing must be a PNG image', { status: 400 });
+		expect(await s.flush()).toBe(false); // refused: the drawing on screen is not the saved one
+		answer = ok;
+		s.changed(5000);
+		expect(await s.flush()).toBe(true);
+		expect(s.status).toBe('saved');
+	});
+
+	it('flush waits for the save in flight, then saves what changed meanwhile', async () => {
+		const releases: (() => void)[] = [];
+		const f = vi.fn(() => new Promise<Response>((r) => releases.push(() => r(ok()))));
+		const s = new DrawingSaver('/x', png, undefined, f as unknown as typeof fetch);
+		s.changed(0);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(f).toHaveBeenCalledTimes(1);
+		s.changed(5000); // drawn on while the first image is on its way
+		const flushed = s.flush();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(f).toHaveBeenCalledTimes(1); // no overlapping request
+		releases[0]();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(f).toHaveBeenCalledTimes(2);
+		releases[1]();
+		expect(await flushed).toBe(true);
+		expect(s.dirty).toBe(false);
+	});
+
+	it('flush is false after a 423 (signed or locked)', async () => {
+		const f = vi.fn(async () => new Response(JSON.stringify({ message: 'This exam is signed.', reason: 'signed' }), { status: 423 }));
+		const s = new DrawingSaver('/x', png, undefined, f as unknown as typeof fetch);
+		s.changed(5000);
+		expect(await s.flush()).toBe(false);
+	});
+
 	it('sends the lock token and stops for good on 423', async () => {
 		const { ExamLock } = await import('#lib/exam/lock.svelte.ts');
 		const lock = new ExamLock('/e', { signature: null, lock: null }, () => {}, (async () => new Response('{}')) as unknown as typeof fetch, 'tok-0123456789abcdef');

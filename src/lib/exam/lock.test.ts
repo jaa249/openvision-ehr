@@ -95,11 +95,25 @@ describe('exam lock (client)', () => {
 	});
 
 	it('runs registered flushes before signing', async () => {
-		const flush = vi.fn(async () => {});
+		const flush = vi.fn(async () => true);
 		const off = registerFlush(flush);
-		await flushAll();
+		expect(await flushAll()).toBe(true);
 		off();
-		await flushAll();
+		expect(await flushAll()).toBe(true);
 		expect(flush).toHaveBeenCalledTimes(1);
+	});
+
+	it('flushAll is false when any flush failed, threw or left something unsaved', async () => {
+		const ok = registerFlush(async () => true);
+		const failed = registerFlush(async () => false);
+		expect(await flushAll()).toBe(false);
+		failed();
+		const threw = registerFlush(async () => {
+			throw new Error('offline');
+		});
+		expect(await flushAll()).toBe(false);
+		threw();
+		expect(await flushAll()).toBe(true);
+		ok();
 	});
 });

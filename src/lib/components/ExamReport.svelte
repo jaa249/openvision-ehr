@@ -49,7 +49,10 @@
 	// PMSFH (spec §13.2 item 2) prints right after the HPI block, which history.ts puts first in `sections`.
 	const hpiCount = $derived(historyReport(item.findings).length);
 	const history = $derived(item.history);
-	/** Compact blocks; empty lists say "None" (FH "Not recorded"), and the block is skipped when the whole history is empty. */
+	/**
+	 * Compact blocks; an empty list says "Not recorded" (D29: nothing is implied as negative; allergies say
+	 * NKDA only when confirmed), and the block is skipped when the whole history is empty.
+	 */
 	const historyBlocks = $derived.by(() => {
 		const h = item.history;
 		if (!h) return [];
@@ -61,13 +64,13 @@
 			...visibleIssues(h.issues, 'EYEMED').map((i) => t('report.historyEyeMed', { line: issueLine(i) }))
 		];
 		const social = summarizeSocial(h.social);
-		const none = t('report.historyNone');
+		const notRecorded = t('report.historyNotRecorded');
 		const blocks = [
-			{ title: t('report.historyPoh'), lines: lines('POH'), empty: none },
-			{ title: t('report.historyEyeSurgery'), lines: lines('POS'), empty: none },
-			{ title: t('report.historyPmh'), lines: lines('PMH'), empty: none },
-			{ title: t('report.historyMedication'), lines: meds, empty: none },
-			{ title: t('report.historySurgery'), lines: lines('SURG'), empty: none },
+			{ title: t('report.historyPoh'), lines: lines('POH'), empty: notRecorded },
+			{ title: t('report.historyEyeSurgery'), lines: lines('POS'), empty: notRecorded },
+			{ title: t('report.historyPmh'), lines: lines('PMH'), empty: notRecorded },
+			{ title: t('report.historyMedication'), lines: meds, empty: notRecorded },
+			{ title: t('report.historySurgery'), lines: lines('SURG'), empty: notRecorded },
 			{ title: t('report.historyAllergy'), lines: lines('ALLERGY'), empty: allergyStatusText(h.allergyStatus, t) },
 			{ title: t('report.historySocial'), lines: social, empty: t('report.historyNotDocumented') },
 			{
@@ -79,13 +82,26 @@
 		const anything = h.issues.length > 0 || fh.state !== 'unrecorded' || social.length > 0 || h.allergyStatus.kind !== 'unknown';
 		return anything ? blocks : [];
 	});
+	/**
+	 * D36: a signed exam prints the history it was signed with; an unsigned one says it is the current
+	 * history; an exam signed before snapshots existed prints today's history, marked as not signed content.
+	 */
+	const historyHeading = $derived.by(() => {
+		const src = item.historySource;
+		if (src?.kind === 'signed') return t('report.pastHistorySigned', { date: i18n.dateTime(src.at) });
+		if (src?.kind === 'legacy') return t('report.pastHistoryLegacy', { date: generatedOn });
+		if (src?.kind === 'current') return t('report.pastHistoryCurrent');
+		return t('report.pastHistory');
+	});
+	/** The allergy line follows the signed history too, so the two never disagree on a signed report. */
+	const allergyStatus = $derived(item.historySource?.kind === 'signed' && item.history ? item.history.allergyStatus : p.allergyStatus);
 	const drawingUrl = (zone: string) => `/api/patients/${p.id}/encounters/${e.id}/drawings/${zone}`;
 </script>
 
 {#snippet pmsfh()}
 	{#if history}
 		<section class="pmsfh">
-			<h2>{t('report.pastHistory')}</h2>
+			<h2>{historyHeading}</h2>
 			{#if historyBlocks.length}
 				<div class="cols">
 					{#each historyBlocks as b (b.title)}
@@ -144,7 +160,7 @@
 
 	<h1>{t('report.heading')}</h1>
 	<!-- Always printed: "Not recorded" must never be mistaken for "no allergies". -->
-	<p class="allergies" class:listed={p.allergyStatus.kind === 'listed'}><strong>{t('report.allergiesLabel')}</strong> {allergyStatusText(p.allergyStatus, t)}</p>
+	<p class="allergies" class:listed={allergyStatus.kind === 'listed'}><strong>{t('report.allergiesLabel')}</strong> {allergyStatusText(allergyStatus, t)}</p>
 
 	{#if hpiCount === 0}{@render pmsfh()}{/if}
 	{#each sections as s, i (s.title)}

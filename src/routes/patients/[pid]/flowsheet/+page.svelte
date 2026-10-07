@@ -190,7 +190,7 @@
 						{#each ['OD', 'OS'] as const as eye (eye)}
 							<div>
 								<dt><span class="eye {eye.toLowerCase()}">{eye}</span></dt>
-								<dd><strong class="num">{s.targets[eye].value}</strong> mmHg <span class="src">{t(TARGET_SOURCE_KEY[s.targets[eye].source])}{s.targets[eye].from ? ` (${s.targets[eye].from})` : ''}</span></dd>
+								<dd><strong class="num">{s.targets[eye].value}</strong> mmHg <span class="src">{s.targets[eye].by ? t('flowsheet.sourceProviderNamed', { name: s.targets[eye].by ?? '' }) : t(TARGET_SOURCE_KEY[s.targets[eye].source])}{s.targets[eye].from ? ` (${s.targets[eye].from})` : ''}</span></dd>
 							</div>
 						{/each}
 					</dl>

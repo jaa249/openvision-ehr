@@ -1,0 +1,41 @@
+// Readable names for audit-log actions (D48). The stored action code stays as written and is shown
+// beside the label; an action without a label here shows its code alone.
+import type { MessageKey } from '#lib/i18n/catalog.ts';
+
+export const ACTION_LABEL_KEY: Record<string, MessageKey> = {
+	'auth.login': 'settings.auditActAuthLogin',
+	'auth.login_failed': 'settings.auditActAuthLoginFailed',
+	'auth.lockout': 'settings.auditActAuthLockout',
+	'auth.logout': 'settings.auditActAuthLogout',
+	'auth.idle_timeout': 'settings.auditActAuthIdleTimeout',
+	'auth.session_expired': 'settings.auditActAuthSessionExpired',
+	'auth.password_changed': 'settings.auditActAuthPasswordChanged',
+	'auth.password_reset': 'settings.auditActAuthPasswordReset',
+	'auth.emergency_reset': 'settings.auditActAuthEmergencyReset',
+	'auth.setup_admin': 'settings.auditActAuthSetupAdmin',
+	'setup.terms_accepted': 'settings.auditActSetupTermsAccepted',
+	'user.created': 'settings.auditActUserCreated',
+	'user.deactivated': 'settings.auditActUserDeactivated',
+	'user.reactivated': 'settings.auditActUserReactivated',
+	'user.role_changed': 'settings.auditActUserRoleChanged',
+	'user.renamed': 'settings.auditActUserRenamed',
+	'settings.practice': 'settings.auditActSettingsPractice',
+	'settings.coding': 'settings.auditActSettingsCoding',
+	'settings.codes': 'settings.auditActSettingsCodes',
+	'settings.visit_types': 'settings.auditActSettingsVisitTypes',
+	'view_patient': 'settings.auditActViewPatient',
+	'view_exam': 'settings.auditActViewExam',
+	'lock.takeover': 'settings.auditActLockTakeover',
+	'lock.expired_takeover': 'settings.auditActLockExpiredTakeover',
+	'exam.sign': 'settings.auditActExamSign',
+	'exam.addendum': 'settings.auditActExamAddendum',
+	'exam.staff': 'settings.auditActExamStaff',
+	'history.update': 'settings.auditActHistoryUpdate',
+	'history.delete': 'settings.auditActHistoryDelete',
+	'export.print': 'settings.auditActExportPrint',
+	'export.csv': 'settings.auditActExportCsv',
+	'export.fhir': 'settings.auditActExportFhir',
+	'rx.print': 'settings.auditActRxPrint',
+	'document.view': 'settings.auditActDocumentView',
+	'document.download': 'settings.auditActDocumentDownload'
+};

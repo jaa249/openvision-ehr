@@ -1,6 +1,7 @@
 // Patient and visit management. Every function is scoped by patient id (and checks
 // ownership of child rows), and validates its input here, not just in the form.
 import type { DB } from './db.ts';
+import { inTransaction, softDeleteIssue } from './issue_versions.ts';
 import { allergyStatus } from '#lib/history/summary.ts';
 import type { AllergyStatus } from '#lib/history/types.ts';
 
@@ -190,7 +191,7 @@ export function activeAllergies(db: DB, patientId: number, today = localToday())
 		db
 			.prepare(
 				`SELECT id, title, reaction FROM issues
-				  WHERE patient_id = ? AND type = 'ALLERGY' AND (end_date = '' OR end_date > ?)
+				  WHERE patient_id = ? AND type = 'ALLERGY' AND deleted_at IS NULL AND (end_date = '' OR end_date > ?)
 				  ORDER BY title COLLATE NOCASE, id`
 			)
 			.all(patientId, today) as { id: number; title: string; reaction: string }[]
@@ -250,17 +251,19 @@ export function addAllergy(db: DB, patientId: number, input: AllergyInput, userI
 	const a = checkAllergy(input, errors, '');
 	if (Object.keys(errors).length) throw new PatientValidationError(errors);
 	const dup = db
-		.prepare("SELECT id FROM issues WHERE patient_id = ? AND type = 'ALLERGY' AND title = ? COLLATE NOCASE")
+		.prepare("SELECT id FROM issues WHERE patient_id = ? AND type = 'ALLERGY' AND title = ? COLLATE NOCASE AND deleted_at IS NULL")
 		.get(patientId, a.title) as { id: number } | undefined;
 	if (dup) return dup.id;
 	return insertAllergy(db, patientId, a, userId, now.toISOString());
 }
 
-/** Removes an allergy only if it belongs to this patient. The last one gone means "not recorded", never NKDA. */
-export function removeAllergy(db: DB, patientId: number, allergyId: number): boolean {
+/**
+ * Removes an allergy only if it belongs to this patient. The last one gone means "not recorded", never NKDA.
+ * Like every history delete, the row is marked deleted and kept as a version with who and when (audited).
+ */
+export function removeAllergy(db: DB, patientId: number, allergyId: number, userId: number, now = new Date()): boolean {
 	if (!Number.isSafeInteger(allergyId)) return false;
-	const r = db.prepare("DELETE FROM issues WHERE id = ? AND patient_id = ? AND type = 'ALLERGY'").run(allergyId, patientId);
-	return Number(r.changes) > 0;
+	return inTransaction(db, () => softDeleteIssue(db, patientId, allergyId, userId, now, { type: 'ALLERGY' }));
 }
 
 /**

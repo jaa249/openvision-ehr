@@ -2,7 +2,7 @@
 // Every function is scoped by patient id AND encounter id (getEncounter) except the report reader,
 // which the report loader calls after its own scoping. Items are saved BY ID: add, update, reorder,
 // delete; a duplicate is reported (PlanDuplicateError -> 409), never dropped silently.
-import type { DB } from './db.ts';
+import { transaction, type DB } from './db.ts';
 import { getEncounter } from './exam.ts';
 import { listIssues } from './history.ts';
 import { getIcd10, icd10Loaded, icd10Lookup, isIcd10Category } from './icd10.ts';
@@ -242,8 +242,7 @@ export function addItem(
 	}
 	const at = (opts.now ?? new Date()).toISOString();
 	const index = Math.max(0, Math.min(rows.length, Number.isInteger(opts.index) ? (opts.index as number) : rows.length));
-	db.exec('BEGIN');
-	try {
+	return transaction(db, () => {
 		const r = db
 			.prepare(
 				`INSERT INTO imp_items (encounter_id, seq, kind, title, codes, code_text, code_system, code_uris, title_lang, plan, link, created_at, created_by, updated_at, updated_by)
@@ -254,12 +253,8 @@ export function addItem(
 		const order = rows.map((x) => x.id);
 		order.splice(index, 0, id);
 		renumber(db, order);
-		db.exec('COMMIT');
 		return toItem(db.prepare(`SELECT ${ITEM_COLS} FROM imp_items WHERE id = ?`).get(id) as ItemRow);
-	} catch (e) {
-		db.exec('ROLLBACK');
-		throw e;
-	}
+	});
 }
 
 function renumber(db: DB, ids: number[]): void {
@@ -349,23 +344,15 @@ function codeSetForPatch(db: DB, row: ItemRow, raw: unknown): CodeSetId {
 /** Deletes one item of this visit and renumbers the rest. False when it is not this visit's item. */
 export function deleteItem(db: DB, patientId: number, encounterId: number, id: number): boolean {
 	if (!getEncounter(db, patientId, encounterId)) return false;
-	db.exec('BEGIN');
-	try {
+	return transaction(db, () => {
 		const r = db.prepare('DELETE FROM imp_items WHERE id = ? AND encounter_id = ?').run(id, encounterId);
-		if (r.changes === 0) {
-			db.exec('ROLLBACK');
-			return false;
-		}
+		if (r.changes === 0) return false;
 		renumber(
 			db,
 			itemRows(db, encounterId).map((x) => x.id)
 		);
-		db.exec('COMMIT');
 		return true;
-	} catch (e) {
-		db.exec('ROLLBACK');
-		throw e;
-	}
+	});
 }
 
 /** Sets the order to `ids`, which must be exactly this visit's items (else PlanConflictError: reload). */
@@ -377,14 +364,7 @@ export function reorderItems(db: DB, patientId: number, encounterId: number, ids
 	if (asked.length !== current.length || new Set(asked).size !== asked.length || !asked.every((id) => current.includes(id))) {
 		throw new PlanConflictError('The impression list changed in another window. It has been reloaded; try again.');
 	}
-	db.exec('BEGIN');
-	try {
-		renumber(db, asked);
-		db.exec('COMMIT');
-	} catch (e) {
-		db.exec('ROLLBACK');
-		throw e;
-	}
+	transaction(db, () => renumber(db, asked));
 	return itemRows(db, encounterId).map(toItem);
 }
 
@@ -410,16 +390,11 @@ export function addNewDx(
 export function listOrderOptions(db: DB, userId: number, now = new Date()): OrderOption[] {
 	const seeded = db.prepare('SELECT 1 AS x FROM order_options_seeded WHERE user_id = ?').get(userId);
 	if (!seeded && db.prepare('SELECT 1 AS x FROM users WHERE id = ?').get(userId)) {
-		db.exec('BEGIN');
-		try {
+		transaction(db, () => {
 			const ins = db.prepare('INSERT INTO order_options (user_id, seq, label, cpt) VALUES (?, ?, ?, ?)');
 			ORDER_SEED.forEach((o, i) => ins.run(userId, i + 1, o.label, o.cpt));
 			db.prepare('INSERT INTO order_options_seeded (user_id, seeded_at) VALUES (?, ?)').run(userId, now.toISOString());
-			db.exec('COMMIT');
-		} catch (e) {
-			db.exec('ROLLBACK');
-			throw e;
-		}
+		});
 	}
 	return db.prepare('SELECT id, label, cpt FROM order_options WHERE user_id = ? ORDER BY seq, id').all(userId) as unknown as OrderOption[];
 }
@@ -522,8 +497,7 @@ export function saveOrders(
 	const unknown = wanted.filter((id) => !rows.some((r) => r.optionId === id));
 	if (unknown.length) throw new PlanValidationError('An order is no longer in the list. Reload the panel.');
 	const at = now.toISOString();
-	db.exec('BEGIN');
-	try {
+	transaction(db, () => {
 		db.prepare('DELETE FROM visit_orders WHERE encounter_id = ?').run(encounterId);
 		const ins = db.prepare(
 			`INSERT INTO visit_orders (encounter_id, option_id, priority, label, cpt, status, placed_on, placed_by, saved_at, saved_by)
@@ -534,11 +508,7 @@ export function saveOrders(
 			`INSERT INTO visit_order_plan (encounter_id, plan, updated_at, updated_by) VALUES (?, ?, ?, ?)
 			 ON CONFLICT(encounter_id) DO UPDATE SET plan = excluded.plan, updated_at = excluded.updated_at, updated_by = excluded.updated_by`
 		).run(encounterId, plan, at, userId);
-		db.exec('COMMIT');
-	} catch (e) {
-		db.exec('ROLLBACK');
-		throw e;
-	}
+	});
 	return { orders: visitOrders(db, encounterId), orderPlan: plan };
 }
 

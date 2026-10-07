@@ -109,5 +109,7 @@
 	"historyMaterial": "المادة: {material}.",
 	"historyTreatments": "المعالجات: {treatments}.",
 	"byManufacturer": "من {name}",
-	"viaSupplier": "عبر {name}"
+	"viaSupplier": "عبر {name}",
+	"transposeNeedSph": "{eye}: أدخل الكرة (أو PLANO) قبل التحويل.",
+	"transposeNeedAxis": "{eye}: أدخل المحور قبل التحويل."
 }

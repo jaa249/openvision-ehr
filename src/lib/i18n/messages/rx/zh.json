@@ -109,5 +109,7 @@
 	"historyMaterial": "材料：{material}。",
 	"historyTreatments": "膜层/处理：{treatments}。",
 	"byManufacturer": "{name} 生产",
-	"viaSupplier": "经 {name} 供应"
+	"viaSupplier": "经 {name} 供应",
+	"transposeNeedSph": "{eye}：请先输入球镜（或 PLANO）再转换。",
+	"transposeNeedAxis": "{eye}：请先输入轴位再转换。"
 }

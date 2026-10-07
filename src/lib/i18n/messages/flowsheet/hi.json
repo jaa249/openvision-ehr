@@ -19,7 +19,7 @@
 	"lockedOther": "टारगेट अभी केवल पढ़ने के लिए हैं।",
 	"sourceExam": "इस विज़िट में तय",
 	"sourcePrior": "पिछली विज़िट से जिसमें तय किया गया",
-	"sourceProvider": "आपका डिफ़ॉल्ट",
+	"sourceProvider": "प्रोवाइडर का डिफ़ॉल्ट",
 	"sourceDefault": "मानक 21",
 	"noVisits": "अभी कोई विज़िट नहीं।",
 	"currentMeds": "वर्तमान आँख की दवाएँ",
@@ -70,5 +70,6 @@
 	"datePoint": "{date}: IOP {eye} {value} mmHg, {method} से, टारगेट {target}",
 	"datePointHigh": "{date}: IOP {eye} {value} mmHg, {method} से, टारगेट {target}, टारगेट से ऊपर",
 	"markerPerformed": "{kind} {date} को किया गया",
-	"markerPerformedOpen": "{kind} {date} को किया गया। खोलने के लिए दबाएँ।"
+	"markerPerformedOpen": "{kind} {date} को किया गया। खोलने के लिए दबाएँ।",
+	"sourceProviderNamed": "{name} का डिफ़ॉल्ट"
 }

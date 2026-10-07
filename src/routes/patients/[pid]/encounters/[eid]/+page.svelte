@@ -143,8 +143,8 @@
 	async function startSign() {
 		signError = null;
 		signing = true;
-		const saved = await saver.settle();
-		await flushAll();
+		// Findings, drawings, plan items and orders: every one saved, or no signing.
+		const saved = (await saver.settle()) && (await flushAll());
 		signing = false;
 		if (!saved) {
 			notice = t('exam.noticeNotSigned');
@@ -158,8 +158,10 @@
 		signing = true;
 		signError = null;
 		try {
+			// Signing locks what is stored: anything not saved yet (a drawing or plan still on its way, a
+			// failed save) would be left out of the signed record, so signing waits for it or stops here.
 			if (!(await saver.settle())) throw new Error(t('exam.signUnsaved'));
-			await flushAll();
+			if (!(await flushAll())) throw new Error(t('exam.signUnsaved'));
 			const res = await fetch(`${examApi}/sign`, { method: 'POST', headers: lockHeaders() });
 			if (res.status === 423) {
 				const body = await res.json();

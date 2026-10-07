@@ -11,5 +11,6 @@
 	"codesBodyLimit": "Este archivo es más grande de lo que acepta el servidor. Pida a su administrador que inicie el servidor con BODY_SIZE_LIMIT=20M, o importe el archivo zip en lugar del archivo de texto.",
 	"codesEmptyFile": "Elija un archivo para importar.",
 	"codesRemoveCurrent": "El consultorio usa este sistema de códigos. Elija otro sistema en Configuración › Consultorio antes de quitarlo.",
-	"codesUnknownLanguage": "Idioma de la CIE-11 desconocido."
+	"codesUnknownLanguage": "Idioma de la CIE-11 desconocido.",
+	"mustChangePassword": "Primero cambie su contraseña temporal en Mi configuración."
 }

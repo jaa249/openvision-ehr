@@ -21,7 +21,7 @@
 <script lang="ts">
 	// IOP targets per eye (spec §8.3 with FIXes). Free numeric entry, no default value, and the boxes are
 	// never coloured. When a box is empty the placeholder shows the target that applies instead and
-	// where it comes from (latest prior visit, the provider's default, or 21).
+	// where it comes from (latest prior visit, the visit provider's default, named, or 21).
 	// Mount (PressurePanel, IOP card):
 	//   <IopTargets {context} {findings} {preview} {copied} {onedit} bind:effective={targets} />
 	// then flag a reading with iopHigh(value, String(targets.OD)) plus highLabel() as the text cue.
@@ -88,7 +88,7 @@
 		if (!f) return t('sections.tgtUntilSet', { value: DEFAULT_IOP_TARGET });
 		return f.source === 'prior'
 			? t('sections.tgtUsingFrom', { value: f.value, from: f.from ?? '' })
-			: t('sections.tgtUsingSource', { value: f.value, source: t(SOURCE[f.source]) });
+			: t('sections.tgtUsingSource', { value: f.value, source: f.by ? t('sections.tgtSourceProviderNamed', { name: f.by }) : t(SOURCE[f.source]) });
 	}
 </script>
 

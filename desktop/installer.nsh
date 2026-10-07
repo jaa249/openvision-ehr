@@ -6,7 +6,10 @@
 ;      the installer is added to it.
 ;   3. The folder's permissions are set with icacls: SYSTEM and Administrators full control,
 ;      "OpenVision Users" modify, inherited by everything inside, and nothing inherited from
-;      ProgramData (so other Windows users cannot open it).
+;      ProgramData (so other Windows users cannot open it). Old permissions are reset first, so
+;      grants left by an earlier install or added by hand (on the folder or any file in it) are removed.
+;      If this fails the install stops (interactive: an error message; silent: a line in
+;      logs\install.log and exit code 2), because the data folder would not be protected.
 ; Another Windows user is given access by an administrator:
 ;   Computer Management > Local Users and Groups > Groups > OpenVision Users > Add, or
 ;   net localgroup "OpenVision Users" <user name> /add
@@ -63,12 +66,44 @@
     DetailPrint "Added $R2 to ${OV_GROUP} (exit $0; 2 = already a member)"
   ${EndIf}
 
-  ; Permissions: well-known SIDs for SYSTEM (S-1-5-18) and Administrators (S-1-5-32-544) work in every Windows language.
-  nsExec::ExecToLog 'icacls "$R1" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${OV_GROUP}:(OI)(CI)M" /T /C /Q'
+  ; Permissions. Well-known SIDs for SYSTEM (S-1-5-18) and Administrators (S-1-5-32-544) work in every
+  ; Windows language. No /C: with it icacls exits 0 even when files failed, so a failure would go unseen.
+  ;   a. the folder itself: every explicit grant removed (back to inheriting from ProgramData) ...
+  ;   b. ... and at once the three grants, nothing inherited (closes the moment of a. quickly);
+  ;   c. everything inside: explicit grants removed, inheritance back on, so it gets exactly b.
+  StrCpy $R3 "a"
+  nsExec::ExecToLog 'icacls "$R1" /reset /Q'
   Pop $0
+  ${If} $0 == 0
+    StrCpy $R3 "b"
+    nsExec::ExecToLog 'icacls "$R1" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${OV_GROUP}:(OI)(CI)M" /Q'
+    Pop $0
+    ${If} $0 != 0
+      ; a. opened the folder to ProgramData's permissions: close it to SYSTEM and Administrators only.
+      nsExec::ExecToLog 'icacls "$R1" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" /Q'
+      Pop $R4
+    ${EndIf}
+  ${EndIf}
+  ${If} $0 == 0
+    StrCpy $R3 "c"
+    nsExec::ExecToLog 'icacls "$R1\*" /reset /T /Q'
+    Pop $0
+  ${EndIf}
   ${If} $0 != 0
-    DetailPrint "icacls exit code $0"
-    MessageBox MB_ICONEXCLAMATION|MB_OK "The permissions of $R1 could not be set (icacls exit code $0). Ask your IT support to give only Administrators, SYSTEM and the OpenVision Users group access to that folder." /SD IDOK
+    DetailPrint "icacls step $R3 failed, exit code $0"
+    ${If} ${Silent}
+      FileOpen $R5 "$R1\logs\install.log" a
+      ${If} $R5 != ""
+        FileSeek $R5 0 END
+        FileWrite $R5 "OpenVision ${VERSION} install stopped: the permissions of $R1 could not be set (icacls step $R3, exit code $0).$\r$\n"
+        FileClose $R5
+      ${EndIf}
+      SetErrorLevel 2
+      Quit
+    ${EndIf}
+    MessageBox MB_ICONSTOP|MB_OK "OpenVision was not installed completely: the permissions of $R1 could not be set (icacls exit code $0), so the patient data folder would not be protected.$\r$\n$\r$\nAsk your IT support to give only Administrators, SYSTEM and the OpenVision Users group access to that folder, then run the installer again."
+    SetErrorLevel 2
+    Abort
   ${EndIf}
 !macroend
 

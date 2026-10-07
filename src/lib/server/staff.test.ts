@@ -107,11 +107,8 @@ describe('where both names appear', () => {
 
 describe('migration', () => {
 	it('moves a technician listed as provider to technician and gives the visit a provider', () => {
-		const probe = new DatabaseSync(':memory:');
-		migrate(probe);
-		const latest = (probe.prepare('SELECT MAX(version) AS v FROM schema_version').get() as { v: number }).v;
 		const raw = new DatabaseSync(':memory:');
-		migrate(raw, latest - 5); // everything before the staff migration (the code-set, D44, billing-aid, D46, translations, D48, and ICD-11 titles, D50, migrations follow it)
+		migrate(raw, 12); // everything before the staff migration (the code-set, D44, billing-aid, D46, translations, D48, and ICD-11 titles, D50, migrations follow it)
 		const at = '2026-10-01T00:00:00Z';
 		raw.exec(`INSERT INTO users (id, username, display_name, role, active, created_at) VALUES
 			(1, 'dr', 'Dr. One', 'provider', 1, '${at}'), (2, 'tech', 'Tech Two', 'tech', 1, '${at}'), (3, 'adm', 'Admin', 'admin', 1, '${at}')`);

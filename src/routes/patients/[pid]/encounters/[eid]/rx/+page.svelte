@@ -13,6 +13,7 @@
 		splitList,
 		sumPd,
 		transpose,
+		transposeProblem,
 		type RxValues
 	} from '#lib/exam/sections/refraction.ts';
 	import Msg from '#lib/i18n/Msg.svelte';
@@ -71,6 +72,14 @@
 
 	function doTranspose() {
 		let any = false;
+		// A blank sphere is not plano and a blank axis is not kept: refuse both eyes until it is entered.
+		for (const eye of ['OD', 'OS']) {
+			const problem = transposeProblem({ sph: g(`${eye}SPH`), cyl: g(`${eye}CYL`), axis: g(`${eye}AXIS`) });
+			if (problem === 'sph' || problem === 'axis') {
+				message = t(problem === 'sph' ? 'rx.transposeNeedSph' : 'rx.transposeNeedAxis', { eye });
+				return;
+			}
+		}
 		for (const eye of ['OD', 'OS']) {
 			const tr = transpose({ sph: g(`${eye}SPH`), cyl: g(`${eye}CYL`), axis: g(`${eye}AXIS`) });
 			if (!tr) continue;

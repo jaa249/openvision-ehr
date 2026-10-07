@@ -2,9 +2,8 @@
 // without it, the whole chart up to today, read-only.
 import { error } from '@sveltejs/kit';
 import { getDb } from '#lib/server/db.ts';
-import { getEncounter, getFindings, getPatientHeader, getPriors, getUserDefaults } from '#lib/server/exam.ts';
-import { buildFlowsheet } from '#lib/server/flowsheet.ts';
-import { resolveTarget } from '#lib/exam/sections/glaucoma.ts';
+import { getEncounter, getFindings, getPatientHeader } from '#lib/server/exam.ts';
+import { buildFlowsheet, iopTargets } from '#lib/server/flowsheet.ts';
 import { getLockState } from '#lib/server/signing.ts';
 import type { PageServerLoad } from './$types';
 
@@ -17,22 +16,20 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 
 	const db = getDb();
 	const patient = getPatientHeader(db, pid);
-	const sheet = patient ? buildFlowsheet(db, pid, eid, locals.userId) : null;
+	const sheet = patient ? buildFlowsheet(db, pid, eid) : null;
 	if (!patient || !sheet) error(404, 'Not found');
 
 	let exam = null;
 	if (eid !== null) {
 		const enc = getEncounter(db, pid, eid)!;
 		const findings = getFindings(db, pid, eid) ?? {};
-		const priors = getPriors(db, pid, eid, 1000) ?? [];
-		const defaults = getUserDefaults(db, locals.userId);
 		exam = {
 			id: enc.id,
 			date: enc.date,
 			visitType: enc.visitType,
 			targets: { ODIOPTARGET: findings.ODIOPTARGET?.value ?? '', OSIOPTARGET: findings.OSIOPTARGET?.value ?? '' },
-			/** What applies when the exam's own boxes are empty. */
-			fallback: { OD: resolveTarget('OD', {}, priors, defaults), OS: resolveTarget('OS', {}, priors, defaults) },
+			/** What applies when the exam's own boxes are empty (the visit provider's defaults, not the viewer's). */
+			fallback: iopTargets(db, pid, eid, false)!,
 			/** Editing targets here takes the exam's edit lock like the exam page does (§15.1). */
 			lockState: getLockState(db, eid, locals.userId, null)
 		};

@@ -84,7 +84,7 @@ Status: early (0.1.0). Still to come: database encryption at rest, see [`docs/SE
 4. Read and accept the data safety notice and the [Terms of Use](docs/TERMS.md) (see also the [Privacy Policy](docs/PRIVACY.md)).
 5. Open OpenVision from the Start menu. The first screen creates your administrator account, then offers to download your diagnosis codes.
 
-Your data stays on this computer in `C:\ProgramData\OpenVision`, and only the Windows group **OpenVision Users** can open it. OpenVision does not encrypt its database yet, so **turn on BitLocker**. Updates arrive automatically, with a backup taken first. Adding other Windows users, updates and uninstalling: [`desktop/README.md`](desktop/README.md).
+Your data stays on this computer in `C:\ProgramData\OpenVision`, and only the Windows group **OpenVision Users** can open it. OpenVision does not encrypt its database yet, so **turn on BitLocker**. Updates arrive automatically, with a backup taken first (also when you install a newer version by hand). Adding other Windows users, updates and uninstalling: [`desktop/README.md`](desktop/README.md).
 
 **Check your download (optional).** Each release lists the file's SHA-256 fingerprint in `SHA256SUMS.txt`. In PowerShell, `Get-FileHash .\OpenVision-Setup.exe` prints the fingerprint of your copy; the two should match.
 
@@ -100,7 +100,7 @@ npm run build
 HOST=127.0.0.1 PORT=3000 BODY_SIZE_LIMIT=20M node build    # PowerShell: $env:HOST='127.0.0.1'; $env:PORT='3000'; $env:BODY_SIZE_LIMIT='20M'; node build
 ```
 
-Open http://127.0.0.1:3000. A fresh install creates `data/openvision.sqlite` with two fictional patients and three demo accounts, all with the password `openvision-demo`: `demo-provider`, `demo-tech` and `demo-admin`. Set `OPENVISION_DB` to store the database elsewhere. Set `OPENVISION_DEMO=0` before the first start for an empty install; the first visit then asks you to create the admin account. Locked out? `node scripts/reset-admin.mjs <admin username>` on the server gives an admin a temporary password. Diagnosis codes are not part of the package: an admin downloads the practice's code set (ICD-10-CM or WHO ICD-11) in Settings > Code sets, or imports the official file on a computer without internet (see [`codes/README.md`](codes/README.md)).
+Open http://127.0.0.1:3000. A fresh install creates `data/openvision.sqlite` with two fictional patients and three demo accounts, all with the password `openvision-demo`: `demo-provider`, `demo-tech` and `demo-admin`. Set `OPENVISION_DB` to store the database elsewhere. When a newer version needs to upgrade the database, it first writes a copy to `backups/pre-migrate-...sqlite` beside the database (or to `OPENVISION_BACKUP_DIR`) and keeps the newest 5; if the copy fails, it does not upgrade or start. Set `OPENVISION_DEMO=0` before the first start for an empty install; the first visit then asks you to create the admin account. Locked out? `node scripts/reset-admin.mjs <admin username>` on the server gives an admin a temporary password. Diagnosis codes are not part of the package: an admin downloads the practice's code set (ICD-10-CM or WHO ICD-11) in Settings > Code sets, or imports the official file on a computer without internet (see [`codes/README.md`](codes/README.md)).
 
 > **Not for real patients yet.** Version 0.1.0 is a pre-release until a practising eye-care professional has reviewed it, and OpenVision does not encrypt its database. Keep the browser build bound to `127.0.0.1`, and read [`docs/SECURITY.md`](docs/SECURITY.md).
 

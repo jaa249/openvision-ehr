@@ -63,7 +63,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				if (!result) error(404, 'Not found');
 				break;
 			case 'deleteIssue':
-				if (!deleteIssue(db, pid, Number(body.id))) error(404, 'Not found');
+				if (!deleteIssue(db, pid, Number(body.id), user, { encounterId: eid })) error(404, 'Not found');
 				break;
 			case 'nkda':
 				if (typeof body.on !== 'boolean') error(400, 'Expected { on: true | false }');

@@ -11,5 +11,6 @@
 	"codesBodyLimit": "This file is larger than the server accepts. Ask your administrator to start the server with BODY_SIZE_LIMIT=20M, or import the zip file instead of the text file.",
 	"codesEmptyFile": "Choose a file to import.",
 	"codesRemoveCurrent": "The practice codes with this set. Choose another code set in Settings › Practice before removing it.",
-	"codesUnknownLanguage": "Unknown ICD-11 language."
+	"codesUnknownLanguage": "Unknown ICD-11 language.",
+	"mustChangePassword": "Change your temporary password first, in My settings."
 }

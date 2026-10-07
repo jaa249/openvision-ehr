@@ -69,6 +69,13 @@ export interface Pmsfh {
 	social: SocialHistory;
 }
 
+/**
+ * Which patient history a visit's report shows (D36): 'signed' = the snapshot taken when the exam was
+ * signed (`at` = when); 'current' = the live history of an unsigned exam; 'legacy' = an exam signed before
+ * snapshots existed, so only the live history can be shown, and it is not part of the signed record.
+ */
+export type HistorySource = { kind: 'signed'; at: string } | { kind: 'current' } | { kind: 'legacy' };
+
 /** A quick-pick title chip in the editor (§7.2): picking it copies the title and its code. */
 export interface TitlePick {
 	title: string;

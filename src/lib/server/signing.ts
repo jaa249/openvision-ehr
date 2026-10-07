@@ -1,5 +1,6 @@
 // Exam signing and the edit lock (spec §15.1 FIX: enforced on the server).
-// Every route that changes an exam calls assertEditable before writing.
+// Every route that changes an exam checks assertEditable after reading the request body, inside the
+// write's transaction (editTransaction); database triggers refuse signed content as well (D36).
 //
 // Lock model: one row per exam (exam_locks) naming the holder user and the holder PAGE (a random
 // token made per page load, sent as the X-Lock-Token header). The lock is live while it has not
@@ -11,11 +12,12 @@
 // Signing is final: there is no unsigning (pre-release decision: corrections after signing are
 // addenda, which are append-only; the tables refuse UPDATE/DELETE with triggers).
 import { createHash } from 'node:crypto';
-import type { DB } from './db.ts';
+import { transaction, type DB } from './db.ts';
 import type { Signature } from '#lib/plan/types.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 import { getEncounter, getFindings } from './exam.ts';
 import { audit } from './audit.ts';
+import { snapshotHistory } from './history.ts';
 
 /** Who holds an exam's edit lock. Times are ISO strings. */
 export interface LockInfo {
@@ -281,6 +283,55 @@ export function assertEditable(db: DB, _patientId: number, encounterId: number, 
 	if (!holds(row, userId, lockToken)) throw notHolder(row, now);
 }
 
+/**
+ * An abort from the signed-content triggers (migration signed_final.ts, and encounters_staff_signed):
+ * the exam was signed before the write reached the database. Mapped to the same 'signed' refusal the
+ * routes answer with 423; null for any other error.
+ */
+export function signedAbort(e: unknown): EncounterLockedError | null {
+	return e instanceof Error && /signed exam:/.test(e.message) ? signedError() : null;
+}
+
+/**
+ * Runs an exam write in one transaction that takes the write lock first (BEGIN IMMEDIATE) and checks
+ * assertEditable inside it, so neither signing nor a lock takeover (in this process or another one)
+ * can come between the check and the write. Routes call it after reading the request body: a body
+ * that arrives after the exam was signed is refused (EncounterLockedError) and nothing is written.
+ * Writes with their own transaction nest (savepoint). Anything thrown rolls the whole write back.
+ */
+export function editTransaction<T>(
+	db: DB,
+	patientId: number,
+	encounterId: number,
+	userId: number,
+	token: string | null,
+	write: () => T,
+	now = new Date()
+): T {
+	try {
+		return transaction(
+			db,
+			() => {
+				assertEditable(db, patientId, encounterId, userId, token, now);
+				return write();
+			},
+			true
+		);
+	} catch (e) {
+		throw signedAbort(e) ?? e;
+	}
+}
+
+/** editTransaction for a route: the write's own response, or the 423 when the exam cannot be changed. */
+export function editableWrite(db: DB, patientId: number, encounterId: number, userId: number, request: Request, write: () => Response): Response {
+	try {
+		return editTransaction(db, patientId, encounterId, userId, lockToken(request), write);
+	} catch (e) {
+		if (e instanceof EncounterLockedError) return lockedResponse(e);
+		throw e;
+	}
+}
+
 // ---------- signing ----------
 
 /** Tables holding the Impression/Plan and orders, if the plan feature created them (queried defensively). */
@@ -362,6 +413,9 @@ export function signExam(db: DB, patientId: number, encounterId: number, user: S
 		const hash = examContentHash(db, encounterId);
 		const at = now.toISOString();
 		db.prepare('INSERT INTO exam_signatures (encounter_id, signed_by, signed_at, content_hash) VALUES (?, ?, ?, ?)').run(encounterId, user.id, at, hash);
+		// The patient history as shown in this exam, so the signed report reprints it (not part of the hash,
+		// so signatures made before snapshots existed keep verifying).
+		snapshotHistory(db, patientId, encounterId, now);
 		db.prepare('UPDATE exam_locks SET released_at = ? WHERE encounter_id = ?').run(at, encounterId);
 		audit(db, { userId: user.id, action: 'exam.sign', patientId, encounterId, detail: { contentHash: hash } }, now);
 		db.exec('COMMIT');

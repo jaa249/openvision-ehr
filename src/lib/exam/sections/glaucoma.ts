@@ -62,18 +62,23 @@ export interface ResolvedTarget {
 	source: TargetSource;
 	/** Visit date the value came from when source = 'prior'. */
 	from?: string;
+	/** Name of the provider whose default it is when source = 'provider' (the visit's provider, never the viewer). */
+	by?: string;
 }
 
 /**
  * The target for one eye (§8.3 FIX, lookup order): this exam's value, else the latest PRIOR visit
  * that set one, else the provider's list entry, else 21. `priors` must be newest first and contain
- * only visits before this one.
+ * only visits before this one. `defaults` are the defaults of the VISIT's provider (encounters.provider_id),
+ * so everyone who opens the chart sees the same target and the same "above target" flags; `providerName`
+ * labels a target that came from them.
  */
 export function resolveTarget(
 	eye: TargetEye,
 	current: Findings,
 	priors: { date: string; findings: Findings }[],
-	defaults: Record<string, string> = {}
+	defaults: Record<string, string> = {},
+	providerName?: string
 ): ResolvedTarget {
 	const id = TARGET_IDS[eye];
 	const own = iopNumber(current[id]?.value);
@@ -83,14 +88,14 @@ export function resolveTarget(
 		if (v !== null) return { value: v, source: 'prior', from: p.date };
 	}
 	const d = iopNumber(defaults[id]);
-	if (d !== null) return { value: d, source: 'provider' };
+	if (d !== null) return providerName ? { value: d, source: 'provider', by: providerName } : { value: d, source: 'provider' };
 	return { value: DEFAULT_IOP_TARGET, source: 'default' };
 }
 
 export const TARGET_SOURCE_LABEL: Record<TargetSource, string> = {
 	exam: 'set at this visit',
 	prior: 'from the last visit that set one',
-	provider: 'your default',
+	provider: "the provider's default",
 	default: 'standard 21'
 };
 

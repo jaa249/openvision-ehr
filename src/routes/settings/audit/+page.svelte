@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { useI18n } from '#lib/i18n/context.ts';
 	import type { PageProps } from './$types';
+	import { ACTION_LABEL_KEY } from './labels.ts';
 
 	let { data }: PageProps = $props();
 	const { t } = useI18n();
@@ -9,6 +10,8 @@
 		p.set('page', String(n));
 		return `?${p}`;
 	};
+	/** The action's readable name in the page language, else its stored code. */
+	const actionLabel = (a: string) => (ACTION_LABEL_KEY[a] ? t(ACTION_LABEL_KEY[a]) : a);
 	const when = (iso: string) => t('settings.auditUtc', { time: iso.replace('T', ' ').slice(0, 19) });
 </script>
 
@@ -36,7 +39,8 @@
 				<label for="f-action">{t('settings.auditAction')}</label>
 				<select id="f-action" name="action">
 					<option value="">{t('settings.auditAny')}</option>
-					{#each data.actions as a (a)}<option value={a} selected={data.raw.action === a}>{a}</option>{/each}
+					<option value="@output" selected={data.raw.action === '@output'}>{t('settings.auditGroupOutput')}</option>
+					{#each data.actions as a (a)}<option value={a} selected={data.raw.action === a}>{actionLabel(a)}</option>{/each}
 				</select>
 			</div>
 			<div class="field">
@@ -70,7 +74,7 @@
 					<tr>
 						<td class="num nowrap">{when(r.at)}</td>
 						<td>{r.user ?? '—'}</td>
-						<td class="nowrap"><code>{r.action}</code></td>
+						<td>{actionLabel(r.action)}{#if ACTION_LABEL_KEY[r.action]}<br /><code class="code">{r.action}</code>{/if}</td>
 						<td>{#if r.patientId}<a href="/patients/{r.patientId}">{r.patient ?? `#${r.patientId}`}</a>{:else}—{/if}</td>
 						<td class="num">{r.encounterId ?? '—'}</td>
 						<td class="detail">{r.detail}</td>
@@ -132,6 +136,10 @@
 	}
 	code {
 		font-family: var(--font-mono);
+	}
+	.code {
+		font-size: var(--text-xs);
+		color: var(--text-2);
 	}
 	.pager {
 		display: flex;

@@ -3,12 +3,32 @@ import { createHash } from 'node:crypto';
 import { FIELDS, SECTION_DEF } from '#lib/exam/catalog.ts';
 import type { PrintableEncounter } from '#lib/exam/types.ts';
 import { allergyStatusText } from '#lib/history/summary.ts';
+import type { AllergyStatus } from '#lib/history/types.ts';
 import { CODE_SETS, codeSetOfCode, splitCodeText, type CodeSetId } from '#lib/codesets/index.ts';
-import type { PlanReport } from '#lib/plan/types.ts';
+import type { PlanReport, Signature } from '#lib/plan/types.ts';
+
+/**
+ * The allergy status a visit's export carries (D36): for a signed exam, as recorded at signing (the
+ * snapshot getPrintable put in `history`); otherwise, and for an exam signed before snapshots existed
+ * ('legacy'), the patient's current status.
+ */
+export function allergiesFor(item: PrintableEncounter): AllergyStatus {
+	return item.historySource?.kind === 'signed' && item.history ? item.history.allergyStatus : item.patient.allergyStatus;
+}
 
 // ---------- CSV ----------
 
 const PATIENT_COLUMNS = ['Encounter ID', 'Visit date', 'Visit type', 'Provider', 'Technician', 'MRN', 'Last name', 'First name', 'Preferred name', 'DOB', 'Allergies'];
+/**
+ * After the exam fields, so existing column positions never move: who signed and when, and every
+ * addendum (a correction written after signing must travel with the findings it corrects; D36).
+ */
+const SIGNATURE_COLUMNS = ['Signed', 'Addenda'];
+
+/** "Dr X, 2026-10-06T14:05:00.000Z" or '' when unsigned. */
+const signedCell = (s: Signature | null | undefined) => (s ? `${s.signedBy}, ${s.signedAt}` : '');
+/** Each addendum as "<time> <author>: <text>", oldest first, one per line. */
+const addendaCell = (s: Signature | null | undefined) => (s?.addenda ?? []).map((a) => `${a.at} ${a.by}: ${a.text}`).join('\n');
 
 /**
  * Spreadsheet apps run cells that start with = + - @ as formulas (CSV injection).
@@ -21,8 +41,10 @@ function cell(raw: string): string {
 
 /** One row per visit, one column per exam field (catalog order). UTF-8 with BOM so Excel reads accents. */
 export function toCsv(items: PrintableEncounter[]): string {
-	const header = [...PATIENT_COLUMNS, ...FIELDS.map((f) => `${SECTION_DEF.get(f.section)?.title.split(' (')[0]}: ${f.label}`)];
-	const rows = items.map(({ patient: p, encounter: e, findings }) => {
+	const header = [...PATIENT_COLUMNS, ...FIELDS.map((f) => `${SECTION_DEF.get(f.section)?.title.split(' (')[0]}: ${f.label}`), ...SIGNATURE_COLUMNS];
+	const rows = items.map((item) => {
+		const { patient: p, encounter: e, findings, signature } = item;
+		const allergies = allergiesFor(item);
 		return [
 			String(e.id),
 			e.date,
@@ -35,10 +57,12 @@ export function toCsv(items: PrintableEncounter[]): string {
 			p.preferredName ?? '',
 			p.dob,
 			// "Not recorded" / "NKDA" / the list: a blank cell would read as "no allergies".
-			p.allergyStatus.kind === 'listed'
-				? p.allergyStatus.allergies.map((a) => a.title + (a.reaction ? ` (${a.reaction})` : '')).join('; ')
-				: allergyStatusText(p.allergyStatus),
-			...FIELDS.map((f) => findings[f.id]?.value ?? '')
+			allergies.kind === 'listed'
+				? allergies.allergies.map((a) => a.title + (a.reaction ? ` (${a.reaction})` : '')).join('; ')
+				: allergyStatusText(allergies),
+			...FIELDS.map((f) => findings[f.id]?.value ?? ''),
+			signedCell(signature),
+			addendaCell(signature)
 		];
 	});
 	return '﻿' + [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n') + '\r\n';
@@ -54,6 +78,7 @@ const ALLERGY_VERIFICATION = 'http://terminology.hl7.org/CodeSystem/allergyintol
 const CONDITION_CLINICAL = 'http://terminology.hl7.org/CodeSystem/condition-clinical';
 const CONDITION_VERIFICATION = 'http://terminology.hl7.org/CodeSystem/condition-ver-status';
 const CONDITION_CATEGORY = 'http://terminology.hl7.org/CodeSystem/condition-category';
+const LOINC = 'http://loinc.org';
 /** Our extension carrying the WHO linearization URI next to an ICD-11 code and title (WHO licence; D47). */
 export const ICD11_URI_EXTENSION = 'urn:openvision:fhir:icd11-uri';
 /**
@@ -116,9 +141,9 @@ const narrative = (t: string) => ({
 
 /**
  * A FHIR R4 "collection" Bundle: Patient, Practitioner, Encounter, AllergyIntolerance, one Observation
- * per recorded finding and one Condition per impression item (D47), so a downloaded visit can be added
- * to another chart. Observations are "final" and Conditions "confirmed" once the exam is signed;
- * before that they are "preliminary" / "provisional".
+ * per recorded finding, one Condition per impression item (D47) and one DocumentReference per addendum,
+ * so a downloaded visit can be added to another chart. Observations are "final" and Conditions
+ * "confirmed" once the exam is signed; before that they are "preliminary" / "provisional".
  */
 export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Record<string, unknown> {
 	const resources = new Map<string, Resource>();
@@ -128,8 +153,18 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 		return `urn:uuid:${id}`;
 	};
 	const today = now.toISOString().slice(0, 10);
+	// AllergyIntolerance is patient-level, so a bundle carries ONE allergy state per patient: that of the
+	// patient's newest visit in the bundle (by date, then id), as that visit records it (allergiesFor:
+	// its signing snapshot when signed, else current). Deterministic whatever order the visits come in.
+	const allergySource = new Map<number, PrintableEncounter>();
+	for (const it of items) {
+		const cur = allergySource.get(it.patient.id);
+		const newer = !cur || it.encounter.date > cur.encounter.date || (it.encounter.date === cur.encounter.date && it.encounter.id > cur.encounter.id);
+		if (newer) allergySource.set(it.patient.id, it);
+	}
 
-	for (const { patient: p, encounter: e, findings, plan, signature } of items) {
+	for (const item of items) {
+		const { patient: p, encounter: e, findings, plan, signature } = item;
 		const signed = !!signature;
 		const patientRef = add(`patient:${p.id}`, {
 			resourceType: 'Patient',
@@ -148,7 +183,8 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 			],
 			birthDate: p.dob
 		});
-		const allergies = p.allergyStatus;
+		// Only the visit chosen above exports allergies ('unknown' exports nothing).
+		const allergies: AllergyStatus = allergySource.get(p.id) === item ? allergiesFor(item) : { kind: 'unknown' };
 		if (allergies.kind === 'listed') {
 			for (const a of allergies.allergies) {
 				add(`allergy:${p.id}:${a.title}`, {
@@ -192,7 +228,7 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 		}
 		const encounterRef = add(`encounter:${e.id}`, {
 			resourceType: 'Encounter',
-			text: narrative(encounterText(e.visitType, e.date, e.provider, plan)),
+			text: narrative(encounterText(e.visitType, e.date, e.provider, plan, signature)),
 			identifier: [{ system: 'urn:openvision:encounter', value: String(e.id) }],
 			status: e.date < today ? 'finished' : 'in-progress',
 			class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB', display: 'ambulatory' },
@@ -239,6 +275,40 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 				...(item.plan.trim() ? { note: [{ text: item.plan }] } : {})
 			});
 		});
+		// Addenda (D36): corrections written after signing. The findings above stay as signed ("final"),
+		// so without these a receiving chart would hold the uncorrected record. Each addendum is its own
+		// DocumentReference (LOINC 55107-7 "Addendum Document"), the resource EHRs list as a clinical
+		// note, with the text as a plain-text attachment, the author and time, and context.encounter
+		// tying it to the visit. relatesTo "appends" is not used: in R4 it can only point at another
+		// DocumentReference, and the exam itself is an Encounter with Observations, not a document. The
+		// Encounter narrative repeats the signature and addenda for systems that show only narratives.
+		(signature?.addenda ?? []).forEach((a, i) => {
+			add(`addendum:${e.id}:${i}:${a.at}`, {
+				resourceType: 'DocumentReference',
+				text: narrative(`Addendum by ${a.by} on ${a.at}: ${a.text}`),
+				status: 'current',
+				docStatus: 'final',
+				type: { coding: [{ system: LOINC, code: '55107-7', display: 'Addendum Document' }], text: 'Addendum' },
+				category: [{ coding: [{ system: 'http://hl7.org/fhir/us/core/CodeSystem/us-core-documentreference-category', code: 'clinical-note', display: 'Clinical Note' }] }],
+				subject: { reference: patientRef },
+				date: a.at,
+				// Addenda store the author's name only, so a display-only reference (valid in R4).
+				author: [{ display: a.by }],
+				description: `Addendum to the ${e.date} eye exam`,
+				content: [
+					{
+						attachment: {
+							contentType: 'text/plain; charset=utf-8',
+							language: 'en',
+							data: Buffer.from(a.text, 'utf8').toString('base64'),
+							title: 'Addendum',
+							creation: a.at
+						}
+					}
+				],
+				context: { encounter: [{ reference: encounterRef }], period: { start: e.date } }
+			});
+		});
 	}
 
 	return {
@@ -250,11 +320,24 @@ export function toFhirBundle(items: PrintableEncounter[], now = new Date()): Rec
 	};
 }
 
-/** The Encounter narrative; the orders and next visit ride along in it (D47: no CarePlan yet). */
-function encounterText(visitType: string, date: string, provider: string, plan: PlanReport | null | undefined): string {
+/**
+ * The Encounter narrative; the orders and next visit ride along in it (D47: no CarePlan yet), then the
+ * signature and each addendum, as on the printed report.
+ */
+function encounterText(
+	visitType: string,
+	date: string,
+	provider: string,
+	plan: PlanReport | null | undefined,
+	signature: Signature | null | undefined
+): string {
 	const parts = [`${visitType} eye exam on ${date} with ${provider}.`];
 	if (plan?.orders.length) parts.push(`Orders/Next visit: ${plan.orders.join('; ')}.`);
 	if (plan?.orderPlan.trim()) parts.push(`${plan.orders.length ? '' : 'Next visit: '}${plan.orderPlan.trim()}`);
+	if (signature) {
+		parts.push(`Signed by ${signature.signedBy} on ${signature.signedAt}.`);
+		for (const a of signature.addenda) parts.push(`Addendum by ${a.by} on ${a.at}: ${a.text}`);
+	}
 	return parts.join(' ');
 }
 

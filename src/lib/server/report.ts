@@ -2,10 +2,11 @@
 import type { DB } from './db.ts';
 import { getEncounter, getFindings, getPatientHeader } from './exam.ts';
 import { drawingZones } from './drawings.ts';
-import { getPmsfh } from './history.ts';
+import { historyForEncounter } from './history.ts';
 import { getPlanForReport } from './plan.ts';
 import { getSignature } from './signing.ts';
 import { getChosenCodes } from './coding.ts';
+import { audit } from './audit.ts';
 import { MAX_EXPORT, MAX_PRINT } from '#lib/exam/print.ts';
 import type { Practice, PrintableEncounter } from '#lib/exam/types.ts';
 
@@ -21,12 +22,15 @@ export function getPrintable(db: DB, patientId: number, encounterId: number): Pr
 	const patient = getPatientHeader(db, patientId);
 	const encounter = patient ? getEncounter(db, patientId, encounterId) : null;
 	if (!patient || !encounter) return null;
+	// A signed exam prints the history it was signed with; otherwise the live history, labelled as such.
+	const h = historyForEncounter(db, encounterId)!;
 	return {
 		patient,
 		encounter,
 		findings: getFindings(db, patientId, encounterId) ?? {},
 		drawingZones: drawingZones(db, encounterId),
-		history: getPmsfh(db, patientId),
+		history: h.history,
+		historySource: h.source,
 		plan: getPlanForReport(db, encounterId),
 		signature: getSignature(db, encounterId),
 		codes: getChosenCodes(db, patientId, encounterId)
@@ -126,17 +130,25 @@ export function listEncounters(db: DB, f: EncounterFilter, limit = 500): Encount
 
 export type OutputKind = 'print' | 'csv' | 'fhir';
 
-/** Records that these encounters left the app: printed (or saved as PDF), or exported. Returns rows written. */
+/**
+ * Records that these encounters left the app: printed (or saved as PDF), or exported. One print_log row
+ * and one audit_log row (export.print / export.csv / export.fhir, with the patient) per encounter, so the
+ * Settings audit view lists every print and export. Detail: the job's size only. Returns rows written.
+ */
 export function logPrint(db: DB, userId: number, encounterIds: number[], kind: OutputKind = 'print', now = new Date()): number {
 	const ids = [...new Set(encounterIds)].slice(0, MAX_EXPORT);
-	const exists = db.prepare('SELECT 1 FROM encounters WHERE id = ?');
+	const patientOf = db.prepare('SELECT patient_id FROM encounters WHERE id = ?');
 	const insert = db.prepare('INSERT INTO print_log (user_id, encounter_id, printed_at, kind) VALUES (?, ?, ?, ?)');
 	let n = 0;
 	db.exec('BEGIN');
 	try {
-		for (const id of ids) {
-			if (!exists.get(id)) continue;
+		const found = ids.flatMap((id) => {
+			const r = patientOf.get(id) as { patient_id: number } | undefined;
+			return r ? [{ id, patientId: r.patient_id }] : [];
+		});
+		for (const { id, patientId } of found) {
 			insert.run(userId, id, now.toISOString(), kind);
+			audit(db, { userId, action: `export.${kind}`, patientId, encounterId: id, detail: { visits: found.length } }, now);
 			n++;
 		}
 		db.exec('COMMIT');

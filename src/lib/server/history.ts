@@ -14,6 +14,7 @@ import {
 	type FieldErrors
 } from './patients.ts';
 import { getEncounter } from './exam.ts';
+import { inTransaction, liveIssueRow, recordIssueEdit, softDeleteIssue } from './issue_versions.ts';
 import { currentCodeSet } from './settings.ts';
 import { icd11Loaded, resolveIcd11Code } from './icd11.ts';
 import { codeTextFor, isCodeSetId, type CodeSetId } from '#lib/codesets/index.ts';
@@ -31,6 +32,7 @@ import { splitAllergy, splitIssueText } from '#lib/history/summary.ts';
 import {
 	ISSUE_TYPES,
 	type FamilyHistory,
+	type HistorySource,
 	type Issue,
 	type IssueType,
 	type Pmsfh,
@@ -89,7 +91,7 @@ export function listIssues(db: DB, patientId: number, today = localToday()): Iss
 	const rows = db
 		.prepare(
 			`SELECT id, type, title, codes, begin_date, end_date, occurrence, reaction, outcome, provider, comments, code_system
-			   FROM issues WHERE patient_id = ? ORDER BY title COLLATE NOCASE, id`
+			   FROM issues WHERE patient_id = ? AND deleted_at IS NULL ORDER BY title COLLATE NOCASE, id`
 		)
 		.all(patientId) as IssueRow[];
 	return rows.map((r) => toIssue(r, today));
@@ -117,6 +119,42 @@ export function getPmsfh(db: DB, patientId: number, today = localToday()): Pmsfh
 		family: latestHistory(db, patientId, 'family'),
 		social: latestHistory(db, patientId, 'social')
 	};
+}
+
+// ---------- the history a signed exam was signed with (D36) ----------
+
+/**
+ * Stores the patient history as the exam shows it (same shape as the report's) for a visit being signed.
+ * Called by signExam inside its transaction; history_snapshots is append-only (triggers).
+ */
+export function snapshotHistory(db: DB, patientId: number, encounterId: number, now = new Date()): void {
+	const history = getPmsfh(db, patientId, localToday(now));
+	db.prepare('INSERT INTO history_snapshots (encounter_id, patient_id, taken_at, data) VALUES (?, ?, ?, ?)').run(
+		encounterId,
+		patientId,
+		now.toISOString(),
+		JSON.stringify({ v: 1, history })
+	);
+}
+
+/**
+ * The patient history for one visit's report or export: the snapshot taken at signing for a signed exam,
+ * otherwise the live history ('current' when unsigned, 'legacy' for an exam signed before snapshots
+ * existed). Null for an unknown visit.
+ */
+export function historyForEncounter(
+	db: DB,
+	encounterId: number,
+	today = localToday()
+): { history: Pmsfh; source: HistorySource } | null {
+	const enc = db.prepare('SELECT patient_id FROM encounters WHERE id = ?').get(encounterId) as { patient_id: number } | undefined;
+	if (!enc) return null;
+	const snap = db.prepare('SELECT taken_at, data FROM history_snapshots WHERE encounter_id = ? AND patient_id = ?').get(encounterId, enc.patient_id) as
+		| { taken_at: string; data: string }
+		| undefined;
+	if (snap) return { history: (JSON.parse(snap.data) as { history: Pmsfh }).history, source: { kind: 'signed', at: snap.taken_at } };
+	const signed = !!db.prepare('SELECT 1 FROM exam_signatures WHERE encounter_id = ?').get(encounterId);
+	return { history: getPmsfh(db, enc.patient_id, today), source: { kind: signed ? 'legacy' : 'current' } };
 }
 
 // ---------- issues ----------
@@ -224,7 +262,7 @@ function issueCodeData(db: DB, codes: string, set: CodeSetId, lang: string): Iss
 
 function findDuplicate(db: DB, patientId: number, type: IssueType, title: string, exceptId: number | null): number | null {
 	const hit = db
-		.prepare('SELECT id FROM issues WHERE patient_id = ? AND type = ? AND title = ? COLLATE NOCASE AND id IS NOT ? ORDER BY id LIMIT 1')
+		.prepare('SELECT id FROM issues WHERE patient_id = ? AND type = ? AND title = ? COLLATE NOCASE AND id IS NOT ? AND deleted_at IS NULL ORDER BY id LIMIT 1')
 		.get(patientId, type, title, exceptId) as { id: number } | undefined;
 	return hit?.id ?? null;
 }
@@ -232,7 +270,8 @@ function findDuplicate(db: DB, patientId: number, type: IssueType, title: string
 /**
  * Inserts or updates an issue. A new issue whose title and type already exist updates that issue in place
  * (§7.2: the type includes the eye subtype, so a PMH never overwrites a POH). New issues are linked to
- * the visit they were added in. Returns null when the patient (or the edited issue) is not theirs.
+ * the visit they were added in. An update keeps the previous contents in issue_versions and is audited,
+ * in the same transaction. Returns null when the patient (or the edited, not deleted issue) is not theirs.
  */
 export function saveIssue(
 	db: DB,
@@ -243,11 +282,21 @@ export function saveIssue(
 ): { id: number; created: boolean } | null {
 	if (!db.prepare('SELECT 1 FROM patients WHERE id = ?').get(patientId)) return null;
 	const c = validateIssue(input);
+	return inTransaction(db, () => writeIssue(db, patientId, userId, c, opts));
+}
+
+function writeIssue(
+	db: DB,
+	patientId: number,
+	userId: number,
+	c: CleanIssue,
+	opts: { encounterId?: number | null; now?: Date; lang?: string }
+): { id: number; created: boolean } | null {
 	const now = opts.now ?? new Date();
 	const at = now.toISOString();
 	let id = c.id;
 	if (id !== null) {
-		if (!db.prepare('SELECT 1 FROM issues WHERE id = ? AND patient_id = ?').get(id, patientId)) return null;
+		if (!liveIssueRow(db, patientId, id)) return null;
 		if (findDuplicate(db, patientId, c.type, c.title, id) !== null) {
 			throw new PatientValidationError({ title: `"${c.title}" is already on this list.` });
 		}
@@ -283,21 +332,32 @@ export function saveIssue(
 				c.outcome, c.provider, c.comments, opts.encounterId ?? null, at, userId, at, userId);
 		id = Number(lastInsertRowid);
 	} else {
+		const before = liveIssueRow(db, patientId, id!)!;
 		db.prepare(
 			`UPDATE issues SET type = ?, title = ?, codes = ?, code_system = ?, code_uris = ?, code_text = ?, title_lang = ?, begin_date = ?, end_date = ?,
 			                   occurrence = ?, reaction = ?, outcome = ?, provider = ?, comments = ?, updated_at = ?, updated_by = ?
 			  WHERE id = ? AND patient_id = ?`
 		).run(c.type, c.title, cd.codes, cd.codeSystem, cd.codeUris, cd.codeText, cd.titleLang, c.begin, c.end, c.occurrence, c.reaction, c.outcome,
 			c.provider, c.comments, at, userId, id, patientId);
+		recordIssueEdit(db, before, userId, now, opts.encounterId ?? null);
 	}
 	if (c.type === 'ALLERGY' && (!c.end || c.end > localToday(now))) clearNoKnownAllergies(db, patientId);
 	return { id: id!, created };
 }
 
-/** Deletes an issue only if it belongs to this patient. */
-export function deleteIssue(db: DB, patientId: number, issueId: number): boolean {
+/**
+ * Deletes an issue only if it belongs to this patient: the row is marked deleted (hidden everywhere) and
+ * its contents are kept in issue_versions with who and when, and audited. False when there is no such live issue.
+ */
+export function deleteIssue(
+	db: DB,
+	patientId: number,
+	issueId: number,
+	userId: number,
+	opts: { encounterId?: number | null; now?: Date } = {}
+): boolean {
 	if (!Number.isSafeInteger(issueId)) return false;
-	return Number(db.prepare('DELETE FROM issues WHERE id = ? AND patient_id = ?').run(issueId, patientId).changes) > 0;
+	return inTransaction(db, () => softDeleteIssue(db, patientId, issueId, userId, opts.now ?? new Date(), { encounterId: opts.encounterId }));
 }
 
 // ---------- shorthand (§2.4) ----------
@@ -335,10 +395,12 @@ export function addIssuesFromShorthand(
 			if (!title) continue;
 			const dup = findDuplicate(db, patientId, type, title, null);
 			if (dup !== null) {
+				const before = liveIssueRow(db, patientId, dup)!;
 				db.prepare(
 					`UPDATE issues SET end_date = '', reaction = CASE WHEN ? <> '' THEN ? ELSE reaction END, updated_at = ?, updated_by = ?
 					  WHERE id = ? AND patient_id = ?`
 				).run(reaction, reaction, at, userId, dup, patientId);
+				recordIssueEdit(db, before, userId, now, encounterId);
 				result.updated.push(title);
 			} else {
 				insert.run(patientId, type, title, type === 'MED' ? enc.date : '', reaction, encounterId, at, userId, at, userId);
@@ -440,7 +502,7 @@ export function quickPickTitles(db: DB, providerId: number, today = localToday()
 	const set = currentCodeSet(db);
 	const q = db.prepare(
 		`SELECT MIN(i.title) AS title, COALESCE(MAX(CASE WHEN i.code_system = ? THEN i.codes END), '') AS codes, COUNT(*) AS n FROM issues i
-		  WHERE i.type = ? AND i.patient_id IN (SELECT e.patient_id FROM encounters e WHERE e.provider_id = ? AND e.date >= ? AND e.date <= ?)
+		  WHERE i.type = ? AND i.deleted_at IS NULL AND i.patient_id IN (SELECT e.patient_id FROM encounters e WHERE e.provider_id = ? AND e.date >= ? AND e.date <= ?)
 		  GROUP BY i.title COLLATE NOCASE ORDER BY n DESC, MIN(i.title) COLLATE NOCASE LIMIT ?`
 	);
 	const since = daysBefore(today, 30);

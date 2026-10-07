@@ -19,7 +19,7 @@
 	"lockedOther": "Les cibles sont en lecture seule pour le moment.",
 	"sourceExam": "fixée lors de cette consultation",
 	"sourcePrior": "de la dernière consultation qui en a fixé une",
-	"sourceProvider": "votre valeur par défaut",
+	"sourceProvider": "la valeur par défaut du praticien",
 	"sourceDefault": "standard 21",
 	"noVisits": "Aucune consultation pour l'instant.",
 	"currentMeds": "Traitements oculaires en cours",
@@ -70,5 +70,6 @@
 	"datePoint": "{date} : PIO {eye} {value} mmHg par {method}, cible {target}",
 	"datePointHigh": "{date} : PIO {eye} {value} mmHg par {method}, cible {target}, au-dessus de la cible",
 	"markerPerformed": "{kind} réalisé le {date}",
-	"markerPerformedOpen": "{kind} réalisé le {date}. Appuyez pour ouvrir."
+	"markerPerformedOpen": "{kind} réalisé le {date}. Appuyez pour ouvrir.",
+	"sourceProviderNamed": "valeur par défaut de {name}"
 }

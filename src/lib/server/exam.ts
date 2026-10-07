@@ -1,7 +1,7 @@
 // Exam data access. Every read and write is scoped by BOTH patient id and encounter id,
 // so a request can never reach another patient's exam by guessing an id
 // (the class of bug behind CVE-2026-27943 in the original form).
-import type { DB } from './db.ts';
+import { transaction, type DB } from './db.ts';
 import { FIELD_BY_ID } from '#lib/exam/catalog.ts';
 import type { Findings } from '#lib/shorthand/parse.ts';
 import type { EncounterInfo, PatientHeader, PriorVisit } from '#lib/exam/types.ts';
@@ -142,18 +142,14 @@ export function saveFindings(
 		`INSERT INTO finding_history (encounter_id, field, old_value, new_value, changed_at, changed_by)
 		 VALUES (?, ?, ?, ?, ?, ?)`
 	);
-	db.exec('BEGIN');
-	try {
+	// Nested-safe: the findings route runs this inside editTransaction (lock + signature rechecked there).
+	transaction(db, () => {
 		for (const c of changes) {
 			const old = read.get(encounterId, c.field) as { value: string } | undefined;
 			write.run(encounterId, c.field, c.value, c.isDefault ? 1 : 0, at, userId);
 			if ((old?.value ?? '') !== c.value) log.run(encounterId, c.field, old?.value ?? null, c.value, at, userId);
 		}
-		db.exec('COMMIT');
-	} catch (e) {
-		db.exec('ROLLBACK');
-		throw e;
-	}
+	});
 	return at;
 }
 

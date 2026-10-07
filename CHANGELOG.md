@@ -52,6 +52,34 @@ The first release. Everything below is new.
   (BitLocker). Installers are not code-signed yet.
 - Terms of Use, Privacy Policy and a data safety notice, accepted in the installer and at first-run setup.
 
+### Found in external review and fixed before release
+
+- A signed exam is now final in the database too: triggers refuse changes to its findings, drawings, plan,
+  orders, chosen codes and visit documents.
+- The server checks the signature and edit lock after a request arrives, inside the same transaction as the
+  change, so a slow save cannot land after signing; a provider or technician change and its audit entry are
+  saved together.
+- Past-history items are never overwritten or erased: each edit or delete keeps the earlier version, and a
+  deleted item is only hidden.
+- Signing stores the patient history as shown in the exam; a signed report prints that history, labelled with
+  the signing date.
+- Every print is in the audit log as well as the print log, and the print log cannot be edited or deleted.
+- Installing a newer version by hand backs up the database before upgrading it; if the backup fails, nothing
+  is changed and the app does not start.
+- Empty past-history categories on the report say "Not recorded", never "None".
+- Signing first saves everything still open on the page and stops if anything could not be saved; plan items
+  and orders save one request at a time, so the last change is the one kept.
+- The installer resets old permissions on the data folder and stops if it cannot protect it.
+- Old unfinished downloads in the data folder are deleted when the app starts.
+- Choosing "Wait" when closing with changes still saving now really cancels the exit or restart.
+- CSV and FHIR exports carry the signature and addenda, with a signed visit's allergies as recorded at
+  signing; printed prescriptions and opened or downloaded documents are in the audit log, which now has
+  readable labels.
+- The glaucoma flow sheet's default IOP target comes from the visit's provider, not whoever is viewing, and
+  says whose it is.
+- Transpose refuses a blank sphere (type PLANO for zero) or a blank or invalid axis instead of guessing.
+- A temporary password blocks everything except changing it, signing out and the session check.
+
 ### Known limits
 
 - The database is not encrypted by OpenVision (planned); use BitLocker.

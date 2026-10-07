@@ -109,5 +109,7 @@
 	"historyMaterial": "Matériau : {material}.",
 	"historyTreatments": "Traitements : {treatments}.",
 	"byManufacturer": "de {name}",
-	"viaSupplier": "via {name}"
+	"viaSupplier": "via {name}",
+	"transposeNeedSph": "{eye} : saisissez la sphère (ou PLANO) avant de transposer.",
+	"transposeNeedAxis": "{eye} : saisissez l'axe avant de transposer."
 }

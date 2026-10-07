@@ -4,11 +4,12 @@ import { getPrintables, logPrint } from './report.ts';
 import { exportName, FHIR_CODESYSTEM, ICD11_URI_EXTENSION, TITLE_LANG_EXTENSION, toCsv, toFhirBundle } from './export.ts';
 import { addItem, saveOrders } from './plan.ts';
 import { updateCodeSettings } from './settings.ts';
-import { signExam } from './signing.ts';
+import { addAddendum, signExam } from './signing.ts';
 import { loadIcd11 } from './icd11.ts';
 import { loadIcd10 } from './icd10.ts';
 import { HAVE_ICD11_FILE, ICD11_FIXTURE, needsCodes } from '#lib/codesets/icd11.fixture.ts';
 import { saveFindings } from './exam.ts';
+import { saveIssue } from './history.ts';
 import { setNoKnownAllergies } from './patients.ts';
 import { FIELDS } from '#lib/exam/catalog.ts';
 
@@ -44,7 +45,7 @@ describe('CSV', () => {
 		expect(csv.startsWith('﻿')).toBe(true);
 		const rows = parseCsv(csv.slice(1));
 		expect(rows).toHaveLength(3);
-		expect(rows[0].length).toBe(11 + FIELDS.length);
+		expect(rows[0].length).toBe(11 + FIELDS.length + 2);
 		expect(rows.every((r) => r.length === rows[0].length)).toBe(true);
 		const col = (name: string) => rows[0].indexOf(name);
 		expect(rows[1][col('Visit date')]).toBe('2024-08-02');
@@ -216,6 +217,95 @@ describe('FHIR impression/plan (D47)', () => {
 		expect(after.filter((r) => r.resourceType === 'Observation').every((o) => o.status === 'final')).toBe(true);
 		expect(after.find((r) => r.resourceType === 'Condition')!.verificationStatus.coding[0].code).toBe('confirmed');
 		expect(after.find((r) => r.resourceType === 'Encounter')!.text.div).toContain('Next visit: RTC 6 months with OCT');
+	});
+});
+
+describe('addenda (D36) travel with the export', () => {
+	const NOW = new Date('2026-10-06T12:00:00Z');
+	const DR = { id: 1, displayName: 'Dr. Example', role: 'provider' as const };
+	const resources = () =>
+		(toFhirBundle(getPrintables(db, [1]), NOW) as { entry: { resource: Record<string, any> }[] }).entry.map((e) => e.resource);
+	const docRefs = () => resources().filter((r) => r.resourceType === 'DocumentReference');
+	const csvRow = () => {
+		const rows = parseCsv(toCsv(getPrintables(db, [1])).slice(1));
+		return (name: string) => rows[1][rows[0].indexOf(name)];
+	};
+
+	it('a signed exam without addenda exports none', () => {
+		saveFindings(db, 1, 1, 1, [{ field: 'ODCUP', value: '0.4', isDefault: false }]);
+		signExam(db, 1, 1, DR, null, NOW);
+		expect(docRefs()).toEqual([]);
+		expect(resources().find((r) => r.resourceType === 'Encounter')!.text.div).toContain('Signed by Dr. Example');
+		expect(resources().find((r) => r.resourceType === 'Encounter')!.text.div).not.toContain('Addendum');
+		const cell = csvRow();
+		expect(cell('Signed')).toBe('Dr. Example, 2026-10-06T12:00:00.000Z');
+		expect(cell('Addenda')).toBe('');
+	});
+
+	it('an unsigned exam has empty signature columns and no addenda', () => {
+		expect(docRefs()).toEqual([]);
+		expect(csvRow()('Signed')).toBe('');
+	});
+
+	it('each addendum becomes a DocumentReference linked to the visit, and a CSV line', () => {
+		saveFindings(db, 1, 1, 1, [{ field: 'ODCUP', value: '0.4', isDefault: false }]);
+		signExam(db, 1, 1, DR, null, NOW);
+		addAddendum(db, 1, 1, DR, 'C/D ratio was recorded in the wrong eye: 0.4 is OS, not OD.', new Date('2026-10-07T09:00:00Z'));
+		addAddendum(db, 1, 1, DR, 'Second note', new Date('2026-10-07T10:00:00Z'));
+		const refs = docRefs();
+		expect(refs).toHaveLength(2);
+		const [a] = refs;
+		const enc = resources().find((r) => r.resourceType === 'Encounter')!;
+		expect(a.type.coding[0]).toEqual({ system: 'http://loinc.org', code: '55107-7', display: 'Addendum Document' });
+		expect(a.status).toBe('current');
+		expect(a.date).toBe('2026-10-07T09:00:00.000Z');
+		expect(a.author).toEqual([{ display: 'Dr. Example' }]);
+		expect(a.context.encounter[0].reference).toBe(`urn:uuid:${enc.id}`);
+		expect(Buffer.from(a.content[0].attachment.data, 'base64').toString('utf8')).toBe('C/D ratio was recorded in the wrong eye: 0.4 is OS, not OD.');
+		expect(a.text.div).toContain('wrong eye');
+		expect(enc.text.div).toContain('Addendum by Dr. Example on 2026-10-07T09:00:00.000Z: C/D ratio was recorded in the wrong eye');
+		// Every reference still resolves inside the bundle.
+		const b = toFhirBundle(getPrintables(db, [1]), NOW) as { entry: { fullUrl: string }[] };
+		const urls = new Set(b.entry.map((e) => e.fullUrl));
+		for (const m of JSON.stringify(b).match(/"reference":"([^"]+)"/g)!) expect(urls.has(m.slice(13, -1))).toBe(true);
+		expect(csvRow()('Addenda')).toBe(
+			'2026-10-07T09:00:00.000Z Dr. Example: C/D ratio was recorded in the wrong eye: 0.4 is OS, not OD.\n2026-10-07T10:00:00.000Z Dr. Example: Second note'
+		);
+	});
+});
+
+describe('allergies as recorded at signing (D36)', () => {
+	const NOW = new Date('2026-10-06T12:00:00Z');
+	const DR = { id: 1, displayName: 'Dr. Example', role: 'provider' as const };
+	const allergyTitles = (ids: number[]) =>
+		(toFhirBundle(getPrintables(db, ids), NOW) as { entry: { resource: Record<string, any> }[] }).entry
+			.map((e) => e.resource)
+			.filter((r) => r.resourceType === 'AllergyIntolerance')
+			.map((r) => r.code.text)
+			.sort();
+	const csvAllergies = (ids: number[]) => {
+		const rows = parseCsv(toCsv(getPrintables(db, ids)).slice(1));
+		const col = rows[0].indexOf('Allergies');
+		return Object.fromEntries(rows.slice(1).map((r) => [r[0], r[col]]));
+	};
+
+	it('a signed exam exports the allergies it was signed with, not ones added later', () => {
+		signExam(db, 1, 4, DR, null, NOW);
+		saveIssue(db, 1, 1, { type: 'ALLERGY', title: 'Penicillin', reaction: 'rash' });
+		expect(allergyTitles([4])).toEqual(['Sulfa']);
+		// Visit 1 (today) is unsigned: current history.
+		expect(allergyTitles([1])).toEqual(['Penicillin', 'Sulfa']);
+		expect(csvAllergies([4, 1])).toEqual({ '4': 'Sulfa (hives)', '1': 'Penicillin (rash); Sulfa (hives)' });
+	});
+
+	it("a bundle carries one allergy state per patient, the newest visit's, in any order", () => {
+		signExam(db, 1, 4, DR, null, NOW);
+		saveIssue(db, 1, 1, { type: 'ALLERGY', title: 'Penicillin', reaction: 'rash' });
+		expect(allergyTitles([4, 1])).toEqual(['Penicillin', 'Sulfa']);
+		expect(allergyTitles([1, 4])).toEqual(['Penicillin', 'Sulfa']);
+		// Older visits only: the newest of them (4, signed) wins over 3, whatever the order.
+		expect(allergyTitles([3, 4])).toEqual(['Sulfa']);
+		expect(allergyTitles([4, 3])).toEqual(['Sulfa']);
 	});
 });
 

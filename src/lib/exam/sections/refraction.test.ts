@@ -11,7 +11,8 @@ import {
 	rxExpiry,
 	rxFromFindings,
 	sumPd,
-	transpose
+	transpose,
+	transposeProblem
 } from './refraction.ts';
 import { FIELDS } from '../catalog.ts';
 import { buildReport } from '../report.ts';
@@ -118,6 +119,25 @@ describe('transpose (spec §8.7)', () => {
 	it('nothing to do without a real cylinder', () => {
 		expect(transpose({ sph: '+1.00', cyl: 'SPH', axis: '' })).toBeNull();
 		expect(transpose({ sph: '+1.00', cyl: '', axis: '' })).toBeNull();
+		expect(transposeProblem({ sph: '+1.00', cyl: '', axis: '' })).toBe('cyl');
+	});
+	it('a blank sphere is never read as plano', () => {
+		expect(transpose({ sph: '', cyl: '-1.00', axis: '090' })).toBeNull();
+		expect(transpose({ sph: '   ', cyl: '-1.00', axis: '090' })).toBeNull();
+		expect(transposeProblem({ sph: '', cyl: '-1.00', axis: '090' })).toBe('sph');
+		expect(transposeProblem({ sph: 'abc', cyl: '-1.00', axis: '090' })).toBe('sph');
+	});
+	it('PLANO, PL and 0 are an explicit zero sphere', () => {
+		for (const sph of ['PLANO', 'plano', 'PL', 'pl', 'PLN', '0', '0.00', '+0.00']) {
+			expect(transpose({ sph, cyl: '-1.00', axis: '090' }), sph).toEqual({ sph: '-1.00', cyl: '+1.00', axis: '180' });
+		}
+	});
+	it('a blank or invalid axis is refused, not kept or invented', () => {
+		expect(transpose({ sph: '-2.00', cyl: '+1.00', axis: '' })).toBeNull();
+		expect(transposeProblem({ sph: '-2.00', cyl: '+1.00', axis: '' })).toBe('axis');
+		expect(transposeProblem({ sph: '-2.00', cyl: '+1.00', axis: '400' })).toBe('axis');
+		expect(transposeProblem({ sph: '-2.00', cyl: '+1.00', axis: 'x9' })).toBe('axis');
+		expect(transposeProblem({ sph: '-2.00', cyl: '+1.00', axis: '90' })).toBeNull();
 	});
 });
 

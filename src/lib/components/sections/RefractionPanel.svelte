@@ -30,6 +30,7 @@
 		sourceLabel,
 		splitList,
 		transpose,
+		transposeProblem,
 		type CylSign,
 		type EyeCol,
 		type RxSource
@@ -246,6 +247,16 @@
 	// ---------- actions ----------
 	function doTranspose(source: RxSource) {
 		const changes: Record<string, string> = {};
+		// A cylinder with a blank sphere or axis is refused for the whole source (never half-transposed):
+		// a blank sphere is not plano, and the user says which by typing PLANO.
+		for (const e of EYES) {
+			const row = { sph: val(eyeId(source, 'SPH', e)), cyl: val(eyeId(source, 'CYL', e)), axis: val(eyeId(source, 'AXIS', e)) };
+			const problem = transposeProblem(row);
+			if (problem === 'sph' || problem === 'axis') {
+				say(t(problem === 'sph' ? 'sections.rxTransposeNeedSph' : 'sections.rxTransposeNeedAxis', { source: srcLabel(source), eye: e }));
+				return;
+			}
+		}
 		for (const e of EYES) {
 			const ids = { sph: eyeId(source, 'SPH', e), cyl: eyeId(source, 'CYL', e), axis: eyeId(source, 'AXIS', e) };
 			const t = transpose({ sph: val(ids.sph), cyl: val(ids.cyl), axis: val(ids.axis) });

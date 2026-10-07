@@ -11,5 +11,6 @@
 	"codesBodyLimit": "Ce fichier dépasse la taille acceptée par le serveur. Demandez à votre administrateur de démarrer le serveur avec BODY_SIZE_LIMIT=20M, ou importez le fichier zip au lieu du fichier texte.",
 	"codesEmptyFile": "Choisissez un fichier à importer.",
 	"codesRemoveCurrent": "Le cabinet code avec cette nomenclature. Choisissez une autre nomenclature dans Paramètres › Cabinet avant de la supprimer.",
-	"codesUnknownLanguage": "Langue de la CIM-11 inconnue."
+	"codesUnknownLanguage": "Langue de la CIM-11 inconnue.",
+	"mustChangePassword": "Changez d’abord votre mot de passe temporaire dans Mes paramètres."
 }

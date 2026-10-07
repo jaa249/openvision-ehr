@@ -20,18 +20,29 @@ export const FLOW_VISITS = 20;
 export type Targets = Record<TargetEye, ResolvedTarget>;
 
 /**
- * Per-eye IOP target for an exam (§8.3 FIX): this exam's value, else the latest PRIOR visit's,
- * else the provider's defaults list (ODIOPTARGET / OSIOPTARGET), else 21.
- * Null when the exam does not belong to the patient.
+ * The defaults list (ODIOPTARGET / OSIOPTARGET) of the visit's own provider (encounters.provider_id)
+ * and their name. Never the viewer's: a technician and the provider opening the same chart must see
+ * the same target and the same "above target" flags.
  */
-export function iopTargets(db: DB, patientId: number, encounterId: number, userId: number): Targets | null {
+export function visitProviderDefaults(db: DB, patientId: number, encounterId: number): { defaults: Record<string, string>; provider: string } | null {
+	const e = getEncounter(db, patientId, encounterId);
+	return e ? { defaults: getUserDefaults(db, e.providerId), provider: e.provider } : null;
+}
+
+/**
+ * Per-eye IOP target for an exam (§8.3 FIX): this exam's value, else the latest PRIOR visit's,
+ * else the visit provider's defaults list, else 21. Null when the exam does not belong to the patient.
+ * With `ownValue` false, the exam's own boxes are ignored: what applies while they are empty.
+ */
+export function iopTargets(db: DB, patientId: number, encounterId: number, ownValue = true): Targets | null {
 	const findings = getFindings(db, patientId, encounterId);
-	if (!findings) return null;
+	const p = visitProviderDefaults(db, patientId, encounterId);
+	if (!findings || !p) return null;
 	const priors = getPriors(db, patientId, encounterId, 1000) ?? [];
-	const defaults = getUserDefaults(db, userId);
+	const cur = ownValue ? findings : {};
 	return {
-		OD: resolveTarget('OD', findings, priors, defaults),
-		OS: resolveTarget('OS', findings, priors, defaults)
+		OD: resolveTarget('OD', cur, priors, p.defaults, p.provider),
+		OS: resolveTarget('OS', cur, priors, p.defaults, p.provider)
 	};
 }
 
@@ -110,6 +121,9 @@ export interface FlowVisitInput {
 	date: string;
 	visitType: string;
 	findings: Findings;
+	/** The defaults list of this visit's provider (targets fall back to it), and their name. */
+	providerDefaults?: Record<string, string>;
+	provider?: string;
 }
 
 export interface FlowVisit {
@@ -162,7 +176,6 @@ export interface AssembleInput {
 	/** VF and OCT documents (flow-sheet categories). */
 	vf: DocMeta[];
 	oct: DocMeta[];
-	defaults: Record<string, string>;
 	today: string;
 }
 
@@ -182,7 +195,9 @@ export function assembleFlowsheet(input: AssembleInput): FlowSheetData {
 	const resolvedAt = new Map<number, Targets>();
 	eligible.forEach((v, i) => {
 		const earlier = eligible.slice(0, i).reverse();
-		const t = { OD: resolveTarget('OD', v.findings, earlier, input.defaults), OS: resolveTarget('OS', v.findings, earlier, input.defaults) };
+		// Each visit falls back to its OWN provider's defaults, whoever is looking.
+		const d = v.providerDefaults ?? {};
+		const t = { OD: resolveTarget('OD', v.findings, earlier, d, v.provider), OS: resolveTarget('OS', v.findings, earlier, d, v.provider) };
 		resolvedAt.set(v.id, t);
 		targetAt.set(v.id, { OD: t.OD.value, OS: t.OS.value });
 	});
@@ -239,13 +254,22 @@ export function assembleFlowsheet(input: AssembleInput): FlowSheetData {
  * The flow sheet for a patient, optionally as of one exam. Null when the patient does not exist
  * or the exam is not this patient's.
  */
-export function buildFlowsheet(db: DB, patientId: number, encounterId: number | null, userId: number, today = localToday()): FlowSheetData | null {
+export function buildFlowsheet(db: DB, patientId: number, encounterId: number | null, today = localToday()): FlowSheetData | null {
 	if (!db.prepare('SELECT 1 FROM patients WHERE id = ?').get(patientId)) return null;
 	if (encounterId !== null && !getEncounter(db, patientId, encounterId)) return null;
 	const ids = db.prepare('SELECT id FROM encounters WHERE patient_id = ? ORDER BY date, id').all(patientId) as { id: number }[];
+	const byProvider = new Map<number, Record<string, string>>();
 	const visits: FlowVisitInput[] = ids.map(({ id }) => {
 		const e = getEncounter(db, patientId, id)!;
-		return { id, date: e.date, visitType: e.visitType, findings: getFindings(db, patientId, id) ?? {} };
+		if (!byProvider.has(e.providerId)) byProvider.set(e.providerId, getUserDefaults(db, e.providerId));
+		return {
+			id,
+			date: e.date,
+			visitType: e.visitType,
+			findings: getFindings(db, patientId, id) ?? {},
+			providerDefaults: byProvider.get(e.providerId),
+			provider: e.provider
+		};
 	});
 	return assembleFlowsheet({
 		visits,
@@ -253,7 +277,6 @@ export function buildFlowsheet(db: DB, patientId: number, encounterId: number | 
 		issues: listIssues(db, patientId, today),
 		vf: listDocuments(db, patientId, { flow: 'VF' }) ?? [],
 		oct: listDocuments(db, patientId, { flow: 'OCT' }) ?? [],
-		defaults: getUserDefaults(db, userId),
 		today
 	});
 }

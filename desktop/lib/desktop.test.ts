@@ -1,12 +1,14 @@
 // Pure parts of the desktop shell (D51). Run from the repo root: npx vitest run desktop
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
-const { resolveDataDir, dataLayout, prepareDataDir, clearTmp } = require('./paths.cjs');
+const { resolveDataDir, dataLayout, prepareDataDir, clearTmp, TMP_MAX_AGE_MS } = require('./paths.cjs');
+const { KEPT_OPEN, closeAll, shutdownDecision, restartAction } = require('./shutdown.cjs');
 const { classifyNavigation, classifyWindowOpen, permissionAllowed } = require('./navigation.cjs');
 const { backupName, backupsToPrune, takePreUpdateBackup, KEEP } = require('./backups.cjs');
 const { makeToken, tokenMatches } = require('./shelltoken.cjs');
@@ -37,7 +39,7 @@ describe('data folder', () => {
 		expect(l.logFile).toBe(join('C:\\ProgramData\\OpenVision', 'logs', 'openvision.log'));
 		expect(l.backups).toBe(join('C:\\ProgramData\\OpenVision', 'backups'));
 	});
-	it('prepares the folders; a missing root is an error only when it must exist; tmp is cleared', () => {
+	it('prepares the folders; a missing root is an error only when it must exist; old tmp leftovers are cleared', () => {
 		const base = tmp();
 		const root = join(base, 'OV');
 		expect(prepareDataDir(dataLayout(root), { mustExist: true })).toMatchObject({ ok: false, reason: 'missing' });
@@ -45,8 +47,48 @@ describe('data folder', () => {
 		expect(prepareDataDir(l)).toEqual({ ok: true });
 		for (const d of [l.data, l.codes, l.tmp, l.logs, l.backups]) expect(existsSync(d)).toBe(true);
 		writeFileSync(join(l.tmp, 'x.part'), 'fictional');
-		clearTmp(l);
+		const old = (Date.now() - TMP_MAX_AGE_MS - 60_000) / 1000;
+		utimesSync(join(l.tmp, 'x.part'), old, old);
+		expect(clearTmp(l)).toEqual(['x.part']);
 		expect(readdirSync(l.tmp)).toEqual([]);
+		rmSync(base, { recursive: true, force: true });
+	});
+	it("tmp is shared by every Windows user's app: only entries older than 24 h go, one failure never stops the rest", () => {
+		const base = tmp();
+		const l = dataLayout(join(base, 'OV'));
+		prepareDataDir(l);
+		const now = Date.now();
+		const age = (name: string, ms: number) => utimesSync(join(l.tmp, name), (now - ms) / 1000, (now - ms) / 1000);
+		writeFileSync(join(l.tmp, 'other-user-in-progress.part'), 'fictional'); // just written by another user's app
+		writeFileSync(join(l.tmp, 'other-user-save-dialog.part'), 'fictional');
+		age('other-user-save-dialog.part', TMP_MAX_AGE_MS - 60 * 60_000); // 23 h: still waiting in a Save dialog
+		writeFileSync(join(l.tmp, 'a-crash-leftover.part'), 'fictional');
+		age('a-crash-leftover.part', TMP_MAX_AGE_MS + 60_000);
+		mkdirSync(join(l.tmp, 'b-old-folder'));
+		writeFileSync(join(l.tmp, 'b-old-folder', 'x'), 'fictional');
+		age('b-old-folder', 3 * TMP_MAX_AGE_MS);
+		writeFileSync(join(l.tmp, 'z-crash-leftover.part'), 'fictional');
+		age('z-crash-leftover.part', 2 * TMP_MAX_AGE_MS);
+		expect(clearTmp(l, { now }).sort()).toEqual(['a-crash-leftover.part', 'b-old-folder', 'z-crash-leftover.part']);
+		expect(readdirSync(l.tmp).sort()).toEqual(['other-user-in-progress.part', 'other-user-save-dialog.part']);
+		// An entry that cannot be checked or removed (locked, vanished) is skipped, the rest still go.
+		for (const name of ['c-locked.part', 'd-leftover.part']) {
+			writeFileSync(join(l.tmp, name), 'fictional');
+			age(name, 2 * TMP_MAX_AGE_MS);
+		}
+		const fs = require('node:fs');
+		const realRm = fs.rmSync;
+		fs.rmSync = (p: string, ...rest: unknown[]) => {
+			if (String(p).endsWith('c-locked.part')) throw Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' });
+			return realRm(p, ...rest);
+		};
+		try {
+			expect(clearTmp(l, { now })).toEqual(['d-leftover.part']);
+		} finally {
+			fs.rmSync = realRm;
+		}
+		expect(readdirSync(l.tmp)).toContain('c-locked.part');
+		expect(clearTmp({ tmp: join(base, 'missing') })).toEqual([]);
 		rmSync(base, { recursive: true, force: true });
 	});
 });
@@ -210,6 +252,66 @@ describe('versions', () => {
 		const desk = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8'));
 		expect(desk.version).toBe(rootPkg.version);
 		expect(require('../builder.config.cjs').extraMetadata.version).toBe(rootPkg.version);
+	});
+});
+
+describe('shutdown: "Wait" calls a quit or "Restart now" off (lib/shutdown.cjs)', () => {
+	/** A stand-in for BrowserWindow: close() either closes (async, like Electron) or the page keeps it open. */
+	class FakeWin extends EventEmitter {
+		destroyed = false;
+		closeCalls = 0;
+		constructor(private behaviour: 'closes' | 'waits' | 'hangs') {
+			super();
+		}
+		isDestroyed() {
+			return this.destroyed;
+		}
+		close() {
+			this.closeCalls++;
+			setTimeout(() => {
+				if (this.behaviour === 'closes') {
+					this.destroyed = true;
+					this.emit('closed');
+				} else if (this.behaviour === 'waits') this.emit(KEPT_OPEN);
+			}, 5);
+		}
+	}
+
+	it('all windows close: the shutdown goes on', async () => {
+		const r = await closeAll([new FakeWin('closes'), new FakeWin('closes')], 1000);
+		expect(r).toEqual({ refused: false, open: 0 });
+		expect(shutdownDecision(r)).toBe('proceed');
+	});
+
+	it('a window kept open with "Wait" cancels it at once (no waiting for the grace time)', async () => {
+		const kept = new FakeWin('waits');
+		const started = Date.now();
+		const r = await closeAll([new FakeWin('closes'), kept], 5000);
+		expect(Date.now() - started).toBeLessThan(1000);
+		expect(r.refused).toBe(true);
+		expect(r.open).toBeGreaterThanOrEqual(1);
+		expect(shutdownDecision(r)).toBe('cancel');
+		expect(kept.isDestroyed()).toBe(false);
+		expect(kept.listenerCount(KEPT_OPEN) + kept.listenerCount('closed')).toBe(0); // no listeners left behind
+	});
+
+	it('a hung window (no answer) does not block the exit forever: it is closed with the app', async () => {
+		const r = await closeAll([new FakeWin('hangs')], 30);
+		expect(r).toEqual({ refused: false, open: 1 });
+		expect(shutdownDecision(r)).toBe('proceed');
+	});
+
+	it('no windows: proceed; already destroyed windows are skipped', async () => {
+		const gone = new FakeWin('closes');
+		gone.destroyed = true;
+		expect(await closeAll([gone], 30)).toEqual({ refused: false, open: 0 });
+		expect(gone.closeCalls).toBe(0);
+	});
+
+	it('"Restart now": stay when cancelled (update waits for the next close), install only after a backup', () => {
+		expect(restartAction({ cancelled: true, backedUp: false })).toBe('stay');
+		expect(restartAction({ cancelled: false, backedUp: false })).toBe('backup-failed');
+		expect(restartAction({ cancelled: false, backedUp: true })).toBe('install');
 	});
 });
 

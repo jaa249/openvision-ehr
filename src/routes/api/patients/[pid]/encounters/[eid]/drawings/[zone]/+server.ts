@@ -4,7 +4,7 @@ import { getDb } from '#lib/server/db.ts';
 import { DrawingError, getLatestDrawing, isDrawingZone, MAX_DRAWING_BYTES, saveDrawing } from '#lib/server/drawings.ts';
 import { getEncounter } from '#lib/server/exam.ts';
 import { noteTechnician } from '#lib/server/patients.ts';
-import { guardEditable } from '#lib/server/signing.ts';
+import { editableWrite, guardEditable } from '#lib/server/signing.ts';
 import { ids, pngResponse } from '../_shared.ts';
 import type { RequestHandler } from './$types';
 
@@ -22,7 +22,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (!isDrawingZone(params.zone)) error(404, 'Not found');
 	const db = getDb();
 	if (!getEncounter(db, pid, eid)) error(404, 'Not found');
-	// 423 when the exam is signed or this page does not hold the edit lock (spec §15.1 FIX).
+	// 423 when the exam is signed or this page does not hold the edit lock (spec §15.1 FIX); checked
+	// early so a refused page does not upload the image for nothing, and again before the write.
 	const locked = guardEditable(db, pid, eid, locals.userId, request);
 	if (locked) return locked;
 	const type = request.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
@@ -31,10 +32,13 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (declared > MAX_DRAWING_BYTES) error(413, 'Drawing is too large');
 	const body = new Uint8Array(await request.arrayBuffer());
 	try {
-		const saved = saveDrawing(db, pid, eid, params.zone, body, locals.userId);
-		if (!saved) error(404, 'Not found');
-		noteTechnician(db, eid, locals.user);
-		return json(saved);
+		// Checked again once the image has arrived, inside the write: it may have been signed meanwhile.
+		return editableWrite(db, pid, eid, locals.userId, request, () => {
+			const saved = saveDrawing(db, pid, eid, params.zone, body, locals.userId);
+			if (!saved) error(404, 'Not found');
+			noteTechnician(db, eid, locals.user);
+			return json(saved);
+		});
 	} catch (e) {
 		if (e instanceof DrawingError) error(/too large/.test(e.message) ? 413 : 400, e.message);
 		throw e;

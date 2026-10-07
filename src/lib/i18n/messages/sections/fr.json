@@ -147,7 +147,7 @@
 	"vahThisVisit": "cette consultation",
 	"tgtSourceExam": "cette consultation",
 	"tgtSourcePrior": "dernière consultation",
-	"tgtSourceProvider": "votre valeur par défaut",
+	"tgtSourceProvider": "valeur par défaut du praticien",
 	"tgtSourceDefault": "standard",
 	"tgtSetHere": "Fixée lors de cette consultation",
 	"tgtUntilSet": "{value} utilisée tant qu'aucune cible n'est fixée",
@@ -155,10 +155,10 @@
 	"tgtUsingSource": "{value} utilisée ({source})",
 	"tgtTitle": "PIO cible",
 	"tgtEyeLabel": "PIO cible {eye}",
-	"tgtHelp": "Les mesures au-dessus de la cible sont signalées. Les champs vides reprennent la cible de la dernière consultation, puis votre valeur par défaut, puis 21. Abréviations {codes}.",
+	"tgtHelp": "Les mesures au-dessus de la cible sont signalées. Les champs vides reprennent la cible de la dernière consultation, puis la valeur par défaut du praticien de cette consultation, puis 21. Abréviations {codes}.",
 	"tgtSourceLabelExam": "fixée lors de cette consultation",
 	"tgtSourceLabelPrior": "de la dernière consultation qui en a fixé une",
-	"tgtSourceLabelProvider": "votre valeur par défaut",
+	"tgtSourceLabelProvider": "la valeur par défaut du praticien",
 	"tgtSourceLabelDefault": "standard 21",
 	"rxGlassesN": "Lunettes n° {n}",
 	"rxColSphere": "sphère",
@@ -582,5 +582,8 @@
 	"fieldDilationDrop": "Collyre de dilatation : {name} {strengths}",
 	"fieldDilationOther": "Dilatation : autres collyres",
 	"fieldDilationTime": "Heure de dilatation",
-	"fieldDilationRisks": "Risques de la dilatation expliqués"
+	"fieldDilationRisks": "Risques de la dilatation expliqués",
+	"tgtSourceProviderNamed": "valeur par défaut de {name}",
+	"rxTransposeNeedSph": "{source} {eye} : saisissez la sphère (ou PLANO) avant de transposer.",
+	"rxTransposeNeedAxis": "{source} {eye} : saisissez l'axe avant de transposer."
 }

@@ -3,10 +3,13 @@
 // builder.config.cjs end up in resources\app-update.yml). Checked at start and from Help › Check for
 // updates. A downloaded update is never installed behind anyone's back: the user picks "Restart now"
 // or "Later" (installed when OpenVision closes). Either way a backup of the database is taken first;
-// if the backup fails the update waits.
+// if the backup fails the update waits. A window kept open with "Wait" (changes still saving) calls
+// "Restart now" off; the update then installs on the next normal close.
 //
 // Only the installed app checks (a development run has no app-update.yml). OPENVISION_UPDATES=off
 // turns checking off (tests, or a practice that updates by hand).
+
+const { restartAction } = require('./shutdown.cjs');
 
 /**
  * Before 1.0 every release is published as a GitHub pre-release, so a 0.x app must follow pre-releases or
@@ -18,7 +21,8 @@ function followsPrereleases(version) {
 
 /**
  * backup(): writes a pre-update backup and returns its path (throws on failure).
- * shutdown(): stops the server, calls backupBeforeInstall, closes the database; resolves to its result.
+ * shutdown(): stops the server, calls backupBeforeInstall, closes the database; resolves
+ *   { cancelled, backedUp } (cancelled: a window was kept open and nothing was stopped).
  */
 function createUpdates({ app, dialog, log, getWindow, enabled, backup, shutdown, markShutdownDone }) {
 	let updater = null;
@@ -82,9 +86,16 @@ function createUpdates({ app, dialog, log, getWindow, enabled, backup, shutdown,
 
 	/** Stops the server, backs up (inside shutdown), then installs and restarts. */
 	async function restartNow() {
-		const backedUp = await shutdown();
+		const action = restartAction(await shutdown());
+		if (action === 'stay') {
+			log.info('restart for the update called off; it installs when OpenVision is closed');
+			await info(
+				'The update was not installed yet because a window still has changes being saved. Keep working; the update is installed when OpenVision is closed.'
+			);
+			return;
+		}
 		markShutdownDone();
-		if (!backedUp) {
+		if (action === 'backup-failed') {
 			dialog.showErrorBox('OpenVision', `The update was not installed because the database backup failed. See the log:
 ${log.file}`);
 			app.quit();

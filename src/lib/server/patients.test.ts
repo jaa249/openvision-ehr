@@ -119,9 +119,9 @@ describe('allergies', () => {
 	it('adds, dedupes and removes, scoped to the patient', () => {
 		const id = addAllergy(db, 2, { title: 'Penicillin', reaction: 'rash' })!;
 		expect(addAllergy(db, 2, { title: 'penicillin' })).toBe(id);
-		expect(removeAllergy(db, 1, id)).toBe(false);
+		expect(removeAllergy(db, 1, id, 1)).toBe(false);
 		expect(getPatientRecord(db, 2)?.allergies).toHaveLength(1);
-		expect(removeAllergy(db, 2, id)).toBe(true);
+		expect(removeAllergy(db, 2, id, 1)).toBe(true);
 		expect(getPatientRecord(db, 2)?.allergies).toHaveLength(0);
 	});
 	it('validates and handles unknown patients', () => {
@@ -135,13 +135,13 @@ describe('allergies', () => {
 		expect(getPatientRecord(db, 2)?.allergyStatus.kind).toBe('none');
 		const id = addAllergy(db, 2, { title: 'Latex' }, 1)!;
 		expect(getPatientRecord(db, 2)?.allergyStatus).toEqual({ kind: 'listed', allergies: [{ title: 'Latex', reaction: null }] });
-		removeAllergy(db, 2, id);
+		removeAllergy(db, 2, id, 1);
 		expect(getPatientRecord(db, 2)?.allergyStatus).toEqual({ kind: 'unknown' });
 		expect(errorsOf(() => setNoKnownAllergies(db, 1, 1, true))?.nkda).toBeTruthy();
 	});
 	it('removes allergies only, never another kind of history entry', () => {
 		const pmh = db.prepare("SELECT id FROM issues WHERE patient_id = 1 AND type = 'PMH' LIMIT 1").get() as { id: number };
-		expect(removeAllergy(db, 1, pmh.id)).toBe(false);
+		expect(removeAllergy(db, 1, pmh.id, 1)).toBe(false);
 	});
 });
 
